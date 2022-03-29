@@ -1,0 +1,25 @@
+--- views_bulk_operations.api.php
++++ views_bulk_operations.api.php
+@@ -33,3 +33,22 @@ function hook_views_bulk_operations_form_alter(&$form, &$form_state, $vbo) {
+     // Alter the confirmation step of the VBO form.
+   }
+ }
++
++/**
++ * Allow other modules to notify VBO that the selection needs to be adjusted.
++ *
++ * @param bool $adjust_selection
++ *   Flag determining whether selection should be adjusted.
++ * @param array $selection
++ *   An array in the form of $row_index => $entity_id representing the submitted
++ *   selection.
++ * @param views_bulk_operations_handler_field_operations $vbo
++ *   The current VBO field.
++ *
++ * @see views_bulk_operations_multipage_views_bulk_operations_adjust_selection_alter()
++ */
++function hook_views_bulk_operations_adjust_selection_alter(&$adjust_selection, $selection, $vbo) {
++  if (!$adjust_selection && !empty($vbo->view->my_module_key) && count($selection) > 1) {
++    $adjust_selection = TRUE;
++  }
++}

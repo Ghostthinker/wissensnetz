@@ -1,0 +1,11 @@
+name = Restrict Role Login By IP
+package = Access control
+description = Enables limiting user login by roles by Ip addresses.
+core = 7.x
+configure = "admin/config/people/restrict-role-login-by-ip"
+; Information added by Drupal.org packaging script on 2015-05-15
+version = "7.x-1.2"
+core = "7.x"
+project = "restrict_role_login_by_ip"
+datestamp = "1431676082"
+

@@ -1,0 +1,67 @@
+<?php
+function gt_privacy_menu() {
+  $items = [];
+
+  $items['admin/gt_privacy'] = [
+    'title' => 'Privacy Settings',
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['gt_privacy_admin_settings'],
+  ];
+  return $items;
+}
+
+function gt_privacy_admin_settings() {
+
+  $form = [];
+
+  $form['gt_privacy_cookie_banner_enabled'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Enable cookie banner'),
+    '#default_value' => variable_get('gt_privacy_cookie_banner_enabled', 1),
+  ];
+
+  $form['gt_privacy_link_target'] = [
+    '#type' => 'textfield',
+    '#title' => t('Privacy link'),
+    '#description' => t('The link to the  privacy policy (e.g "datenschutz")'),
+    '#default_value' => variable_get('gt_privacy_link_target', 'datenschutz'),
+  ];
+
+  $form['gt_privacy_support_client_text'] = [
+    '#type' => 'textarea',
+    '#title' => t('Support client privacy info'),
+    '#description' => t('A (html) message displayed above the support client page. Use !link to replace the link to the  privacy settings. The message will be translated, so <b>ENGLISH FIRST</b>'),
+    '#default_value' => variable_get('gt_privacy_support_client_text', ''),
+  ];
+
+  return system_settings_form($form);
+}
+
+/**
+ * Render a message for the support client
+ *
+ * @return null|string
+ */
+function gt_privacy_get_support_client_message() {
+  $text = variable_get('gt_privacy_support_client_text', '');
+
+  if (empty($text)) {
+    return "";
+  }
+
+  $link = url(variable_get("gt_privacy_link_target", "datenschutz"));
+  $out = t($text, ["!link" => '<a target="_blank" href="' . $link . '">' . t('privacy policy') . '</a>']);
+  return $out;
+}
+
+function gt_privacy_page_build(&$page) {
+  if (!isset($_COOKIE["comply_cookie"]) && variable_get('gt_privacy_cookie_banner_enabled', 1)) {
+    drupal_add_css(drupal_get_path('module', 'gt_privacy') . '/css/gt_privacy.css');
+    $config = variable_get('klaro_privacy_config', '/module/configs/config.gt.js');
+    drupal_add_js(drupal_get_path('module', 'gt_privacy') . $config);
+    drupal_add_js(drupal_get_path('module', 'gt_privacy') . '/module/dist/klaro.js');
+
+  }
+}

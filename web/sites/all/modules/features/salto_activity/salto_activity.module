@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the salto activity feature.
+ */
+
+include_once 'salto_activity.features.inc';

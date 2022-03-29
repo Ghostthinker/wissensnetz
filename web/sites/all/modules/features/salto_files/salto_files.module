@@ -1,0 +1,2044 @@
+<?php
+
+define("SALTO_FILE_ACCESS_BYPASS_PHRASE", "LjcrUKNhUYSmz00pDV8P");
+define("SALTO_FILE_COMMENT_NODE_TYPE", "file_comments");
+
+
+/**
+ * @file
+ * Code for the Salto Files feature.
+ */
+include_once 'salto_files.features.inc';
+
+
+//Salto File Types
+define('SALTO_FILE_TYPE_NONE', 0);
+define('SALTO_FILE_TYPE_ORGANISATION_SIGNATURE', 1);
+
+define('SALTO_FILE_USER_DEFAULT_IMAGE_FID', 151);
+
+/**
+ * Implements hook_menu().
+ */
+function salto_files_menu() {
+  $items = [];
+  $items['file/%file/modal'] = [
+    'title' => '',
+    'page callback' => 'salto_files_modal_callback',
+    'page arguments' => [1],
+    'access callback' => 'file_entity_access',
+    'access arguments' => ['view', 1],
+  ];
+  $items['file/add_anything'] = [
+    'page callback' => 'salto_file_upload_page',
+    'access callback' => 'file_entity_access',
+    'access arguments' => ['create'],
+  ];
+
+  $items['file/%file/derivatives'] = [
+    'title' => 'Media derivatives',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_files_derivatives_callback', 1],
+    'access callback' => 'salto_files_derivatives_access',
+    'access arguments' => [1],
+    'type' => MENU_LOCAL_TASK,
+  ];
+  $items['file/%file/stream'] = [
+    'page callback' => 'salto_files_deliver_stream',
+    'page arguments' => [1],
+    'access callback' => 'file_entity_access',
+    'access arguments' => ['view', 1],
+    'type' => MENU_LOCAL_TASK,
+  ];
+  return $items;
+}
+
+/**
+ * Implements hook_admin_paths_alter()
+ *
+ * @param $paths
+ */
+function salto_files_admin_paths_alter(&$paths) {
+  $paths['file/add'] = FALSE;
+  $paths['file/add/*'] = FALSE;
+  $paths['file/*/edit'] = FALSE;
+  $paths['file/*/usage'] = FALSE;
+  $paths['file/*/delete'] = FALSE;
+
+}
+
+
+/**
+ * Implements hook_permission().
+ */
+function salto_files_permission() {
+  return [
+    'create swf files' => [
+      'title' => t('Create swf files'),
+      'description' => t('Create files with .swf extension. Should be provided for trusted roles only.'),
+    ],
+  ];
+}
+
+/**
+ * Implements hook_ctools_plugin_directory()
+ */
+function salto_files_ctools_plugin_directory($module, $plugin) {
+  return "plugins/$plugin";
+}
+
+
+function salto_files_modal_callback($file) {
+  $out = render(file_view($file));
+  die($out);
+}
+
+/**
+ * Implementing hoook_form_alter
+ */
+function salto_files_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  if ($form_id == "file_entity_edit" || strstr($form_id, 'media_edit_')) {
+
+    $og_context = og_context();
+
+
+    if (empty($og_context) && !empty($form['fid']['#value'])) {
+      $file = file_load($form['fid']['#value']);
+      if (!empty($file->field_og_group[LANGUAGE_NONE][0]["target_id"])) {
+        $gid = $file->field_og_group[LANGUAGE_NONE][0]["target_id"];
+        $og_context = og_context("node", node_load($gid));
+      }
+    }
+
+    if (!empty($og_context)) {
+      $form_state['og_context'] = $og_context;
+
+      $node = $form['#node'];
+      array_unshift($form['actions']["submit"]['#submit'], 'salto_files_form_file_entity_form_submit');
+
+      $form['field_kb_kategorie'][LANGUAGE_NONE]['#required'] = FALSE;
+
+      //set the access to the same access of the collaboration field
+      $form['field_kb_kategorie'][LANGUAGE_NONE]['#access'] = $form['field_post_collaboration']['#access'];
+
+
+      //2 columns layout for categories
+      $description = $form['og_vocabulary'][LANGUAGE_NONE]['#description'];
+      unset($form['og_vocabulary'][LANGUAGE_NONE]['#description']);
+      foreach ($form['og_vocabulary'][LANGUAGE_NONE][0] as &$item) {
+        if (is_array($item) && !empty($item['#description'])) {
+          $item['#description'] = t("Description group category files");
+        }
+
+        $form['field_kb_kategorie']['#weight'] = $form['og_vocabulary']['#weight'] + 1;
+      }
+      $form['field_kb_kategorie'][LANGUAGE_NONE]['#description'] = t("Description group global category files");
+
+
+      $form['og_vocabulary']['#prefix'] = '<div class="row col-md-12" id="salto_og_vocab_wrapper"><div class="col-md-6">';
+      $form['og_vocabulary']['#suffix'] = '</div>';
+
+      $form['field_kb_kategorie']['#prefix'] = '<div class="col-md-6">';
+      $form['field_kb_kategorie']['#suffix'] = '</div></div>';
+    }
+    else {
+      $form['field_kb_kategorie'][LANGUAGE_NONE]['#required'] = TRUE;
+      $form['field_kb_kategorie'][LANGUAGE_NONE]['#description'] = t("Description global category files");
+
+      unset($form['og_vocabulary']);
+    }
+  }
+
+
+  if ($form_id == 'file_entity_edit' || strstr($form_id, 'media_edit_')) {
+
+    $jsFile = drupal_get_path('module', 'salto_knowledgebase') . '/js/salto_knowledgebase_attachment_defaults.js';
+    drupal_add_js($jsFile, ['scope' => 'footer',]);
+
+    //add the matching themenfelder array to js as setting
+    $themenfelder_sync_array = salto_knowledgebase_get_themenfelder_sync_array_by_post();
+    drupal_add_js(["themenfelder_snyc_array" => $themenfelder_sync_array], 'setting');
+
+    $account = user_load($user->uid);
+
+    $form['field_file_originator'][LANGUAGE_NONE][0]['value']['#default_value'] = "" . $account->realname;
+
+    $params = drupal_get_query_parameters();
+
+
+    if (!empty($params['replace']) && $params['replace'] == 1) {
+      if (empty($form_state['input']['ajax_iframe_upload'])) {
+        drupal_set_message(t("To upload a new version of this file, please select it under \"Select file\". Please note that the existing file is permanently overwritten."), 'info', FALSE);
+      }
+    }
+
+
+    $now = time();
+
+    $cur_path = current_path();
+    if (strstr($cur_path, "admin/content/file/edit-multiple/")) {
+
+      $form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#default_value'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL;
+      $form['field_post_collaboration'][LANGUAGE_NONE][0]['edit']['#default_value'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+    }
+
+    if (!empty($form['field_file_comments'])) {
+      $form['field_file_comments']['#access'] = FALSE;
+    }
+
+    if (!in_array('Admin', $account->roles)) {
+      hide($form['field_salto_file_type']);
+    }
+
+    //attach js for logic of lizenzstufe
+    $form['#attached']['js'] = [
+      drupal_get_path('module', 'salto_files') . '/js/salto_files.js',
+    ];
+
+    //access for category only for group admins and authors
+    $file = $form['#entity'];
+    if (!empty($file->field_og_group[LANGUAGE_NONE][0]['target_id'])) {
+      $og = node_load($file->field_og_group[LANGUAGE_NONE][0]['target_id']);
+
+      //check access. Only group admins can edit files
+      $access_perm = og_user_access('node', $og->nid, 'edit any file category');
+      $access_author = $user->uid == $file->uid;
+      $form['#field_kb_kategorie']['#access'] = $access_perm || $access_author;
+    }
+    //unset cancel action
+    unset($form['actions']['cancel']);
+  }
+
+  if ($form_id == 'file_entity_add_upload_multiple') {
+    drupal_set_title(t('File upload'));
+  }
+  if ($form_id == 'media_internet_add_upload' && arg(1) == 'add_anything') {
+
+    $form['embed_code']['#description'] = t('Enter a URL to a file or media resource. Many media providers also support identifying media via the embed code used to embed the media into external websites.');
+    $form['#submit'][] = 'file_entity_add_upload_alternate_submit';
+  }
+
+  if ($form_id == 'file_entity_add_upload') {
+    if (module_exists('plupload') && module_exists('multiform')) {
+      $form = drupal_get_form('file_entity_add_upload_multiple');
+    }
+  }
+
+  //skip field selecting field step
+  if ($form_id == 'media_wysiwyg_format_form') {
+    //do not show or load the preview
+    unset($form['preview']);
+    drupal_add_js(drupal_get_path('module', 'salto_files') . "/js/salto_files_media_browser_submit.js", [
+      'weight' => 10000,
+      // Something higher than the weight of existing items
+      'scope' => 'footer',
+      // Make sure the script tag is rendered in the footer of the page, not the header
+      'group' => JS_THEME,
+      // JS_THEME has the highest group weight and will be rendered last
+    ]);
+  };
+  if ($form['#id'] == 'views-exposed-form-kb-files-files-directory') {
+    drupal_add_js(drupal_get_path('module', 'salto_files') . '/js/salto_files_filter.js', ['scope' => 'footer']);
+  }
+
+  //collaboration fields must check if there is any usage that controls the collaboration field
+  if ($form['#form_id'] == 'file_entity_edit' && isset($form['field_post_collaboration'])) {
+    $file = $form['#entity'];
+
+    if ($read_write = salto_files_check_collaboration_override($file)) {
+      if ($read_write['field_salto_file_type']) {
+
+        drupal_set_message(t("This a president's signature. Permissios are not editable for this file."), 'info');
+        unset($form['field_post_collaboration']);
+
+      }
+      else {
+        //other files
+        if (!empty($read_write['node_usage']) && (empty($form_state['input']) || empty($form_state['input']['ajax_iframe_upload']))) {
+
+          drupal_set_message(t("This file is beeing used in the following post(s). So it's collaboration settings are overridden."), 'info');
+
+          foreach ($read_write['node_usage'] as $nid => $array) {
+            $node = node_load($nid);
+            drupal_set_message(l($node->title, 'node/' . $node->nid), 'info');
+          }
+        }
+      }
+    }
+  }
+
+}
+
+
+/**
+ * Custom submit function to enable US 100.09
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_files_form_file_entity_form_submit($form, &$form_state) {
+
+  module_load_include('inc', 'og_vocab', 'includes/og_vocab.og_vocab');
+  og_vocab_element_validate($form, $form_state);
+
+  //unset the category field when the input is null
+  if (isset($form_state['input']['field_kb_kategorie']) && empty($form_state['input']['field_kb_kategorie']['und'])) {
+    $form_state['values']['field_kb_kategorie']['und'][0] = NULL;
+  }
+
+  if (!empty($form_state['values']['field_kb_kategorie']['und'][0])) {
+    $term = taxonomy_term_load($form_state['values']['field_kb_kategorie']['und'][0]['tid']);
+
+    drupal_set_message(t("This post is now categorized under %term_name", ['%term_name' => $term->name]));
+  }
+}
+
+
+function salto_files_media_wysiwyg_format_form_prepare_alter(&$form, &$form_state, $file) {
+
+  $form['options']['format']['#default_value'] = 'default_selection_wysiwyg';
+}
+
+function salto_files_init() {
+
+  drupal_add_css(drupal_get_path('module', 'salto_files') . "/css/salto_files.css");
+  drupal_add_js(drupal_get_path('module', 'salto_files') . "/js/jquery.webkitresize.js");
+  drupal_add_js(drupal_get_path('module', 'salto_files') . "/js/salto_files.modal.js");
+
+  $item = menu_get_item();
+  if (!$item['access']) {
+    return FALSE;
+  }
+  if ($item['path'] == "node/%") {
+    $node = $item['page_arguments'][0];
+    if ($node->type === SALTO_FILE_COMMENT_NODE_TYPE) {
+      $salto_file = salto_files_comment_node_get_file($node);
+      if (!empty($salto_file)) {
+        drupal_goto("file/" . $salto_file->fid);
+      }
+    }
+  }
+
+  if ($item['path'] == "comment/%") {
+    $cid = $item['page_arguments'][0];
+    if (($comment = comment_load($cid)) && ($node = node_load($comment->nid))) {
+      if ($node->type === SALTO_FILE_COMMENT_NODE_TYPE) {
+        $salto_file = salto_files_comment_node_get_file($node);
+        if (!empty($salto_file)) {
+          drupal_goto("file/" . $salto_file->fid);
+        }
+      }
+    }
+
+  }
+
+
+}
+
+/**
+ *  WYSIWYG
+ */
+function salto_files_wysiwyg_editor_settings_alter(&$settings, $context) {
+  global $language;
+
+  drupal_add_js(drupal_get_path('module', 'salto_files') . "/wysiwyg/salto_files_wysiwyg.js", [
+    'weight' => 10000,
+    // Something higher than the weight of existing items
+    'scope' => 'footer',
+    // Make sure the script tag is rendered in the footer of the page, not the header
+    'group' => JS_THEME,
+    // JS_THEME has the highest group weight and will be rendered last
+  ]);
+
+  drupal_add_js(drupal_get_path('module', 'salto_files') . "/js/salto_files.js", [
+    'weight' => 10000,
+    // Something higher than the weight of existing items
+    'scope' => 'footer',
+    // Make sure the script tag is rendered in the footer of the page, not the header
+    'group' => JS_THEME,
+    // JS_THEME has the highest group weight and will be rendered last
+  ]);
+
+  if ($context['profile']->editor == 'ckeditor') {
+
+    $settings['customConfig'] = base_path() . drupal_get_path('module', 'salto_files') . '/wysiwyg/salto_files_config.js';
+    $settings['extraPlugins'] .= ',tableresize,image2';
+    $settings['language'] = $language->prefix;
+
+  }
+}
+
+
+/**
+ * Implements hook_file_entity_access().
+ *
+ * Restrict view access to file entities based on published status.
+ */
+function salto_files_file_entity_access_ignore_grants($op, $file = NULL, $account = NULL) {
+
+  //check if we are viewing user_30x30 style
+  if (strstr(current_path(), "system/files/styles/user_30x30/private/uploads/image/")) {
+    //check if $file is used ase profile2 field
+    $usage = file_usage_list($file);
+
+    //allow access to profile images
+    if (isset($usage['file']) && !empty($usage['file']['profile2'])) {
+      return FILE_ENTITY_ACCESS_ALLOW;
+    }
+  }
+
+
+  $pass_token = $_GET["salto_token"];
+
+  if ($pass_token == SALTO_FILE_ACCESS_BYPASS_PHRASE) {
+    return FILE_ENTITY_ACCESS_ALLOW;
+  }
+
+  return FILE_ENTITY_ACCESS_IGNORE;
+}
+
+/**
+ * Implements hook_og_permission().
+ */
+function salto_files_og_permission() {
+
+  $perms['create file'] = [
+    'title' => t('Create file'),
+    'description' => t('Create files in this og'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+
+  $perms['view any file'] = [
+    'title' => t('View any file'),
+    'description' => t('View any file in this og'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+
+  $perms['edit any file'] = [
+    'title' => t('Edit any file'),
+    'description' => t('Edit any file in this og'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+
+  $perms['edit any file category'] = [
+    'title' => t('Edit any file category'),
+    'description' => t('Edit all group file categories. The default access is only for author.'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+
+  $perms['delete any file'] = [
+    'title' => t('Delete any file'),
+    'description' => t('Delete any file in this og'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+  return $perms;
+}
+
+/**
+ * Implements hook_action_links_info
+ */
+function salto_files_action_links_info() {
+  $items['file'] = t('File links');
+  return $items;
+}
+
+/**
+ * Implements hook_salto_action_links
+ *
+ * @param type $category
+ * @param $context
+ *
+ * @return array
+ */
+function salto_files_salto_action_links($category, $context) {
+  $links = [];
+
+  switch ($category) {
+    case 'file':
+      global $user;
+
+      $file = $context['file_context'];
+
+      //write private message, not to oneself
+      if (file_entity_access('update', $file)) {
+        $dest = drupal_get_destination();
+        $path = 'file/' . $file->fid . '/edit';
+        $link = [
+          '#theme' => 'link',
+          '#text' => t('Edit file'),
+          '#path' => $path,
+          '#options' => [
+            'query' => $dest,
+            'attributes' => [
+              'title' => t('Edit this file details.'),
+              'class' => 'action_link action_edit_file',
+            ],
+            'html' => TRUE,
+          ],
+        ];
+        $links["file_edit"] = $link;
+      }
+
+      if (file_entity_access('download', $file) && $file->type != "webresource") {
+
+        $path = file_entity_download_uri($file);
+
+        $query = $path['options']['query'];
+
+        $link = [
+          '#theme' => 'link',
+          '#text' => t('Download file'),
+          '#path' => $path['path'],
+          '#options' => [
+            'query' => $query,
+            'attributes' => [
+              'title' => t('Download this file.'),
+              'class' => 'action_link action_download_file',
+            ],
+            'html' => TRUE,
+          ],
+        ];
+        $links["file_download"] = $link;
+      }
+      break;
+  }
+  return $links;
+}
+
+/**
+ * Implements hook_exit().
+ *
+ * Gathers statistics for page accesses.
+ */
+function salto_files_exit() {
+
+  drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES);
+  $path = request_path();
+  if (arg(0, $path) == 'file' && is_numeric(arg(1, $path))) {
+    // A file has been viewed, so update the node's counters.
+    db_merge('file_counter')
+      ->key(['fid' => arg(1, $path)])
+      ->fields([
+        'totalcount' => 1,
+        'timestamp' => REQUEST_TIME,
+      ])
+      ->expression('totalcount', 'totalcount + 1')
+      ->execute();
+  }
+
+}
+
+
+/**
+ * Retrieves a files's "view statistics".
+ *
+ * @param $fid
+ *   The file FID.
+ *
+ * @return
+ *   An associative array containing:
+ *   - totalcount: Integer for the total number of times the node has been
+ *     viewed.
+ *   - timestamp: Integer for the timestamp of when the node was last viewed.
+ */
+function salto_files_get_views_count($fid) {
+
+  if ($fid > 0) {
+    // Retrieve an array with both totalcount and daycount.
+    return db_query('SELECT totalcount, timestamp FROM {file_counter} WHERE fid = :fid', [':fid' => $fid])->fetchAssoc();
+  }
+}
+
+
+function salto_files_render_views_count($fid, $show_title = FALSE) {
+  $views = salto_files_get_views_count($fid);
+  $count = $views['totalcount'] ? $views['totalcount'] : 0;
+
+  $output = '<ul class="links list-inline pull-right"><li class="statistics_counter first last"><span>' . $count;
+
+  if ($show_title) {
+    $output .= ' ' . t('views');
+  }
+  $output .= ' </span></li></ul>';
+  return $output;
+}
+
+
+/**
+ * Implements hook_field_formatter_info().
+ *
+ * Used to make a swf type
+ */
+function salto_files_field_formatter_info() {
+
+  $info['file_swf'] = [
+    'label' => t('SWF file'),
+    'description' => t('Render an swf file'),
+    'field types' => ['file'],
+    'settings' => [
+      'autoplay' => TRUE,
+    ],
+    'file formatter' => [
+      'mime types' => ['application/x-shockwave-flash'],
+    ],
+  ];
+  $info['simple_link_target_blank'] = [
+    'label' => t('Simple Link (target="_blank")'),
+    'field types' => ['file', 'document'],
+    'description' => t('Create a simple link to the file. The link is opened in a new tab/window, is prefixed by a file type icon and the name of the file is used as the link text'),
+  ];
+
+  //cc license image
+  $info['cc_image'] = [
+    'label' => t('CC License image'),
+    'field types' => ['list_text'],
+    'description' => t('Displays  the text key as CC License image'),
+  ];
+
+  return $info;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function salto_files_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $settings = $display['settings'];
+  $element = [];
+
+  if ($display['type'] == 'file_swf') {
+    // Prevent 'empty' fields from causing a WSOD.
+    $items = array_filter($items);
+
+    // Render each source list as an <audio> element.
+    foreach ($items as $delta => $item) {
+      $element[$delta] = [
+        '#theme' => 'salto_files_swf',
+      ];
+    }
+  }
+
+  if ($display['type'] == 'cc_image') {
+    foreach ($items as $delta => $item) {
+      $element[$delta] = [
+        '#theme' => 'file_cc_license',
+        '#type' => 'image',
+        '#key' => $item['value'],
+      ];
+    }
+  }
+
+  //display link - render attribute target _blank
+  if ($display['type'] == 'simple_link_target_blank') {
+    foreach ($items as $delta => $item) {
+      $element[$delta] = [
+        '#theme' => 'salto_files_default_target_blank',
+        '#files' => $item,
+      ];
+    }
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function salto_files_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $element = [];
+
+  if ($display['type'] == 'file_swf') {
+    $element['autoplay'] = [
+      '#title' => t('Autoplay'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['autoplay'],
+    ];
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function salto_files_theme($existing, $type, $theme, $path) {
+  return [
+    'salto_files_swf' => [
+      'variables' => [
+        'files' => [],
+        'autoplay' => FALSE,
+      ],
+      'template' => 'file_swf',
+      'path' => drupal_get_path('module', 'salto_files') . '/templates/',
+    ],
+    'salto_files_usage_license' => [
+      'variables' => [
+        'file' => NULL,
+      ],
+      'template' => 'salto_files_usage_license',
+      'path' => drupal_get_path('module', 'salto_files') . '/templates/',
+    ],
+    'salto_files_metadata' => [
+      'variables' => [
+        'file' => NULL,
+      ],
+      'template' => 'salto_files_metadata',
+      'path' => drupal_get_path('module', 'salto_files') . '/templates/',
+    ],
+    'salto_files_default_target_blank' => [
+      'variables' => [
+        'file' => NULL,
+      ],
+      'path' => drupal_get_path('module', 'salto_files') . '/templates/',
+      'template' => 'salto_files_default_target_blank',
+    ],
+    'file_cc_license' => [
+      'variables' => [
+        'type' => 'image',
+        'key' => NULL,
+      ],
+    ],
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function salto_files_preprocess_salto_files_swf(&$variables) {
+
+
+  $url = file_create_url($variables['files']['uri']);
+  $swfobject_path = drupal_get_path('module', 'salto_files') . '/lib/swfobject/';
+  $express_install = $swfobject_path . '/expressInstall.swf';
+  $container_id = "swf-" . $variables['files']['fid'];
+
+
+  $variables['conatiner_id'] = $container_id;
+
+  $variables['no_flash_message'] = t('This content can only be displayed with the !player_url', ['!player_url' => l('Adobe Flash player', 'https://get.adobe.com/de/flashplayer/', ['absolute' => TRUE])]);
+
+  //add the swf object as script
+  $script = 'swfobject.embedSWF("' . $url . '", "' . $variables['conatiner_id'] . '", "100%", "100%", "9.0.0","' . $express_install . '");';
+
+  drupal_add_js($swfobject_path . '/swfobject.js');
+  drupal_add_js($script, ['type' => 'inline']);
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function salto_files_preprocess_salto_files_usage_license(&$variables) {
+
+  $style = 'user_30x30';
+
+  //author
+  $file = $variables['file'];
+  $author = user_load($file->uid);
+  $variables['file_author'] = theme('user_picture', [
+    'account' => $author,
+    'style' => $style,
+  ]);
+
+  //originator
+  $variables['file_originator'] = $file->field_file_originator[LANGUAGE_NONE][0]['value'];
+
+  //license
+  if (!empty($file->field_file_license_type[LANGUAGE_NONE][0]['value'])) {
+    $license_type = $file->field_file_license_type[LANGUAGE_NONE][0]['value'];
+
+    $field_info = field_info_field('field_file_license_type');
+    //all license types
+    $options = $field_info['settings']['allowed_values'];
+
+    //get image
+    $license_img_src = salto_files_get_cc_image_src($license_type);
+    //get description
+    $license_desc = salto_files_get_cc_description($license_type);
+    //get title
+    $license_title = $options[$license_type];
+
+    $variables['file_license_img_src'] = $license_img_src;
+    $variables['file_license_title'] = $license_title;
+    $variables['file_license_desc'] = $license_desc;
+
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function salto_files_preprocess_salto_files_metadata(&$variables) {
+
+  $file = $variables['file'];
+
+  $info = pathinfo($file->uri);
+
+  if ($file->type != 'webresource') {
+
+    //format
+    $variables['file_metadata_format'] = strtoupper($info['extension']);
+    //size
+    $variables['file_metadata_size'] = format_size($file->filesize);
+  }
+  //created date
+  $variables['file_metadata_created'] = format_date($file->timestamp);
+
+
+}
+
+
+/**
+ * Form to reencode derivatives
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ * @param  [type] $file       [description]
+ *
+ * @return [type]             [description]
+ */
+function salto_files_derivatives_callback($form, $form_state, $file) {
+
+  $form = [];
+
+  $form['#file'] = $file;
+
+  foreach ($file->media_derivatives['derivatives_list'] as $derivative_name => $derivative) {
+
+    $info = "";
+
+    $form[$derivative_name] = [
+      '#type' => 'fieldset',
+      '#title' => $derivative_name,
+      '#weight' => 0,
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#tree' => TRUE,
+    ];
+
+
+    $rows = [];
+    $data = (array) $derivative;
+    foreach ($data as $key => $value) {
+      $rows[] = [
+        ['data' => $key],
+        ['data' => print_r($value, TRUE)],
+      ];
+    }
+    $info .= theme('table', ['rows' => $rows]);
+
+    switch ($derivative->status) {
+      case MEDIA_DERIVATIVE_TYPE_ERROR:
+        $form[$derivative_name]['#title'] .= '<span class="label label-danger">' . t("Error") . '</span>';
+        break;
+      case MEDIA_DERIVATIVE_TYPE_FINISHED:
+        $form[$derivative_name]['#title'] .= '<span class="label label-success">' . t("Success") . '</span>';
+        break;
+      case MEDIA_DERIVATIVE_TYPE_PROCESSING:
+        $form[$derivative_name]['#title'] .= '<span class="label label-info">' . t("Processing") . '</span>';
+        break;
+      case MEDIA_DERIVATIVE_TYPE_WAITING:
+        $form[$derivative_name]['#title'] .= '<span class="label label-warning">' . t("Waiting") . '</span>';
+        break;
+    }
+
+
+    $form[$derivative_name]['info'] = [
+      '#markup' => $info,
+    ];
+
+    $form[$derivative_name]['submit'] = [
+      '#type' => 'submit',
+      '#value' => t('Reencode derivative ' . $derivative_name),
+      '#weight' => 19,
+      '#executes_submit_callback' => TRUE,
+      '#derivative' => $derivative,
+    ];
+  }
+
+  $form['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Reencode all derivatives'),
+  ];
+  return $form;
+}
+
+/**
+ * Submit to create derivatives
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ *
+ * @return [type]             [description]
+ */
+function salto_files_derivatives_callback_submit($form, &$form_state) {
+
+  $file = $form['#file'];
+
+  if ($form_state['clicked_button']['#id'] == 'edit-submit') {
+    foreach ($file->media_derivatives['derivatives_list'] as $derivative_name => $derivative) {
+      media_derivatives_schedule_derivative($derivative);
+    }
+  }
+  else {
+    //get the derivative name
+    $derivative = $form_state['clicked_button']['#derivative'];
+    media_derivatives_schedule_derivative($derivative);
+  }
+
+}
+
+/**
+ * Access menu callback
+ *
+ * @param  [type] $file [description]
+ *
+ * @return [type]       [description]
+ */
+function salto_files_derivatives_access($file) {
+  return user_access('administer media_derivatives') && !empty($file->media_derivatives['has_derivatives']);
+}
+
+/**
+ * Alter the markup of media browser files
+ *
+ * @param  [type] $element  [description]
+ * @param  [type] $tag_info [description]
+ * @param  [type] $settings [description]
+ *
+ * @return [type]           [description]
+ */
+function salto_files_media_wysiwyg_token_to_markup_alter(&$element, &$tag_info, &$settings) {
+
+  //add this js here, it will be avail in iframe
+  drupal_add_js(drupal_get_path('module', 'salto_files') . '/js/salto_files_filter.js', ['scope' => 'footer']);
+}
+
+/**
+ * @sergej Please add description
+ *
+ * @param $form
+ * @param $form_state
+ * @param $media
+ */
+function salto_files_media_format_form_prepare_alter(&$form, &$form_state, $media) {
+  $settings = ['autosubmit' => TRUE];
+  drupal_add_js(['media_format_form' => $settings], 'setting');
+}
+
+/**
+ * Clear the field cache for file usages. This is used e.g. after a conversion
+ * of a file has been completed
+ *
+ * @param $file the file which is reference in file_usage
+ */
+function salto_files_clear_usage_cache($file) {
+  $entity = clone $file;
+
+  $list = file_usage_list($entity);
+  if (!empty($list)) {
+    foreach ($list['media'] as $entity_type => $references) {
+      foreach (array_keys($references) as $id) {
+        $cid = "field:$entity_type:$id";
+        cache_clear_all($cid, 'cache_field');
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_media_derivatives_derivative_postencode
+ * Acts on a derivative after being successfully encoded.
+ *
+ * @param $derivative Derivative object.
+ */
+function salto_files_media_derivatives_derivative_postencode($derivative) {
+  $fid = $derivative->source_fid;
+
+  if ($derivative->preset_name == 'video_thumbnail') {
+
+    //force the creation of styles NOW
+    $file_uri = $derivative->unmanaged_uri;
+
+    image_style_create_derivative(image_style_load('video_medium'), $file_uri, image_style_path('video_medium', $file_uri));
+    image_style_create_derivative(image_style_load('medium'), $file_uri, image_style_path('medium', $file_uri));
+    watchdog('salto_files', "Derivative previews created <pre>%data</pre>", ["%data" => print_r($derivative, TRUE)]);
+
+  }
+  //clear all usage caches
+  $file = file_load($fid);
+  salto_files_clear_usage_cache($file);
+}
+
+/**
+ * Clear usage cache if a file has been updated
+ *
+ * @param $entity
+ * @param $type
+ */
+function salto_files_entity_update($entity, $type) {
+  if ($type == 'file') {
+    salto_files_clear_usage_cache($entity);
+  }
+}
+
+
+/**
+ * Implements hook_file_insert().
+ */
+function salto_files_file_insert($file) {
+
+  if ($file->type == 'image') {
+    $style_name = 'default_selection_wysiwyg';
+    $preview_file = image_style_path($style_name, $file->uri);
+    if (!file_exists($preview_file)) {
+      $result = image_style_create_derivative(image_style_load($style_name), $file->uri, $preview_file);
+    }
+  }
+
+  if ($file->type == 'webresource') {
+    $url = urldecode($file->filename);
+    $title = MediaWebresourceHandler::get_title_from_remote_page($url);
+    if (empty($title)) {
+      $parts = explode("/", $url);
+      $title = check_plain(end($parts));
+    }
+
+    //max length
+    $title = truncate_utf8($title, 255);
+    salto_files_file_set_title($file, $title, TRUE);
+  }
+
+}
+
+/**
+ *  Implements hook_file_update().
+ */
+function salto_files_file_update($file) {
+
+  if ($file->type == 'document') {
+    if ($file->media_derivatives['has_derivatives']) {
+      $derivative = $file->media_derivatives['derivatives_list']['document'];
+    }
+    else {
+      $presets = media_derivatives_get_presets();
+      $derivative = media_derivatives_create_derivative_object($file, $presets['document'], 'file_insert');
+    }
+    //media_derivatives_schedule_derivative($derivative);
+    media_derivatives_start_encode($derivative);
+  }
+
+  if (!empty($file->field_file_attachment_post_ref[LANGUAGE_NONE][0]['target_id'])) {
+    $file->field_file_attachment_status[LANGUAGE_NONE][0]['value'] = SALTO_FILE_ATTACHMENT_STATUS_LOCKED;
+  }
+  salto_files_file_set_title($file, $file->filename);
+}
+
+/**
+ * Implements hook_file_view().
+ *
+ * @param $file
+ * @param $view_mode
+ * @param $langcode
+ */
+function salto_files_file_view($file, $view_mode, $langcode) {
+
+  if ($view_mode == 'full') {
+    $title = entity_label('file', $file);
+    drupal_set_title($title);
+  }
+}
+
+/**
+ * get cc image sourc by key
+ *
+ * @param  [type] $key [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_files_get_cc_image_src($key) {
+
+  //replace ' ' -> '_'
+  $replace_name_1 = str_replace(' ', '_', $key);
+
+  //replace '-' -> '_'
+  $replace_name_2 = str_replace('-', '_', $replace_name_1);
+
+  //name lower case
+  $replace_name_3 = strtolower($replace_name_2);
+
+  //path to cc folder
+  $image_path = drupal_get_path('module', 'salto_files') . '/images/cc/';
+
+  //return complete path
+  return '/' . $image_path . $replace_name_3 . '.png';
+
+}
+
+
+/**
+ * get cc description by key
+ *
+ * @param  [type] $key [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_files_get_cc_description($key) {
+  $description = '';
+
+  switch ($key) {
+    case 'CC BY':
+      $description = 'Diese Lizenz erlaubt anderen, Ihr Werk zu verbreiten, zu remixen, zu verbessern und darauf aufzubauen, auch kommerziell, solange Sie als Urheber des Originals genannt werden. Dies ist die freieste Lizenz, die wir anbieten, empfohlen für maximale Verbreitung und Nutzung des lizenzierten Werkes.';
+      break;
+    case 'CC BY-SA':
+      $description = 'Diese Lizenz erlaubt es anderen, Ihr Werk zu verbreiten, zu remixen, zu verbessern und darauf aufzubauen, auch kommerziell, solange Sie als Urheber des Originals genannt werden und die auf Ihrem Werk basierenden neuen Werke unter denselben Bedingungen veröffentlicht werden. Diese Lizenz wird oft mit "Copyleft"-Lizenzen im Bereich freier und Open Source Software verglichen. Alle neuen Werke, die auf Ihrem aufbauen, werden unter derselben Lizenz stehen, also auch kommerziell nutzbar sein. Dies ist die Lizenz, die auch von der Wikipedia eingesetzt wird, empfohlen für Werke, für die eine Einbindung von Wikipedia-Material oder anderen so lizenzierten Werken sinnvoll sein kann.';
+      break;
+    case 'CC BY-ND':
+      $description = 'Diese Lizenz erlaubt anderen die Weiterverbreitung Ihres Werkes, kommerziell wie nicht-kommerziell, solange dies ohne Veränderungen und vollständig geschieht und Sie als Urheber genannt werden.';
+      break;
+    case 'CC BY-NC':
+      $description = 'Diese Lizenz erlaubt es anderen, Ihr Werk zu verbreiten, zu remixen, zu verbessern und darauf aufzubauen, allerdings nur nicht-kommerziell. Und obwohl auch bei den auf Ihrem Werk basierenden neuen Werken Ihr Namen mit genannt werden muss und sie nur nicht-kommerziell verwendet werden dürfen, müssen diese neuen Werke nicht unter denselben Bedingungen lizenziert werden.';
+      break;
+    case 'CC BY-NC-SA':
+      $description = 'Diese Lizenz erlaubt es anderen, Ihr Werk zu verbreiten, zu remixen, zu verbessern und darauf aufzubauen, allerdings nur nicht-kommerziell und solange Sie als Urheber des Originals genannt werden und die auf Ihrem Werk basierenden neuen Werke unter denselben Bedingungen veröffentlicht werden.';
+      break;
+    case 'CC BY-NC-ND':
+      $description = 'Dies ist die restriktivste unserer sechs Kernlizenzen. Sie erlaubt lediglich Download und Weiterverteilung des Werkes unter Nennung Ihres Namens, jedoch keinerlei Bearbeitung oder kommerzielle Nutzung.';
+      break;
+  }
+
+  return $description;
+
+}
+
+function theme_salto_files_usage_license($file) {
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function salto_files_preprocess_salto_files_default_target_blank(&$variables) {
+
+  if (!empty($variables['file'])) {
+
+    $file = $variables['file'];
+    $icon_directory = $variables['icon_directory'];
+
+    $url = file_create_url($file->uri);
+    $icon = theme('file_icon', [
+      'file' => $file,
+      'icon_directory' => $icon_directory,
+    ]);
+
+    $options = [
+      'attributes' => [
+        'type' => $file->filemime . '; length=' . $file->filesize,
+      ],
+    ];
+
+    // Use the description as the link text if available.
+    if (empty($file->description)) {
+      $link_text = $file->filename;
+    }
+    else {
+      $link_text = $file->description;
+      $options['attributes']['title'] = check_plain($file->filename);
+    }
+
+    //new tab/window
+    $options['attributes']['target'] = '_blank';
+
+    //icon
+    $variables['icon'] = $icon;
+
+    //link
+    $variables['link'] = l($link_text, $url, $options);
+  }
+}
+
+/*
+ * Theme a lciense image
+ */
+function theme_file_cc_license($vars) {
+
+  if ($vars['type'] == 'image') {
+    $file_license_img_src = salto_files_get_cc_image_src($vars['key']);
+    $file_license_desc = salto_files_get_cc_description($vars['key']);
+
+    $field_info = field_info_field('field_file_license_type');
+    $options = $field_info['settings']['allowed_values'];
+    $license_title = $options[$vars['key']];
+
+    $tooltip = "<h3>$license_title</h3>$file_license_desc";
+    $out = '<img src="' . $file_license_img_src . '" data-html="true" data-original-title="' . $tooltip . '" rel="tooltip">';
+    return $out;
+  }
+  return $vars['key'];
+}
+
+
+function salto_files_fix_media_files() {
+  module_load_include('install', 'media', 'media');
+  $default_base = 'public://media-icons';
+  variable_set('media_icon_base_directory', $default_base);
+  _salto_files_install_copy_icons();
+}
+
+/**
+ * Copy the media file icons to files directory for use with image styles.
+ */
+function _salto_files_install_copy_icons() {
+  $destination = variable_get('media_icon_base_directory', 'public://media-icons') . '/' . variable_get('media_icon_set', 'default');
+  if (!file_prepare_directory($destination, FILE_CREATE_DIRECTORY)) {
+    throw new Exception("Unable to create directory $destination.");
+  }
+
+  $source = drupal_get_path('module', 'salto_files') . '/images/icons/' . variable_get('media_icon_set', 'default');
+  $files = file_scan_directory($source, '/.*\.(png|jpg)$/');
+  foreach ($files as $file) {
+    $result = file_unmanaged_copy($file->uri, $destination, FILE_EXISTS_REPLACE);
+    if (!$result) {
+      throw new Exception("Unable to copy {$file->uri} to $destination.");
+    }
+  }
+}
+
+/**
+ * Implement hook_entity_info_alter
+ *
+ * @param $entity_info
+ */
+function salto_files_entity_info_alter(&$entity_info) {
+  $entity_info['file']['label callback'] = 'salto_files_callback_entity_info_label';
+}
+
+/**
+ * Label callback for files
+ *
+ * @param $file
+ *
+ * @return string
+ */
+function salto_files_callback_entity_info_label($file) {
+
+  $label = check_plain($file->filename);
+
+  $field_name = "field_file_title";
+  if ($file->type == 'image') {
+    $field_name = "field_file_image_title_text";
+  }
+
+  //set the label if we have a field
+  $d = $file->$field_name;
+  if (!empty($d) && !empty($d[LANGUAGE_NONE][0]['value'])) {
+    $label = $d[LANGUAGE_NONE][0]['value'];
+  }
+
+  return $label;
+}
+
+/**
+ * Set the title and update
+ *
+ * @param $file
+ */
+function salto_files_file_set_title($file, $title, $save = TRUE) {
+
+  $field_name = "field_file_title";
+  if ($file->type == 'image') {
+    $field_name = "field_file_image_title_text";
+  }
+
+  $d = &$file->$field_name;
+
+  if (empty($d[LANGUAGE_NONE][0]['value'])) {
+    $d[LANGUAGE_NONE][0]['value'] = salto_core_check_plain($title);
+    if ($save) {
+      field_attach_update('file', $file);
+    }
+  }
+}
+
+/**
+ * Get the title and update
+ *
+ * @param $file
+ */
+function salto_files_file_get_title($file) {
+
+  $title = '';
+
+  //check if the title is set
+  // on images, the title is is field_file_image_title_text.
+  // other files are field_file_title
+  $field_name = "field_file_title";
+  if ($file->type == 'image') {
+    $field_name = "field_file_image_title_text";
+  }
+
+  $d = &$file->$field_name;
+
+  if (empty($d[LANGUAGE_NONE][0]['value'])) {
+    $title = $d[LANGUAGE_NONE][0]['value'];
+
+  }
+
+  if (empty($title)) {
+    //fallback to filename
+    $title = $file->filename;
+  }
+  return salto_core_check_plain($title);
+}
+
+/**
+ * @return string
+ */
+function salto_file_upload_page() {
+
+  $file_upload_form = 'file_entity_add_upload_multiple';
+  $output = [];
+  if (isset($_POST['op']) && $_POST['op'] != t('Previous') && $_POST['form_id'] != $file_upload_form) {
+    $output['weblink'] = drupal_get_form('media_internet_add_upload');
+    return $output;
+  }
+  else {
+
+    drupal_add_library('system', 'ui.tabs');
+    drupal_add_js('jQuery(document).ready(function(){jQuery("#tabs-wrapper").tabs();});', 'inline');
+
+    return '<div id="tabs-wrapper">
+      <ul id="branding" class="tabs primary">
+      <li><a href="#tabs-1">' . t('Upload') . '</a></li>
+      <li><a href="#tabs-2">' . t('File URL or media resource') . '</a></li>
+      </ul>
+      <div id="tabs-1">' . drupal_render(drupal_get_form($file_upload_form)) . '</div>
+      <div id="tabs-2">' . drupal_render(drupal_get_form('media_internet_add_upload')) . '</div>
+      </div>';
+  }
+}
+
+/**
+ * Submit handler for the add file form.
+ * We overriide file_entity_add_upload_submit to allow dual form on the page
+ */
+function file_entity_add_upload_alternate_submit($form, &$form_state) {
+  $form_state['storage'] = isset($form_state['storage']) ? $form_state['storage'] : [];
+  $form_state['storage'] = array_merge($form_state['storage'], $form_state['values']);
+
+  // This var is set to TRUE when we are ready to save the file.
+  $save = FALSE;
+  $trigger = $form_state['triggering_element']['#id'];
+
+
+  $file = $form_state['file'];
+
+  // Figure out destination.
+  if (isset($_GET['destination'])) {
+    $destination = drupal_get_destination();
+    unset($_GET['destination']);
+  }
+  else {
+    $destination = ['destination' => 'file/' . $file->fid . '/edit'];
+  }
+  $form_state['redirect'] = $destination['destination'];
+
+}
+
+/**
+ * deliver a media stream
+ *
+ * @param $format
+ */
+function salto_files_deliver_stream($org_file, $format = 'mp4') {
+
+  $file = $org_file->media_derivatives['derivatives_list']['video_' . $format];
+
+  $uri = $file->unmanaged_uri;
+  if ($uri) {
+
+    $realpath = drupal_realpath($uri);
+    if (empty($realpath)) {
+      return -1;
+    }
+
+    $realpath = drupal_realpath($uri);
+    if (empty($realpath)) {
+      return -1;
+    }
+
+    //serve fileq with correct headers
+    serveFilePartial($realpath, NULL, $file->filemime);
+  }
+}
+
+/**
+ *
+ * @param $fileName
+ * @param null $fileTitle
+ * @param string $contentType
+ *
+ * @throws Exception
+ */
+function serveFilePartial($fileName, $fileTitle = NULL, $contentType = 'application/octet-stream') {
+  if (!file_exists($fileName)) {
+    throw new \Exception(sprintf('File not found: %s', $fileName));
+  }
+  if (!is_readable($fileName)) {
+    throw new \Exception(sprintf('File not readable: %s', $fileName));
+  }
+  ### Remove headers that might unnecessarily clutter up the output
+  header_remove('Cache-Control');
+  header_remove('Pragma');
+  ### Default to send entire file
+  $byteOffset = 0;
+  $byteLength = $fileSize = filesize($fileName);
+  header('Accept-Ranges: bytes', TRUE);
+  header(sprintf('Content-Type: %s', $contentType), TRUE);
+  if ($fileTitle) {
+    header(sprintf('Content-Disposition: attachment; filename="%s"', $fileTitle));
+  }
+
+  if (isset($_SERVER['HTTP_RANGE']) && preg_match('%bytes=(\d+)-(\d+)?%i', $_SERVER['HTTP_RANGE'], $match)) {
+    ### Offset signifies where we should begin to read the file
+    $byteOffset = (int) $match[1];
+    ### Length is for how long we should read the file according to the browser, and can never go beyond the file size
+    if (isset($match[2])) {
+      $finishBytes = (int) $match[2];
+      $byteLength = $finishBytes + 1;
+    }
+    else {
+      $finishBytes = $fileSize - 1;
+    }
+
+    $cr_header = sprintf('Content-Range: bytes %d-%d/%d', $byteOffset, $finishBytes, $fileSize);
+
+    header("HTTP/1.1 206 Partial content");
+    header($cr_header);  ### Decrease by 1 on byte-length since this definition is zero-based index of bytes being sent
+  }
+  $byteRange = $byteLength - $byteOffset;
+  header(sprintf('Content-Length: %d', $byteRange));
+  header(sprintf('Expires: %s', date('D, d M Y H:i:s', time() + 60 * 60 * 24 * 90) . ' GMT'));
+  $buffer = '';  ### Variable containing the buffer
+  $bufferSize = 512 * 16; ### Just a reasonable buffer size
+  $bytePool = $byteRange; ### Contains how much is left to read of the byteRange
+  if (!$handle = fopen($fileName, 'r')) {
+    throw new \Exception(sprintf("Could not get handle for file %s", $fileName));
+  }
+  if (fseek($handle, $byteOffset, SEEK_SET) == -1) {
+    throw new \Exception(sprintf("Could not seek to byte offset %d", $byteOffset));
+  }
+  while ($bytePool > 0) {
+    $chunkSizeRequested = min($bufferSize, $bytePool); ### How many bytes we request on this iteration
+    ### Try readin $chunkSizeRequested bytes from $handle and put data in $buffer
+    $buffer = fread($handle, $chunkSizeRequested);
+    ### Store how many bytes were actually read
+    $chunkSizeActual = strlen($buffer);
+    ### If we didn't get any bytes that means something unexpected has happened since $bytePool should be zero already
+    if ($chunkSizeActual == 0) {
+      ### For production servers this should go in your php error log, since it will break the output
+      trigger_error('Chunksize became 0', E_USER_WARNING);
+      break;
+    }
+    ### Decrease byte pool with amount of bytes that were read during this iteration
+    $bytePool -= $chunkSizeActual;
+    ### Write the buffer to output
+    print $buffer;
+    ### Try to output the data to the client immediately
+    flush();
+  }
+  exit();
+}
+
+/**
+ * Check the file collaboration must be altered by its file usage
+ *
+ * @param $file
+ * @param $node
+ *   a new node that has not yet been saved to db
+ */
+function salto_files_check_collaboration_override($file, $temp_node = NULL) {
+
+  $cache = &drupal_static("file_access_cache");
+
+  if (!empty($cache[$file->fid])) {
+    return $cache[$file->fid];
+  }
+
+  $usage = file_usage_list($file);
+
+  //no usage, just return
+  if (empty($usage) && (empty($usage['file']['node']) && empty($usage['media']['node']))) {
+    return NULL;
+  }
+
+  if (empty($usage['file']['node']) && empty($usage['media']['node'])) {
+    return NULL;
+  }
+
+
+  $access_details = [];
+
+  //president's signature
+  if (!empty($file->field_salto_file_type)) {
+    $access_details['field_salto_file_type'] = $file->field_salto_file_type;
+  }
+
+
+  $access_details['read'] = $file->field_post_collaboration[LANGUAGE_NONE][0]['read'];
+
+  //store the original values
+  $access_details['read_original'] = $file->field_post_collaboration[LANGUAGE_NONE][0]['read'];
+
+  //get all options, we need them for labels
+  $visibility_options = salto_knowledgebase_post_access_options('view');
+
+  //get all nodes in one array
+  $nodes = [];
+  foreach ($usage as $type => $data) {
+    if (!empty($data['node'])) {
+      foreach ($data['node'] as $nid => $active) {
+        $nodes[$nid] = $nid;
+      }
+    }
+  }
+
+  //check all node usages
+  foreach ($nodes as $nid) {
+
+    $node = !empty($file->temp_node) && $file->temp_node->nid == $nid ? $file->temp_node : node_load($nid);
+    if (isset($node->field_post_collaboration) && !empty($node->field_post_collaboration[LANGUAGE_NONE][0])) {
+      //get the access options
+      $access_details['node_usage'][$nid] = $node->field_post_collaboration[LANGUAGE_NONE][0];
+
+      //set the read access lower if needed
+      if ($access_details['node_usage'][$nid]['read'] < $access_details['read'] && $access_details['node_usage'][$nid]['read'] != SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP) {
+        $access_details['read'] = $access_details['node_usage'][$nid]['read'];
+        $access_details['read_reason'] = t('Post %post has the read value %read_value', [
+          '%post' => $node->title,
+          '%read_value' => $visibility_options[$access_details['read']],
+        ]);
+      }
+
+      //store the og group for overriding file relam
+      if (!empty($node->field_og_group[LANGUAGE_NONE][0]['target_id']) && $access_details['node_usage'][$nid]['read'] == SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP) {
+        $access_details['og_extra_access'][$node->field_og_group[LANGUAGE_NONE][0]['target_id']] = $node->field_og_group[LANGUAGE_NONE][0]['target_id'];
+      }
+
+
+    }
+  }
+  $cache[$file->fid] = $access_details;
+
+  return $access_details;
+
+}
+
+/**
+ * Implements hook_file_presave().
+ *
+ * @param $file
+ */
+function salto_files_file_presave($file) {
+
+  if (empty($file->fid)) {
+    if (!empty($file->source)) {
+      //attachments
+      $file->field_post_collaboration =
+        [LANGUAGE_NONE => [['read' => NULL, 'edit' => NULL]]];
+
+      switch ($file->source) {
+        case 'profile_main_field_user_picture_und_0':
+          //organisation  profile
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL;
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+          break;
+        case 'field_organisation_logo_und_0':
+          //organisation logo
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL;
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+          break;
+        case 'field_post_attachment_und_0':
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+          break;
+        case 'field_educoncept_file_und_0':
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL;
+          $file->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+          break;
+      }
+    }
+    else {
+      //insert via media browser via editor
+      $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+      $file->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+    }
+  }
+
+  $file->field_file_title[LANGUAGE_NONE][0]["value"] = salto_core_strip_input($file->field_file_title[LANGUAGE_NONE][0]["value"]);
+
+  if (!empty($file->fid)) {
+    if (!empty($file->field_file_comments[LANGUAGE_NONE][0]['target_id'])) {
+      $nid = $file->field_file_comments[LANGUAGE_NONE][0]['target_id'];
+      $comment_node = node_load($nid);
+      $comment_node->title = entity_label('file', $file);
+
+      $comment_node->salto_file = $file;
+
+      node_save($comment_node);
+    }
+    else {
+      $comment_node = salto_files_create_comments_node($file);
+
+      $file->field_file_comments[LANGUAGE_NONE][0]['target_id'] = $comment_node->nid;
+      $comment_node->salto_file = $file;
+      //create access records
+
+      node_access_acquire_grants($comment_node);
+
+    }
+  }
+  else {
+    //file insert - new file, fist save
+    $comment_node = salto_files_create_comments_node($file);
+
+    $file->field_file_comments[LANGUAGE_NONE][0]['target_id'] = $comment_node->nid;
+    $comment_node->salto_file = $file;
+    //create access records
+
+    node_access_acquire_grants($comment_node);
+  }
+
+}
+
+/**
+ * delete comment nodes
+ *
+ * @param $file
+ */
+function salto_files_file_delete($file) {
+  if (!empty($file->field_file_comments[LANGUAGE_NONE][0]['target_id'])) {
+    $nid = $file->field_file_comments[LANGUAGE_NONE][0]['target_id'];
+    node_delete($nid);
+  }
+}
+
+
+/**
+ * @param $node
+ */
+function salto_files_comment_node_get_file($node) {
+  $salto_file = NULL;
+  if (!empty($node->salto_file)) {
+    $salto_file = $node->salto_file;
+  }
+  else {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'file')
+      ->fieldCondition('field_file_comments', 'target_id', $node->nid);
+    $result = $query->execute();
+    if (!empty($result['file'])) {
+      $salto_file = file_load(current($result['file'])->fid);
+    }
+  }
+
+  return $salto_file;
+}
+
+/**
+ * @param $node
+ */
+function salto_files_node_access_records($node) {
+  $grants = [];
+
+  if ($node->type == SALTO_FILE_COMMENT_NODE_TYPE) {
+
+    $salto_file = salto_files_comment_node_get_file($node);
+
+    //clone collaboration setting
+    if (empty($node->field_post_collaboration)) {
+      $node->field_post_collaboration = $salto_file->field_post_collaboration;
+    }
+
+    //og specific realm
+    if (empty($node->field_og_group)) {
+      $node->field_og_group = $salto_file->field_og_group;
+    }
+
+    //set author realm
+    if (empty($node->field_post_authors[LANGUAGE_NONE]['target_id'])) {
+      $node->field_post_authors[LANGUAGE_NONE][0]['target_id'] = $salto_file->uid;
+    }
+
+    //global materials
+    $grants = salto_knowledgebase_node_access_records($node);
+    //group materials
+    $grants = array_merge(salto_group_node_access_records($node), $grants);
+
+    unset($node->field_post_collaboration);
+    unset($node->field_og_group);
+    unset($node->field_post_authors);
+
+  }
+
+
+  return $grants;
+}
+
+
+/**
+ * @param $file
+ *
+ * @return EntityMetadataWrapper
+ */
+function salto_files_create_comments_node($file) {
+
+  $node = new stdClass();
+  $node->title = entity_label('file', $file);
+  $node->type = SALTO_FILE_COMMENT_NODE_TYPE;
+  node_object_prepare($node);
+  $node->uid = $file->uid;
+  $node->status = 1;
+  $node->promote = 0;
+  $node->comment = 2; //open
+  $node->language = LANGUAGE_NONE;
+
+  $node = node_submit($node);
+  node_save($node);
+
+  return $node;
+}
+
+/**
+ * A helper to be called from node api
+ *
+ * @param $node
+ */
+function salto_files_check_collaboration_via_nodeapi(&$node) {
+  //check posts and if they reference any files
+  if ($node->type == 'post') {
+    $references = salto_file_usage_by_nid($node->nid);
+    foreach ($references as $fid => $count) {
+      $file = file_load($fid);
+      $file->temp_node = $node;
+      file_save($file);
+    }
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function salto_files_node_insert($node) {
+  salto_files_check_collaboration_via_nodeapi($node);
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function salto_files_node_update($node) {
+  salto_files_check_collaboration_via_nodeapi($node);
+}
+
+
+/**
+ * Get files by node usage
+ *
+ * @param $nid
+ *
+ * @return array
+ */
+function salto_file_usage_by_nid($nid) {
+  $result = db_select('file_usage', 'f')
+    ->fields('f', ['module', 'type', 'fid', 'count'])
+    ->condition('id', $nid)
+    ->condition('type', 'node')
+    ->condition('count', 0, '>')
+    ->execute();
+  $references = [];
+  foreach ($result as $usage) {
+    $references[$usage->fid] = $usage->count;
+  }
+  return $references;
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ */
+function salto_files_form_file_entity_add_upload_multiple_alter(&$form, &$form_state) {
+  if (user_access('create swf files')) {
+    $form['upload']['#upload_validators']['file_validate_extensions'][0] .= ' swf';
+  }
+
+  $queryParams = drupal_get_query_parameters();
+  if (!empty($queryParams['field_og_group'])) {
+    $form['#submit'][] = 'salto_files_form_file_entity_add_upload_multiple_submit';
+    $form['#salto_group_context']['gid'] = $queryParams['field_og_group'];
+  }
+}
+
+function salto_files_form_file_entity_add_upload_multiple_submit($form, &$form_state) {
+  if (!empty($form['#salto_group_context']['gid'])) {
+    $form_state['redirect'][1]['query']['destination'] = 'groups/' . $form['#salto_group_context']['gid'] . '/files/term/';
+  }
+}
+
+
+/**
+ * hide title in node view
+ *
+ * @param $node
+ */
+function salto_files_preprocess_node(&$node) {
+  // check for node type
+  if ($node['type'] == SALTO_FILE_COMMENT_NODE_TYPE) {
+    $node['title'] = NULL;
+  }
+}
+
+function salto_files_has_current_path() {
+  $dest = drupal_get_destination();
+  $args = explode('/', $dest['destination']);
+  if (in_array('groups', $args) && in_array('files', $args)) {
+    return TRUE;
+  }
+
+  if (stripos(current_path(), 'materials') === FALSE) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+function salto_files_preprocess_page_floating_button_alter(&$variables) {
+  if (!salto_files_has_current_path()) {
+    return;
+  }
+  $context = og_context();
+
+  $variables['floating_button']['links'] = [];
+  $variables['floating_button']['links'][] = [
+    'icon' => 'upload',
+    'target' => '/file/add_anything',
+    'title' => 'Datei hochladen',
+  ];
+  if (og_user_access('node', $context['gid'], "manage group category")) {
+    $variables['floating_button']['links'][] = [
+      'icon' => 'tag',
+      'target' => 'groups/' . $context['gid'] . '/category',
+      'title' => t('Manage categories'),
+    ];
+  }
+}
+
+
+function salto_files_preprocess_salto_363_toolbar_alter(&$variables) {
+
+  if (!salto_files_has_current_path()) {
+    return;
+  }
+
+  $title = $variables['node'] ? $variables['node']->title : t('Materials');
+  $variables['toolbar']['title'] = $title;
+  $variables['toolbar']['context_menu'] = [];
+
+  if (salto_knowledgebase_files_category_access_callback()) {
+    $variables['toolbar']['action_links'][] = [
+      'icon' => 'tag',
+      'target' => '/materials/category',
+      'text' => t('Manage categories'),
+      'title' => t('Manage categories'),
+      'class' => 'action_link manage_categories',
+    ];
+  }
+
+}
+
+
+/**
+ * Implements hook_preprocess_salto_363_modal_alter().
+ *
+ * @param $variables
+ */
+function salto_files_preprocess_salto_363_modal_alter(&$variables) {
+  if (!salto_files_has_current_path()) {
+    return;
+  }
+
+  salto_knowledgebase_preprocess_salto_363_modal_toc($variables);
+  salto_knowledgebase_preprocess_salto_363_modal_filter($variables);
+}
+
+function salto_files_preprocess_page_toolbar_alter(&$variables) {
+  global $user;
+  $file = $variables['page']['content']['system_main']['#file'];
+  if (empty($file)) {
+    return;
+  }
+
+  $title = $file ? $file->field_file_title[LANGUAGE_NONE][0]['safe_value'] : '';
+  if ($file) {
+    $variables['toolbar']['back'] = '/materials';
+
+    $variables['toolbar']['title'] = t('Materials');
+
+    if (!empty($file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'])) {
+      $term = taxonomy_term_load($file->field_kb_kategorie[LANGUAGE_NONE][0]['tid']);
+      $variables['toolbar']['back'] = '/materials/' . $term->tid;
+      $title = $term->name;
+      $variables['toolbar']['title'] = $title;
+    }
+  }
+
+  if (count($file->field_og_group) > 0) {
+    // group file
+    $variables['toolbar']['back'] = url('/groups/' . $file->field_og_group[LANGUAGE_NONE][0]['target_id'] . '/files/term');
+    // set group title
+    $group = node_load($file->field_og_group[LANGUAGE_NONE][0]['target_id']);
+    $variables['toolbar']['title'] = $group->title;
+  }
+
+
+  $links = array_merge(salto_files_salto_action_links('file', ['file_context' => $file]), _salto_action_links_file($file));
+  $variables['toolbar']['context_links'] = $links;
+
+  if ($variables['toolbar']['context_links']['file_edit']) {
+    $edit = $variables['toolbar']['context_links']['file_edit'];
+    $variables['toolbar']['action_links'][] = [
+      'icon' => 'pen',
+      'target' => '/' . $edit['#path'] . '?destination=' . $edit['#options']['query']['destination'],
+      'text' => $edit['#text'],
+      'title' => $edit['#options']['attributes']['title'],
+      'class' => $edit['#options']['attributes']['class'],
+    ];
+    unset($variables['toolbar']['context_links']['file_edit']);
+  }
+
+  if ($variables['toolbar']['context_links']['file_download']) {
+    $edit = $variables['toolbar']['context_links']['file_download'];
+    $variables['toolbar']['action_links'][] = [
+      'icon' => 'download',
+      'target' => '/' . $edit['#path'] . '?token=' . $edit['#options']['query']['token'],
+      'text' => $edit['#text'],
+      'title' => $edit['#options']['attributes']['title'],
+      'class' => $edit['#options']['attributes']['class'],
+    ];
+    unset($variables['toolbar']['context_links']['file_download']);
+  }
+
+  if ($variables['toolbar']['context_links']['assign_category_node']) {
+    $edit = $variables['toolbar']['context_links']['assign_category_node'];
+    $variables['toolbar']['action_links'][] = [
+      'icon' => 'tag',
+      'target' => '/' . $edit['#path'] . '?destination=' . $edit['#options']['query']['destination'],
+      'text' => $edit['#text'],
+      'title' => $edit['#options']['attributes']['title'],
+      'class' => $edit['#options']['attributes']['class'],
+    ];
+    unset($variables['toolbar']['context_links']['assign_category_node']);
+  }
+
+  if (!onsite_notification_autosubscribe_enabled($user->uid, 'file')) {
+    $flagLink = flag_create_link('notification_subscribe_material', $file->fid);
+  }
+  else {
+    $flagLink = flag_create_link('notification_ignore_material', $file->fid);
+  }
+
+  if ($flagLink) {
+    $link = [
+      '#markup' => $flagLink,
+      '#text' => t('Subscribe'),
+      '#options' => [],
+    ];
+    $links = [];
+    $links["subscribe"] = $link;
+    $variables['toolbar']['context_links'] = array_merge($variables['toolbar']['context_links'], $links);
+  }
+
+}
+
+/**
+ * Allow modules to allow or deny access to flagging for a single entity.
+ *
+ * Called when displaying a single entity view or edit page.  For flag access
+ * checks from within Views, implement hook_flag_access_multiple().
+ *
+ * @param flag_flag $flag
+ *  The flag object.
+ * @param $entity_id
+ *  The id of the entity in question.
+ * @param string $action
+ *  The action to test. Either 'flag' or 'unflag'.
+ * @param $account
+ *  The user on whose behalf to test the flagging action.
+ *
+ * @return
+ *   One of the following values:
+ *     - TRUE: User has access to the flag.
+ *     - FALSE: User does not have access to the flag.
+ *     - NULL: This module does not perform checks on this flag/action.
+ *
+ *   NOTE: Any module that returns FALSE will prevent the user from
+ *   being able to use the flag.
+ *
+ * @see hook_flag_access_multiple()
+ * @see flag_flag:access()
+ */
+function salto_files_flag_access($flag, $entity_id, $action, $account) {
+
+  if ($flag->entity_type != 'file') {
+    return NULL;
+  }
+
+  $pages = [
+    'notifications/material/subscriptions',
+    'flag/*',
+  ];
+  $path = drupal_strtolower(drupal_get_path_alias($_GET['q']));
+  // Compare the lowercase internal and lowercase path alias (if any).
+  $page_match = drupal_match_path($path, implode("\n", $pages));
+
+  if ($page_match) {
+    return NULL;
+  }
+
+  if ($_GET['q'] == 'notifications/ignored/material') {
+    return NULL;
+  }
+
+  if (!in_array($flag->name, [
+    'notification_ignore_material',
+    'notification_subscribe_material',
+  ])) {
+    return NULL;
+  }
+
+  $file = file_load($entity_id);
+
+  $isInteresstedByThemenfelder = salto_user_interested_in_entity($file, $account);
+  $autoSubscribeEnabled = onsite_notification_autosubscribe_enabled($account->uid, 'file');
+
+
+  if ($flag->name == 'notification_subscribe_material') { //manual subscribe button
+    if ($autoSubscribeEnabled) {
+      if ($isInteresstedByThemenfelder) {
+        return FALSE;
+      }
+    }
+  }
+
+  if ($flag->name == 'notification_ignore_material') { //auto subscribe / ignore button
+    if (!$autoSubscribeEnabled) {
+      return FALSE;
+    }
+    if (!$isInteresstedByThemenfelder) {
+      return FALSE;
+    }
+  }
+}

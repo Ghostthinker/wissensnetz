@@ -1,0 +1,59 @@
+@import "../../../less/variables";
+
+.chip,
+label.chip {
+  border-radius: 25px;
+  padding: 0.6em !important;
+  padding-left: 30px !important;
+  padding-right: 30px !important;
+  text-align: center;
+  vertical-align: middle;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  background-color: #eee;
+  color: @dosb-black;
+  font-size: 1em;
+  margin-bottom: 0 !important;
+
+  input:checked ~ .checkmark {
+    background-color: transparent !important;
+  }
+
+  &:hover {
+    background-color: @dosb-orange;
+    color: #ffffff;
+
+    input ~ .checkmark {
+      background-color: transparent !important;
+    }
+  }
+
+  &.checked,
+  &.active {
+    background-color: @dosb-orange;
+    color: #ffffff;
+
+    &:hover {
+      color: @dosb-black;
+      background-color: #eee;
+    }
+
+    .checkmark.check {
+      display: block !important;
+    }
+  }
+
+  .checkmark.check {
+    display: none !important;
+    margin: 0 1em 0 0;
+    height: 15px;
+    width: 15px;
+    background-color: transparent;
+    position: absolute;
+    // Relative position because of padding (see top label.chip rule)
+    top: 0.6em;
+    left: 5px;
+  }
+}
+

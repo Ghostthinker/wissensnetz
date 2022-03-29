@@ -1,0 +1,117 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: onsite notifications\n"
+"POT-Creation-Date: 2014-07-08 13:14+0100\n"
+"PO-Revision-Date: 2014-07-08 13:18+0100\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.6.6\n"
+"X-Poedit-Basepath: .\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: de_DE\n"
+
+msgid "View own notifications"
+msgstr "Eigene Benachrichtigungen anzeigen"
+
+msgid "View any notifications"
+msgstr "Alle Benachrichtigungen anzeigen"
+
+msgid "View all notifications for all users."
+msgstr "Alle Benachrichtigungen von allen Benutzern sehen."
+
+msgid "Notifications (!count new)"
+msgstr "Benachrichtigungen (!count neu)"
+
+msgid "Notifications"
+msgstr "Benachrichtigungen"
+
+msgid "Notification settings"
+msgstr "Benachrichtigungseinstellungen"
+
+msgid "Notification event"
+msgstr "Ereignis"
+
+msgid "Site notification"
+msgstr ""
+
+msgid "Email notification"
+msgstr "E-Mail"
+
+msgid "Edit your notification subscriptions."
+msgstr "Hier können Sie Ihre abonierten Beiträge verwalten."
+
+msgid "Manage your subscribed content."
+msgstr "Hier können Sie Ihre abonierten Beiträge verwalten."
+
+msgid "Manage subsciptions"
+msgstr "Abos verwalten"
+
+msgid "An overview of your notifications."
+msgstr "Eine Übersicht Ihrer Benachrichtigungen"
+
+msgid "All notifications"
+msgstr "Alle Benachrichtigungen"
+
+msgid "Notification events"
+msgstr "Benachrichtigungsereignisse"
+
+msgid "Here you can set if and how you want to be notified by event type."
+msgstr "Hier können Sie festlegen, auf welche Art Sie benachrichtigt werden wollen. Sie können einzelne Benachrichtigungen auch ganz deaktivieren."
+
+msgid "Mail frequency"
+msgstr "E-Mail Sendehäufigkeit"
+
+msgid "When enabling e-mail notification, how often do you want to receive mails?"
+msgstr "Wenn Sie E-Mail benachrichtigung für eine oder mehrere Benachrichtigungsereignisse aktiviert haben können Sie hier festlegen, wie oft Sie eine E-Mail bekommen wollen."
+
+msgid "imidiately"
+msgstr "sofort"
+
+msgid "daily"
+msgstr "täglich"
+
+msgid "weekly"
+msgstr "wöchentlich"
+
+msgid "Notification settings have been saved!"
+msgstr "Benachrichtigungseinstellungen gespeichert!"
+
+
+msgid "Send a mail for this notification."
+msgstr "Diese Benachrichtigung auch per E-mail versenden."
+
+msgid "Receive notifications for this notification.""
+msgstr "Für dieses Eregnis eine Benachrichtigung erhalten."
+
+msgid "Notification"
+msgstr "Benachrichtigung"
+
+msgid "Notifications for KW !weeknumber"
+msgstr "Benachrichtigungen für KW !weeknumber"
+
+msgid "Notifications for !day"
+msgstr "Benachrichtigungen für !day"
+
+msgid "You have a new notification"
+msgstr "Sie haben eine neue Benachrichtigung erhalten!"
+
+msgid "All messages have been marked as read."
+msgstr "Alle Benachrichtigungen wurden als gelesen markiert."
+
+msgid "No unread notifications."
+msgstr "Keine ungelesenen Benachrichtigungen."
+
+msgid "read"
+msgstr "gelesen"
+
+msgid "unread"
+msgstr "ungelesen"
+
+msgid "Mark all as read"
+msgstr "Alle als gelesen markieren"
+
+msgid "Notifications"
+msgstr "Benachrichtigungen"

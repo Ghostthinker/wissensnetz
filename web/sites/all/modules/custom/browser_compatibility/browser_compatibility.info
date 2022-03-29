@@ -1,0 +1,5 @@
+name = Browser Compability
+description = Checks compability of users browsers, active javascript and cookies
+core = 7.x
+package = Access
+dependencies[] = browscap

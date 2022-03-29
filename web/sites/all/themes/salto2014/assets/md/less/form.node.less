@@ -1,0 +1,135 @@
+
+@import "../../../less/variables";
+
+@media only screen and (max-width: @max-width) {
+  .content-form {
+    .accordion-panel {
+      .draggable,
+      .file_action_buttons:not(.hide) {
+        display: flex !important;
+        flex-direction: column;
+      }
+    }
+  }
+}
+
+.content-form {
+  .input-group .form-control {
+    z-index: 1;
+  }
+  .form-group {
+    border-bottom: none;
+    padding-bottom: unset;
+    //margin-bottom: unset;
+  }
+  .form-item-title {
+    margin-top: 1em;
+  }
+
+  .vertical-tabs,
+  #edit-revision-information {
+    display: none;
+  }
+
+  .accordion-container {
+    &.label-hide {
+      .accordion-panel {
+        .form-group .form-group > .control-label {
+          display: none;
+        }
+      }
+    }
+    .accordion-panel {
+      .form-item {
+        margin-bottom: 0.5em;
+        width: calc(100% - 20px);
+        .dropdown-menu > li > a {
+          white-space: unset;
+        }
+      }
+
+      .panel-body {
+        padding: unset;
+      }
+
+      > div:not(.modal-tb),
+      > fieldset {
+        padding: 1.3em;
+        border-bottom: none;
+        margin-bottom: unset;
+      }
+
+      div.form-item-salto-notification {
+        padding: 1em;
+        padding-left: 1.3em;
+      }
+
+      .modal-tb {
+        .modal-content h2 {
+          text-align: left;
+          color: @dosb-orange;
+        }
+
+        .text-format-wrapper,
+        .panel-body {
+          padding: 1.3em;
+        }
+      }
+
+      .draggable {
+        display: block;
+        input[type=text] {
+          max-width: 100%;
+        }
+      }
+
+      .table-responsive > .table > tbody > tr > td {
+        white-space: normal;
+      }
+    }
+  }
+  .accordion-container.desktop {
+    .modal-tb {
+      display: block;
+      position: relative;
+      padding-top: unset;
+      background-color: transparent;
+      .modal-content {
+        border: none;
+        box-shadow: none;
+        .close, h2 {
+          display: none;
+        }
+      }
+      .draggable,
+      .file_action_buttons {
+        display: block;
+      }
+    }
+  }
+
+  #edit-field-taxonomy-post-tags-und {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .checkbox-mark {
+    .container {
+      font-size: 14px;
+    }
+    .checkmark {
+      height: 21px;
+      width: 23px;
+      margin: 0;
+    }
+  }
+/*
+  .field-type-taxonomy-term-reference {
+    label.container {
+      text-overflow: ellipsis;
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+  }
+ */
+}

@@ -1,0 +1,224 @@
+<?php
+
+/**
+ * @file
+ * Basic test of media_derivatives module.
+ * @author JAnez Urevc <janez@janezurevc.name>
+ *
+ * TODO: Implement tests.
+ */
+
+
+/**
+ * Implementation of unit tests for most crucial functions in media_derivatives.
+ */
+class MediaDerivativesTests extends DrupalWebTestCase {
+
+  /**
+   * Returns basic info about this test class.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Media derivatives tests',
+      'description' => 'Performs tests for various functions in Media derivatives module.',
+      'group' => 'Media',
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  function setUp() {
+    parent::setUp();
+    //module_load_include('module', 'media_derivatives');
+    module_enable(array('media_derivatives'));
+  }
+
+  /**
+   * Test media_derivatives_create_derivative_object();
+   */
+  function testCreateDerivativeObject() {
+     // Create user.
+    global $user;
+    $user->uid = 1;
+
+    // Create input vars.
+    $file = new stdClass;
+    $file->fid = 1;
+    $file->media_derivatives['is_derivative'] = FALSE;
+
+    $preset = new stdClass;
+    $preset->machine_name = 'test_preset';
+    $preset->engine = 'test_engine';
+    $preset->scheduler = 'test_scheduler';
+
+    $event = 'test_event';
+    $context = array('some_var' => 'some_val');
+
+    $response = media_derivatives_create_derivative_object($file, $preset, $event, $context);
+    $this->assertEqual($response->type, MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED, 'Derivative file is unmanaged.', 'Media derivatives');
+    $this->assertEqual($response->unmanaged_uri, NULL, 'Unmanaged derivatives URI is NULL.', 'Media derivatives');
+    $this->assertEqual($response->engine, 'test_engine', 'Engine name is "test_engine".', 'Media derivatives');
+    $this->assertEqual($response->preset->machine_name, 'test_preset', 'Derivative file is unmanaged.', 'Media derivatives');
+    $this->assertEqual($response->source_fid, 1, 'Source file fid is 1.', 'Media derivatives');
+    $this->assertEqual($response->root_source_fid, 1, 'Root source file fid is 1.', 'Media derivatives');
+    $this->assertEqual($response->uid, 1, 'Checked user UID.', 'Media derivatives');
+    $this->assertEqual($response->scheduler, 'test_scheduler', 'Scheduler name is "test_scheduler".', 'Media derivatives');
+    $this->assertEqual($response->scheduled_time, NULL, 'Scheduled time is NULL.', 'Media derivatives');
+    $this->assertEqual($response->event, 'test_event', 'Event name is "test_event".', 'Media derivatives');
+    $this->assertEqual($response->context['some_var'], 'some_val', 'Test context array content.', 'Media derivatives');
+
+    $preset->settings['type'] = MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED;
+    $response = media_derivatives_create_derivative_object($file, $preset, $event, $context);
+    $this->assertEqual($response->type, MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED, 'Derivative file is unmanaged.', 'Media derivatives');
+
+    $preset->settings['type'] = MEDIA_DERIVATIVE_FILE_TYPE_MANAGED;
+    $response = media_derivatives_create_derivative_object($file, $preset, $event, $context);
+    $this->assertEqual($response->type, MEDIA_DERIVATIVE_FILE_TYPE_MANAGED, 'Derivative file is managed.', 'Media derivatives');
+
+    $file->media_derivatives['is_derivative'] = TRUE;
+    $file->media_derivatives['derivative_object']->root_source_fid = 100;
+    $response = media_derivatives_create_derivative_object($file, $preset, $event, $context);
+    $this->assertEqual($response->root_source_fid, 100, 'Root source file fid is 100.', 'Media derivatives');
+  }
+
+  /**
+   * Test media_derivatives_load().
+   */
+  function testLoad() {
+    // Create sample derivative.
+    $preset = new stdClass;
+    $preset->machine_name = 'test_preset';
+    $derivative = array(
+      'uid' => 1,
+      'type' => MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED,
+      'source_fid' => 1,
+      'root_source_fid' => 1,
+      'derivative_fid' => 2,
+      'engine' => 'test_engine',
+      'event' => 'test_event',
+      'context' => serialize(array('some_var' => 'some_val')),
+      'preset' => serialize($preset),
+      'status' => MEDIA_DERIVATIVE_TYPE_FINISHED,
+      'scheduler' => 'test_scheduler',
+      'scheduled_time' => 1,
+      'created' => 1,
+      'changed' => 1,
+      'language' => LANGUAGE_NONE,
+      'log' => 'Status log.',
+    );
+
+    // Write record to DB.
+    $mdid = db_select('media_derivatives', 'md')
+      ->fields('md', array('mdid'))
+      ->orderBy('mdid', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchField();
+    $derivative['mdid'] =  $mdid ? $mdid + 1 : 1;
+
+    db_insert('media_derivatives')
+      ->fields($derivative)
+      ->execute();
+
+    // Test loaded object.
+    $loaded = media_derivatives_load($derivative['mdid']);
+    foreach ($derivative as $key => $value) {
+      if (in_array($key, array('context', 'preset'))) {
+        $value = unserialize($value);
+      }
+      $this->assertEqual($loaded->{$key}, $value, 'Testing loaded derivative value: ' . $key, 'Media derivatives');
+    }
+    $this->assertEqual($loaded->unmanaged_uri, NULL, 'Testing loaded derivative value: unmanaged_uri (no value)', 'Media derivatives');
+
+    // Test unmanaged uri also.
+    db_insert('media_derivatives_unmanaged')
+      ->fields(array(
+        'mdid' => $derivative['mdid'],
+        'uri' => 'public://derivative.mp4',
+      ))
+      ->execute();
+
+    $loaded = media_derivatives_load($derivative['mdid']);
+    $this->assertEqual($loaded->unmanaged_uri, 'public://derivative.mp4', 'Testing loaded derivative value: unmanaged_uri (uri set)', 'Media derivatives');
+  }
+
+  /**
+   * Test media_derivatives_save().
+   */
+  function testSave()  {
+    // Create sample data.
+    $preset = new stdClass;
+    $preset->machine_name = 'test_preset';
+    $derivative = new stdClass;
+    $derivative->uid = 1;
+    $derivative->type = MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED;
+    $derivative->source_fid = 1;
+    $derivative->root_source_fid = 1;
+    $derivative->derivative_fid = 2;
+    $derivative->engine = 'test_engine';
+    $derivative->event = 'test_event';
+    $derivative->context = array('some_var' => 'some_val');
+    $derivative->preset = $preset;
+    $derivative->status = MEDIA_DERIVATIVE_TYPE_FINISHED;
+    $derivative->scheduler = 'test_scheduler';
+    $derivative->scheduled_time = 1;
+    $derivative->created = 1;
+    $derivative->changed = 1;
+    $derivative->language = LANGUAGE_NONE;
+    $derivative->log = 'Status log.';
+    $derivative->unmanaged_uri = NULL;
+
+    // Save to DB.
+    $saved = media_derivatives_save($derivative);
+
+    // Load from DB.
+    $loaded = db_select('media_derivatives', 'md')
+      ->condition('mdid', $derivative->mdid)
+      ->fields('md', array())
+      ->execute()
+      ->fetchObject();
+
+    // Test object.
+    foreach ($loaded as $key => $value) {
+      if (in_array($key, array('context', 'preset'))) {
+        $value = unserialize($value);
+      }
+      $this->assertEqual($derivative->{$key}, $value, 'Testing saved derivative value: ' . $key, 'Media derivatives');
+    }
+
+    $uri = db_select('media_derivatives_unmanaged', 'mdu')
+      ->condition('mdid', $loaded->mdid)
+      ->fields('mdu', array('uri'))
+      ->execute()
+      ->fetchField();
+    $this->assertTrue(empty($uri), 'Testing saved derivative value: unmanaged_uri (no value)', 'Media derivatives');
+
+    // Test object with unmanaged uri set.
+    $derivative->unmanaged_uri = 'public://deriavtive.mp4';
+    $saved = media_derivatives_save($derivative);
+
+    // Load from DB.
+    $loaded = db_select('media_derivatives', 'md')
+      ->condition('mdid', $derivative->mdid)
+      ->fields('md', array())
+      ->execute()
+      ->fetchObject();
+
+    // Test object.
+    foreach ($loaded as $key => $value) {
+      if (in_array($key, array('context', 'preset'))) {
+        $value = unserialize($value);
+      }
+      $this->assertEqual($derivative->{$key}, $value, 'Testing saved derivative value: ' . $key, 'Media derivatives');
+    }
+
+    $uri = db_select('media_derivatives_unmanaged', 'mdu')
+      ->condition('mdid', $loaded->mdid)
+      ->fields('mdu', array('uri'))
+      ->execute()
+      ->fetchField();
+    $this->assertEqual($uri, $derivative->unmanaged_uri, 'Testing saved derivative value: unmanaged_uri (value set)', 'Media derivatives');
+
+  }
+}

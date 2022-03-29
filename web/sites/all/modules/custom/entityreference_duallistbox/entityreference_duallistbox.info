@@ -1,0 +1,4 @@
+name = Entity Reference Dual List Box
+description = Entity reference with a dual list box selection
+core = 7.x
+package = Fields

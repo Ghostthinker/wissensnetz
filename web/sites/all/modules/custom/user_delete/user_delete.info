@@ -1,0 +1,4 @@
+name = User Delete
+description = New specific account canceling methods and formatters
+package = Salto-Bip
+core = 7.x

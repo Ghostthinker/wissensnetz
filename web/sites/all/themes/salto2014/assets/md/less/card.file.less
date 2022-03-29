@@ -1,0 +1,106 @@
+@import "../components/card.less";
+@import "card.node.less";
+
+@media only screen and (max-width: 320px) {
+
+  // Hide file image on very small screens
+  .salto_file_listing .card {
+
+    #file-image {
+      display: none;
+    }
+
+    .header h3 {
+      font-size: 1em !important;
+    }
+
+  }
+}
+
+.salto-93.file .card,
+.salto_file_listing .card {
+
+  &.row,
+  .row {
+    margin: 0;
+    border-bottom: none;
+  }
+
+  .header {
+    align-items: flex-start;
+    justify-content: space-between;
+    h2, h3 {
+      color: @dosb-orange;
+      margin: unset;
+      margin-bottom: 1em;
+      font-size: 18px;
+      line-height: 26px;
+      a {
+        color: inherit;
+      }
+    }
+    .col-md-12 {
+      padding: 0;
+    }
+
+    .col-md-9 > div {
+      //display: none;
+    }
+    .pull-right {
+      margin: 0.5em 0;
+    }
+    .field-name-download-link {
+      display: flex;
+      color: @dosb-grey;
+      font-weight: 600;
+      justify-content: flex-end;
+      position: unset;
+      width: 100%;
+      margin: 0.5em 0;
+    }
+  }
+
+  #file-image img {
+    max-height: 105px;
+  }
+
+  .col-md-3 {
+    width: 25%;
+    padding: 0;
+  }
+
+  .col-md-9 {
+    width: 75%;
+  }
+
+  img {
+    border-radius: 0 !important;
+    width: inherit  !important;;
+    height: inherit !important;
+    max-width: 100%;
+  }
+  .field-item a {
+     font-size: 13px;
+   }
+  .group-content .field {
+    margin: 0.7em 0;
+  }
+  .group-footer {
+    .foo-right,
+    .foo-left {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      .pull-right {
+        float: none !important;
+      }
+    }
+    i.salto_rate_content:before {
+      margin-left: 0;
+    }
+    .field-name-salto-files-rating-action {
+      margin-bottom: 0.3em;
+    }
+  }
+}
+

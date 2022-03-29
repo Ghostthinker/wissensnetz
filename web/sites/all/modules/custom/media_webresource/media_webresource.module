@@ -1,0 +1,80 @@
+<?php
+
+require_once dirname(__FILE__) . '/includes/media_webresource.formatter.inc';
+
+/**
+ * Implements hook_media_internet_providers().
+ *
+ * Implementors return an multidim array, keyed by a class name with the
+ * following elements:
+ * - title
+ * - image (optional)
+ * - hidden: bool If the logo should be shown on form. (optional)
+ * - weight (optional)
+ */
+function media_webresource_media_internet_providers() {
+  return [
+    'MediaWebresourceHandler' => [
+      'title' => 'Webresource',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_stream_wrappers().
+ */
+function media_webresource_stream_wrappers() {
+  return [
+    'webresource' => [
+      'name' => t('Web resource'),
+      'class' => 'MediaWebresourceStreamWrapper',
+      'description' => t('Remote stream'),
+      'type' => STREAM_WRAPPERS_READ_VISIBLE,
+    ],
+  ];
+}
+
+/**
+ * Implements hook_file_mimetype_mapping_alter().
+ */
+function media_webresource_file_mimetype_mapping_alter(&$mapping) {
+  $mapping['mimetypes'][] = 'webresource/generic';
+}
+
+/**
+ * Implements hook_ctools_plugin_api().
+ */
+function media_webresource_ctools_plugin_api($module, $api) {
+  if ($module == 'file_entity' && $api == 'file_default_displays') {
+    return ['version' => 1];
+  }
+}
+
+/**
+ * Implements hook_file_default_types_alter().
+ */
+function media_webresource_file_default_types_alter(&$types) {
+  $types['webresource'] = (object) [
+    'api_version' => 1,
+    'type' => 'webresource',
+    'label' => t('Webresource'),
+    'description' => t('A generic web resource.'),
+    'mimetypes' => [
+      'webresource/*',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_theme().
+ */
+function media_webresource_theme($existing, $type, $theme, $path) {
+  return [
+    'media_webresource_youtube_player' => [
+      'variables' => ['yotube_id' => NULL, 'options' => []],
+      'file' => 'media_webresource.theme.inc',
+      'path' => $path . '/template',
+      'template' => 'media_webresource_youtube_player',
+    ],
+  ];
+}

@@ -1,0 +1,191 @@
+<?php
+/**
+ * @file autocomplete_tagging module adds a goggle plus like autocomplete
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function autocomplete_tagging_menu() {
+  $items['user/autocomplete_tagging'] = [
+    'title' => 'User autocomplete',
+    'page callback' => 'autocomplete_tagging_user_callback',
+    'access callback' => 'user_access',
+    'access arguments' => ['access user profiles'],
+    'type' => MENU_CALLBACK,
+  ];
+  return $items;
+}
+
+/**
+ * Menu callback; Retrieve a JSON object containing autocomplete suggestions
+ * for existing users. When preloaded_vakues is set and the string matches
+ * "preload"
+ */
+function autocomplete_tagging_user_callback($string = '', $preload_values = '') {
+
+  $matches = [];
+
+  if ($string == "preload") {
+    if (!empty($_GET['uid'])) {
+      foreach ($_GET['uid'] as $uid) {
+        $matches[] = autocomplete_tagging_load_user_preview($uid);
+      }
+    }
+  }
+  else {
+    if ($string) {
+      $query = db_select('users', 'u');
+      $query->leftJoin('realname', 'rn', 'u.uid = rn.uid');
+      $query->fields('u', ['uid', 'name']);
+      $query->condition(db_or()
+        ->condition('rn.realname', '%' . db_like($string) . '%', 'LIKE')
+      );
+      $query->range(0, 10);
+      $uids = $query->execute()->fetchCol();
+      $accounts = user_load_multiple($uids);
+      foreach ($accounts as $account) {
+        $matches[] = autocomplete_tagging_load_user_preview($account->uid);
+      }
+    }
+  }
+  drupal_json_output($matches);
+}
+
+/**
+ * load a themed user item for user reference
+ *
+ * @param  [type] $uid [description]
+ *
+ * @return [type]      [description]
+ */
+function autocomplete_tagging_load_user_preview($uid) {
+  $user = user_load($uid);
+  return [
+    'id' => $user->uid,
+    'name' => format_username($user),
+    'image' => theme('user_picture', [
+      'account' => $user,
+      'style' => 'user_30x30',
+    ]),
+  ];
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function autocomplete_tagging_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+
+  $entity_info = entity_get_info($field['settings']['target_type']);
+  if (empty($entity_info)) {
+    return;
+  }
+  $entity_type = $instance['entity_type'];
+  $entity = isset($element['#entity']) ? $element['#entity'] : NULL;
+  $handler = entityreference_get_selection_handler($field, $instance, $entity_type, $entity);
+
+  if ($instance['widget']['type'] == 'autocomplete_tagging' || $instance['widget']['type'] == 'autocomplete_tagging_tags') {
+    if ($instance['widget']['type'] == 'autocomplete_tagging_NONE') {
+      if (isset($items[$delta])) {
+        $items = [$items[$delta]];
+      }
+      else {
+        $items = [];
+      }
+    }
+
+    $entity_ids = [];
+    $entity_labels = [];
+
+    foreach ($items as $item) {
+      $entity_ids[] = $item['target_id'];
+    }
+
+    // Load those entities and loop through them to extract their labels.
+    $entities = entity_load($field['settings']['target_type'], $entity_ids);
+
+    foreach ($entities as $entity_id => $entity_item) {
+      $label = $handler->getLabel($entity_item);
+      $key = "$label ($entity_id)";
+      // Labels containing commas or quotes must be wrapped in quotes.
+      if (strpos($key, ',') !== FALSE || strpos($key, '"') !== FALSE) {
+        $key = '"' . str_replace('"', '""', $key) . '"';
+      }
+      $entity_labels[] = $key;
+    }
+
+    if (!empty($instance['widget']['settings']['path'])) {
+      $autocomplete_path = $instance['widget']['settings']['path'];
+    }
+    else {
+      $autocomplete_path = $instance['widget']['type'] == 'entityreference_autocomplete' ? 'entityreference/autocomplete/single' : 'entityreference/autocomplete/tags';
+    }
+
+    $autocomplete_path .= '/' . $field['field_name'] . '/' . $instance['entity_type'] . '/' . $instance['bundle'] . '/';
+    $id = 'NULL';
+    if ($entity) {
+      [$eid] = entity_extract_ids($entity_type, $entity);
+      if ($eid) {
+        $id = $eid;
+      }
+    }
+
+    $autocomplete_path .= $id;
+
+    if ($instance['widget']['type'] == 'autocomplete_tagging') {
+      $element += [
+        '#type' => 'textfield',
+        '#maxlength' => 1024,
+        '#size' => $instance['widget']['settings']['size'],
+        '#default_value' => implode(', ', $entity_labels) ? implode(', ', $entity_labels) : '',
+        '#autocomplete_tagging_path' => $autocomplete_path,
+        '#element_validate' => ['_entityreference_autocomplete_tags_validate'],
+      ];
+
+      return $element;
+    }
+  }
+}
+
+/**
+ * Adds addition settings to entity reference fields
+ *
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Add option to hide the OG_GROUP_FIELD.
+ *
+ * @see og_field_access()
+ */
+function autocomplete_tagging_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+
+  if ($form['#field']['type'] != 'entityreference' || $form['#instance']['widget']['type'] != 'entityreference_autocomplete_tags') {
+    return;
+  }
+
+  $form['#instance']['widget']['settings'] += ['user_autocomplete' => FALSE];
+
+  $form['instance']['widget']['settings']['user_autocomplete'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Use Autocomplete Tagging'),
+    '#description' => t('If checked this reference field will be rendered as a dropdown of user-items with a user picture. (For user entity only!)'),
+    '#default_value' => $form['#instance']['widget']['settings']['user_autocomplete'],
+  ];
+}
+
+/**
+ * attaching css and javascript behavior if widget setting is set for the field
+ * instance
+ *
+ * Implementation of hook_field_widget_form_alter().
+ */
+function autocomplete_tagging_field_widget_form_alter(&$element, &$form_state, $context) {
+
+  if ($context['instance']['widget']['type'] == 'entityreference_autocomplete_tags' && $context['instance']['widget']['settings']['user_autocomplete']) {
+
+    $element['#attached']['js'][] = drupal_get_path('module', 'autocomplete_tagging') . '/js/jquery.tokeninput.js';
+    $element['#attached']['js'][] = drupal_get_path('module', 'autocomplete_tagging') . '/js/autocomplete_tagging.js';
+    $element['#attached']['css'][] = drupal_get_path('module', 'autocomplete_tagging') . '/css/token-input-minimal.css';
+    $element['#attached']['css'][] = drupal_get_path('module', 'autocomplete_tagging') . '/css/autocomplete_tagging.css';
+    $element['#attributes']['class'][] = 'autocomplete-tagging';
+  }
+}

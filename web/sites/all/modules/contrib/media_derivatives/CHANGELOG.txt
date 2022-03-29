@@ -1,0 +1,29 @@
+Changelog for Derivatives API for Drupal 7
+
+Derivatives API 7.x-1.x-dev
+----------------------------------------------------
+- #2193407 by Beanjammin: Entity Cache integration.
+- #2118759 by martin_q: Fixed Coding standards: grammar, spelling, etc.
+
+Derivatives API 7.x-1.0-beta3
+----------------------------------------------------
+- #2068213 by jonathan_hunt: Added Pass field settings to media derivatives processing.
+- #2096605 by jonathan_hunt: Fixed Deleting unmanaged file doesn't work.
+- #2073059 by Beanjammin: Added filemime to derivatives array.
+- #2050309 by ahoeben: Fixed Incorrect placeholder in media_derivatives_schedule_derivative().
+- #1645262 by ahoeben: Added Use hook_entity_insert() and hook_entity_update() instead of hook_entity_presave().
+- #1879288 by slashrsm: Fixed: Call to undefined function file_type_get_all_types().
+
+
+Derivatives API 7.x-1.0-beta2
+----------------------------------------------------
+- #1886092 by PQ: Allow negated conditions.
+- #1645270 by ahoeben, slashrsm: Fixed field_presave() event always processes all fields.
+- #1879288 by PQ, slashrsm | gaiello: Added Fatal error: Call to undefined function file_info_file_types().
+- #1349354 by camdarley, slashrsm: Fixed Same Derviatives file for different source files (remove uneeded constraints on DB).
+- #1424844 by greenrmor: Typo in hook_permission().
+- #1351426 by slashrsm: Allow delete action on unmanaged derivatives.
+- #1323430 by slashrsm: Allow engines to set progress.
+- by slashrsm: Fix coder_review warnings.
+- #1276824 by slashrsm: Notice: Undefined property: stdClass::$media_derivatives
+- #954720 by camdarley, slashrsm: Parallelize engine processing (using background_process.module).

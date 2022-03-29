@@ -1,0 +1,1512 @@
+<?php
+
+/**
+ * @file
+ * Code for the salto_statistics feature.
+ */
+include_once 'salto_statistics.features.inc';
+
+define('SALTO_STATISTICS_ROLE_PROJEKTTEAM', 1);
+define('SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN', 2);
+
+/**
+ * create a statistics daily node once a day
+ *
+ * Implements hook_cron().
+ */
+function salto_statistics_cron() {
+  $last_execution_daily = variable_get('salto_statistics_statistics_daily_run_time', 0);
+  $hour_to_send = variable_get('salto_statistics_statistics_daily_hour', 22);
+
+  //daily - get timestamp 22h ago
+  //22h because execution time will get later every time otherwise!
+  $interval_daily = 60 * 60 * $hour_to_send;
+
+  //23h have passed since last creation
+  $interval_passed = (time() >= $last_execution_daily + $interval_daily);
+  //2h interval - 21:00 > creation < 23:00
+  $hour_tolerance_met = (abs((int) date('H', time()) - $hour_to_send) <= 1);
+
+  //force node to be created at a specific time from 21:00>creation<23:00
+  if ($interval_passed && $hour_tolerance_met) {
+    salto_statistics_cron_execute();
+    variable_set('salto_statistics_statistics_daily_run_time', time());
+  }
+
+}
+
+/**
+ * Implements hook_menu().
+ */
+function salto_statistics_menu() {
+  //Settings Callback
+  $items['admin/config/salto/statistics'] = [
+    'title' => 'Statistics settings',
+    'description' => 'Settings for sitewide statistics.',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_statistics_admin_settings'],
+    'file' => 'salto_statistics.admin.inc',
+  ];
+
+  return $items;
+}
+
+/**
+ *  Statistics - Overview
+ */
+
+/**
+ * Implements hook_cron_run
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_cron_execute() {
+  salto_statistics_create_daily_statistics_node();
+}
+
+/**
+ * get statistics for a specific node
+ *
+ * @param  [type] $nid       [description]
+ * @param  [type] $timestamp [description]
+ *
+ * @return [type]            [description]
+ */
+function salto_statistics_piwik_get_node_stats($nid, $timestamp) {
+  $result = [];
+  $day = date('Y-m-d', $timestamp);
+
+  $page_url = 'node/' . $nid;
+  $token_auth = SALTO_STATISTICS_PIWIK_TOKEN_AUTH;
+  $url = "https://bildungsnetz.dosb.de/piwik/";
+  $url .= "?module=API&method=Actions.getPageUrl";
+  $url .= "&pageUrl=$page_url&idSite=1&period=day&date=" . $day;
+  $url .= "&format=PHP";
+  $url .= "&token_auth=$token_auth";
+  $fetched = file_get_contents($url);
+
+  $result = unserialize($fetched);
+
+  return $result;
+}
+
+
+/**
+ * get statistics for all sites
+ * [salto_statistics_piwik_get_node_stats description]
+ *
+ * @param  [type] $nid       [description]
+ * @param  [type] $timestamp [description]
+ *
+ * @return [type]            [description]
+ */
+function salto_statistics_piwik_get_all_nodes_stats($timestamp) {
+  $result = [];
+  $day = date('Y-m-d', time());
+
+  $token_auth = SALTO_STATISTICS_PIWIK_TOKEN_AUTH;
+  $url = "https://bildungsnetz.dosb.de/piwik/";
+  $url .= "?module=API&method=Actions.getPageUrls";
+  $url .= "&idSite=1&expanded=1&idSubtable=2126&period=year&date=" . $day;
+  $url .= "&format=PHP&filter_limit=1000&max_limit=1000&limit=1000";
+  $url .= "&token_auth=$token_auth";
+  $fetched = file_get_contents($url);
+
+  $result = unserialize($fetched);
+
+  return $result;
+}
+
+/**
+ * add needed javascript files
+ * Implements hook_init
+ */
+function salto_statistics_init() {
+
+  if (arg(0) == 'statistics') {
+    drupal_add_css(drupal_get_path('module', 'salto_statistics') . '/less/salto_statistics.less');
+    //attaching js
+    drupal_add_js(drupal_get_path('module', 'salto_group') . '/js/salto_group_filter.js');
+  }
+
+}
+
+/**
+ * create statistics daily node
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_create_daily_statistics_node() {
+
+  // Create an Entity
+  $e = entity_create('node', ['type' => 'statistics_daily']);
+
+  // Specify the author
+  $e->uid = 0;
+  $e->name = 'system';
+  // Create a Entity Wrapper of that new Entity
+  $entity = entity_metadata_wrapper('node', $e);
+
+  $entity->field_registrated_users->set(salto_statistics_compute_field_registrated_users());
+  $entity->field_registrated_users_pt->set(salto_statistics_compute_field_registrated_users_pt());
+  $entity->field_registrated_users_br->set(salto_statistics_compute_field_registrated_users_br());
+  $entity->field_besucher->set(salto_statistics_compute_field_besucher());
+  $entity->field_besucher_pt->set(salto_statistics_compute_field_besucher_pt());
+  $entity->field_besucher_br->set(salto_statistics_compute_field_besucher_br());
+  $entity->field_seitenaufrufe->set(salto_statistics_compute_field_seitenaufrufe());
+  $entity->field_seitenaufrufe_pt->set(salto_statistics_compute_field_seitenaufrufe_pt());
+  $entity->field_seitenaufrufe_br->set(salto_statistics_compute_field_seitenaufrufe_br());
+  $entity->field_beitraege->set(salto_statistics_compute_field_beitraege());
+  $entity->field_beitraege_pt->set(salto_statistics_compute_field_beitraege_pt());
+  $entity->field_beitraege_br->set(salto_statistics_compute_field_beitraege_br());
+  $entity->field_kommentare->set(salto_statistics_compute_field_kommentare());
+  $entity->field_kommentare_pt->set(salto_statistics_compute_field_kommentare_pt());
+  $entity->field_kommentare_br->set(salto_statistics_compute_field_kommentare_br());
+  $entity->field_gruppen->set(salto_statistics_compute_field_gruppen());
+  $entity->field_gruppen_pt->set(salto_statistics_compute_field_gruppen_pt());
+  $entity->field_gruppen_br->set(salto_statistics_compute_field_gruppen_br());
+  $entity->field_mitglieder_pro_gruppe->set(salto_statistics_compute_field_mitglieder_pro_gruppe());
+  $entity->field_mitglieder_pro_gruppe_pt->set(salto_statistics_compute_field_mitglieder_pro_gruppe_pt());
+  $entity->field_mitglieder_pro_gruppe_br->set(salto_statistics_compute_field_mitglieder_pro_gruppe_br());
+
+  // Save the node.
+  $entity->save();
+
+  //set last nid for settings page
+  variable_set('salto_statistics_statistics_daily_last_nid', $entity->nid->value());
+}
+
+/**
+ * count currently registered users
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_registrated_users() {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'user')
+    ->propertyCondition('status', 1)
+    ->propertyCondition('uid', 0, '>');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count currently registered dosb users
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_registrated_users_pt() {
+  return salto_statistics_compute_field_projektteam();
+}
+
+/**
+ * count currently registered bildunsverantwortliche users
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_registrated_users_br() {
+  return salto_statistics_compute_field_bildungsreferenten();
+}
+
+/**
+ * count bildungsreferenten
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_bildungsreferenten() {
+
+  $query = db_select('users', 'u')
+    ->fields('u', ['uid', 'name'])
+    ->fields('ur', ['rid'])
+    ->condition('u.uid', 0, '>')
+    ->condition('u.status', 0, '>');
+  $db_or = db_or();
+  $db_or->condition('r.name', [
+    'DOSB',
+    'GHOST',
+    'Support',
+    'Admin',
+    'anonymous user',
+  ], 'NOT IN');
+  $db_or->isNULL('r.name');
+
+  $query->condition($db_or)
+    ->groupBy('u.uid');
+  $query->leftJoin('users_roles', 'ur', 'u.uid = ur.uid');
+  $query->leftJoin('role', 'r', 'ur.rid = r.rid');
+  $results = $query->execute();
+
+  $result = $results->rowCount();
+
+  return $result;
+}
+
+/**
+ * count projektteam
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_projektteam() {
+
+  $results = _salto_statistics_get_projektteam_query();
+
+  $result = $results->execute()->rowCount();
+
+  return $result;
+}
+
+/**
+ * get projektteam
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_get_projektteam_query() {
+
+  $query = db_select('users', 'u')
+    ->fields('u', ['uid'])
+    //->fields('ur', array('rid'))
+    ->condition('u.uid', 0, '>')
+    ->condition('u.status', 0, '>')
+    ->condition('r.name', 'DOSB')
+    ->groupBy('u.uid');
+  $query->innerJoin('users_roles', 'ur', 'u.uid = ur.uid');
+  $query->innerJoin('role', 'r', 'ur.rid = r.rid');
+  $results = $query;
+
+  $result = $results;
+
+  return $result;
+}
+
+/**
+ * get projektteam uids array
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_get_projektteam_uids() {
+
+  $result_data = &drupal_static(__FUNCTION__);
+  if (empty($result_data)) {
+    $query = _salto_statistics_get_projektteam_query();
+    $projectteam_uids = $query->execute()->fetchAllKeyed(0, 0);
+
+    $result_data = $projectteam_uids;
+  }
+
+  return $result_data;
+}
+
+/**
+ * get projektteam uids array
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_get_ghost_uids() {
+
+  $result_data = &drupal_static(__FUNCTION__);
+
+  if (empty($result_data)) {
+    $query = db_select('users', 'u')
+      ->fields('u', ['uid'])
+      ->condition('u.uid', 0, '>')
+      ->condition('u.status', 0, '>')
+      ->condition('r.name', ['GHOST', 'Support', 'Admin'], 'IN')
+      ->groupBy('u.uid');
+    $query->innerJoin('users_roles', 'ur', 'u.uid = ur.uid');
+    $query->innerJoin('role', 'r', 'ur.rid = r.rid');
+    $results = $query;
+
+    $result = $results->execute()->fetchAllKeyed(0, 0);
+
+    //add anonymous user
+    $result[0] = 0;
+
+    $result_data = $result;
+  }
+
+  return $result_data;
+}
+
+
+/**
+ * count visitors
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_besucher() {
+  return _salto_statistics_count_unique_visitors();
+}
+
+/**
+ * count projetteam visitors
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_besucher_pt() {
+  return _salto_statistics_count_unique_visitors_pt();
+}
+
+/**
+ * count bildunsgsverantwortliche visitors
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_besucher_br() {
+  return _salto_statistics_count_unique_visitors_br();
+}
+
+
+/**
+ * count page impressions
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_seitenaufrufe() {
+  return _salto_statistics_count_visitors_hits();
+}
+
+/**
+ * count page impressions projektteam
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_seitenaufrufe_pt() {
+  return _salto_statistics_count_visitors_hits_pt();
+}
+
+/**
+ * count page impressions bildungsverantwortliche
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_seitenaufrufe_br() {
+  return _salto_statistics_count_visitors_hits_br();
+}
+
+/*
+ * count nodes
+ * @return [type] [description]
+ */
+
+function salto_statistics_compute_field_beitraege() {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->propertyCondition('status', 1);
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/*
+ * count nodes authored by projektteam
+ * @return [type] [description]
+ */
+
+function salto_statistics_compute_field_beitraege_pt() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->propertyCondition('status', 1)
+    ->propertyCondition('uid', $projektteam_uids, 'IN');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/*
+ * count nodes authored by bildungsverantwortliche
+ * @return [type] [description]
+ */
+
+function salto_statistics_compute_field_beitraege_br() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->propertyCondition('status', 1)
+    ->propertyCondition('uid', $projektteam_uids + $ghost_uids, 'NOT IN');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count all comments
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_kommentare() {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'comment');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count all comments authored by projetteam
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_kommentare_pt() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'comment')
+    ->propertyCondition('uid', $projektteam_uids, 'IN');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count all comments authored by bildungsverantwortliche
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_kommentare_br() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'comment')
+    ->propertyCondition('uid', $projektteam_uids + $ghost_uids, 'NOT IN');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count groups
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_gruppen() {
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node');
+  $query->entityCondition('bundle', 'group');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count groups created by projetteam
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_gruppen_pt() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node');
+  $query->entityCondition('bundle', 'group')
+    ->propertyCondition('uid', $projektteam_uids, 'IN');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count groups created by bildungsverantwortliche
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_gruppen_br() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node');
+  $query->entityCondition('bundle', 'group')
+    ->propertyCondition('uid', $projektteam_uids + $ghost_uids, 'NOT IN');
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * get average number of members in groups
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_mitglieder_pro_gruppe() {
+
+  $num_groups = salto_statistics_compute_field_gruppen();
+
+  //more efficient way
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->entityCondition('bundle', 'group_membership ');
+  $query->propertyCondition('entity_type', 'user');
+  $query->propertyCondition('state', OG_STATE_ACTIVE);
+  $sum_members = $query->count()->execute();
+
+  //avoid devision by zero
+  if ($sum_members == 0 || $num_groups == 0) {
+    $result = 0;
+  }
+  else {
+    //floor result
+    $result = floor($sum_members / $num_groups);
+  }
+
+  return $result;
+}
+
+/**
+ * get average number of projektteam members in groups
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_mitglieder_pro_gruppe_pt() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+
+  $num_groups = salto_statistics_compute_field_gruppen();
+
+  //more efficient way
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->entityCondition('bundle', 'group_membership ');
+  $query->propertyCondition('entity_type', 'user');
+  $query->propertyCondition('state', OG_STATE_ACTIVE);
+
+  $query->propertyCondition('etid', $projektteam_uids, 'IN');
+
+  $sum_members = $query->count()->execute();
+
+  //avoid devision by zero
+  if ($sum_members == 0 || $num_groups == 0) {
+    $result = 0;
+  }
+  else {
+    //floor result
+    $result = floor($sum_members / $num_groups);
+  }
+
+  return $result;
+}
+
+/**
+ * get average number of projektteam members in groups
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_compute_field_mitglieder_pro_gruppe_br() {
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+  $num_groups = salto_statistics_compute_field_gruppen();
+
+  //more efficient way
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->entityCondition('bundle', 'group_membership ');
+  $query->propertyCondition('entity_type', 'user');
+  $query->propertyCondition('state', OG_STATE_ACTIVE);
+
+  $query->propertyCondition('etid', $projektteam_uids + $ghost_uids, 'NOT IN');
+
+  $sum_members = $query->count()->execute();
+
+  //avoid devision by zero
+  if ($sum_members == 0 || $num_groups == 0) {
+    $result = 0;
+  }
+  else {
+    //floor result
+    $result = floor($sum_members / $num_groups);
+  }
+
+  return $result;
+}
+
+
+/**
+ *  Statistics - People
+ */
+
+/**
+ * count files / file uploads of a user
+ *
+ * @param  [type] $uid [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_statistics_people_count_files($uid) {
+  //$date_to = _salto_statistics_node_get_view_date_to();
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'file');
+  $query->propertyCondition('uid', $uid);
+
+  if ($date_from) {
+    $query->propertyCondition('timestamp', $date_from, '>=');
+  }
+
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count comments of a user
+ *
+ * @param type $uid
+ *
+ * @return type
+ */
+function salto_statistics_people_count_comments($uid) {
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'comment');
+  $query->propertyCondition('uid', $uid);
+
+  //count comments which were created before date_to
+  if ($date_from) {
+    $query->propertyCondition('created', $date_from, '>=');
+  }
+
+  $result = $query->count()->execute();
+
+
+  return $result;
+}
+
+/**
+ * count users revisions
+ *
+ * @param type $uid
+ * @param type $date_to
+ *
+ * @return type
+ */
+function salto_statistics_people_count_revisions($uid, $date_from = NULL) {
+
+  //count comments which were created before date_to
+  if (isset($date_from)) {
+    $result = db_query('SELECT COUNT(n.nid)
+    FROM {node_revision} n WHERE n.uid = :uid AND (timestamp >= :date)', [
+      ':uid' => $uid,
+      ':date' => $date_from,
+    ]);
+  }
+  else {
+    $result = db_query('SELECT COUNT(n.nid)
+    FROM {node_revision} n WHERE n.uid = :uid', [':uid' => $uid]);
+  }
+
+  return $result->fetchField();
+}
+
+/**
+ * count users single revisions,
+ * these are nodes which were not edited yet
+ *
+ * @param type $uid
+ * @param type $date_to
+ *
+ * @return type
+ */
+function salto_statistics_people_count_single_revisions($uid, $date_from = NULL) {
+  //count comments which were created before date_to
+  if (isset($date_from)) {
+    $result = db_query('SELECT COUNT(DISTINCT n.nid)
+    FROM {node_revision} n WHERE n.uid = :uid AND (timestamp >= :date)', [
+      ':uid' => $uid,
+      ':date' => $date_from,
+    ]);
+  }
+  else {
+    $result = db_query('SELECT COUNT(DISTINCT n.nid)
+    FROM {node_revision} n WHERE n.uid = :uid', [':uid' => $uid]);
+  }
+
+  return $result->fetchField();
+}
+
+/**
+ * count users nodes
+ *
+ * @param type $uid
+ *
+ * @return type
+ */
+function salto_statistics_people_count_nodes($uid) {
+
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node');
+  $query->propertyCondition('uid', $uid);
+
+  if ($date_from) {
+    $query->propertyCondition('created', $date_from, '>=');
+  }
+
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+
+/**
+ * count users edits
+ *
+ * @param type $uid
+ *
+ * @return type
+ */
+function salto_statistics_people_count_edits($uid) {
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+  $result = salto_statistics_people_count_revisions($uid, $date_from) - salto_statistics_people_count_single_revisions($uid, $date_from);
+
+  return $result;
+}
+
+/**
+ * count node comments
+ *
+ * @param type $nid
+ *
+ * @return type
+ */
+function salto_statistics_node_count_comments($nid) {
+
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+  //role filter
+  $role = _salto_statistics_node_get_view_role();
+
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'comment');
+  $query->propertyCondition('nid', $nid);
+  //count comments which were created before date_from
+  if (isset($date_from)) {
+    $query->propertyCondition('created', $date_from, '>=');
+  }
+
+  //add role args to query
+  if ($role == SALTO_STATISTICS_ROLE_PROJEKTTEAM) {
+    $query->propertyCondition('uid', $projektteam_uids, 'IN');
+  }
+  else {
+    if ($role == SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN) {
+      $query->propertyCondition('uid', $projektteam_uids + $ghost_uids, 'NOT IN');
+    }
+  }
+
+
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+function salto_statistics_global_render_fields($data) {
+
+  $role = _salto_statistics_node_get_view_role();
+  if ($role == SALTO_STATISTICS_ROLE_PROJEKTTEAM) {
+    echo salto_statistics_global_render_field('Beiträge', $row->field_beitraege_pt);
+    echo salto_statistics_global_render_field('Besucher', $row->field_besucher_pt);
+    echo salto_statistics_global_render_field('Gruppen', $row->field_gruppen_pt);
+    echo salto_statistics_global_render_field('Kommentare', $row->field_kommentare_pt);
+    echo salto_statistics_global_render_field('Mitglieder pro Gruppe', $row->field_mitglieder_pro_gruppe_pt);
+    echo salto_statistics_global_render_field('Registrierte Benutzer', $row->field_registrated_users_pt);
+    echo salto_statistics_global_render_field('Seitenaufrufe', $row->field_seitenaufrufe_pt);
+  }
+  else {
+    if ($role == SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN) {
+      echo salto_statistics_global_render_field('Beiträge', $row->field_beitraege_br);
+      echo salto_statistics_global_render_field('Besucher', $row->field_besucher_br);
+      echo salto_statistics_global_render_field('Gruppen', $row->field_gruppen_br);
+      echo salto_statistics_global_render_field('Kommentare', $row->field_kommentare_br);
+      echo salto_statistics_global_render_field('Mitglieder pro Gruppe', $row->field_mitglieder_pro_gruppe_br);
+      echo salto_statistics_global_render_field('Registrierte Benutzer', $row->field_registrated_users_br);
+      echo salto_statistics_global_render_field('Seitenaufrufe', $row->field_seitenaufrufe_br);
+    }
+    else {
+      echo salto_statistics_global_render_field('Beiträge', $row->field_beitraege);
+      echo salto_statistics_global_render_field('Besucher', $row->field_besucher);
+      echo salto_statistics_global_render_field('Gruppen', $row->field_gruppen);
+      echo salto_statistics_global_render_field('Kommentare', $row->field_kommentare);
+      echo salto_statistics_global_render_field('Mitglieder pro Gruppe', $row->field_mitglieder_pro_gruppe);
+      echo salto_statistics_global_render_field('Registrierte Benutzer', $row->field_registrated_users);
+      echo salto_statistics_global_render_field('Seitenaufrufe', $row->field_seitenaufrufe);
+    }
+  }
+
+}
+
+function salto_statistics_global_render_field($label, $array) {
+  $value = !empty($array[0]) ? $array[0]['rendered'] : $array;
+
+  $output = '<div class="views-row">';
+  $output .= '<span class="views-label" style="text-align:left; display:inline-block;">' . $label . '</span>';
+  $output .= '<div class="field-content" style="display:inline-block;text-align:left;">' . drupal_render($value) . '</div>';
+  $output .= '</div>';
+
+  return $output;
+}
+
+/**
+ * count nodes revisions
+ *
+ * @param type $nid
+ * @param type $date_to
+ *
+ * @return type
+ */
+function salto_statistics_node_count_revisions($nid, $date_from = NULL) {
+  //role filter
+  $role = _salto_statistics_node_get_view_role();
+
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+  if ($date_from) {
+    $query = 'SELECT COUNT(n.nid)
+      FROM {node_revision} n WHERE n.nid = :nid AND timestamp >= :date_from';
+    $args = [':nid' => $nid, ':date_from' => $date_from];
+  }
+  else {
+    $query = 'SELECT COUNT(n.nid)
+      FROM {node_revision} n WHERE n.nid = :nid';
+    $args = [':nid' => $nid];
+  }
+
+
+  //add role args to query
+  if ($role == SALTO_STATISTICS_ROLE_PROJEKTTEAM) {
+    $role_where = 'n.uid IN (:uids)';
+    $args[':uids'] = $projektteam_uids;
+  }
+  else {
+    if ($role == SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN) {
+      $role_where = 'n.uid NOT IN (:uids)';
+      $args[':uids'] = $projektteam_uids + $ghost_uids;
+    }
+  }
+
+  if ($role_where) {
+    $query .= ' AND ' . $role_where;
+  }
+
+  $result = db_query($query, $args);
+
+
+  return $result->fetchField();
+}
+
+/**
+ * count nodes edits
+ *
+ * @param type $nid
+ *
+ * @return type
+ */
+function salto_statistics_node_count_edits($nid) {
+  $date_from = _salto_statistics_node_get_view_date_from();
+  $result = salto_statistics_node_count_revisions($nid, $date_from) - 1;
+  if ($result < 0) {
+    $result = 0;
+  }
+
+  return $result;
+}
+
+/**
+ * count users page impressions
+ *
+ * @param type $uid
+ *
+ * @return type
+ */
+function salto_statistics_people_count_page_impressions($uid) {
+  return _salto_statistics_count_visitors_hits($uid);
+}
+
+/**
+ * count users visits
+ *
+ * @param type $uid
+ *
+ * @return type
+ */
+function salto_statistics_people_count_visits($uid) {
+  $result = _salto_statistics_count_unique_visitors($uid);
+  return $result ? $result : 0;
+}
+
+/**
+ * get filter set in exposed filter settings
+ *
+ * @staticvar type $date_to
+ * @staticvar type $once
+ * @return type
+ */
+function _salto_statistics_node_get_view_date_to() {
+  static $date_to, $once;
+
+  if (!$once) {
+    $date_to = $_GET['date_filter_soft_salto_1'] ? $_GET['date_filter_soft_salto_1']['value']['date'] : NULL;
+
+    if ($date_to) {
+      $date_to = strtotime($date_to);
+      //timestamp of 00:00 + 23:59:59
+      $date_to = $date_to + (60 * 60 * 24 - 1);
+    }
+  }
+
+  return $date_to;
+}
+
+/**
+ * get filter set in exposed filter settings
+ *
+ * @staticvar type $date_from
+ * @staticvar type $once
+ * @return type
+ */
+function _salto_statistics_node_get_view_date_from() {
+  static $date_from, $once;
+
+  if (!$once) {
+    //get view where ajax exposed form filter was set
+    //we need the date_from value to specify the filter
+    $date_from = $_GET['date_filter_soft_salto_from_1'] ? $_GET['date_filter_soft_salto_from_1']['value']['date'] : NULL;
+
+    if ($date_from) {
+      $date_from = strtotime($date_from);
+    }
+
+    $once = TRUE;
+  }
+
+  return $date_from;
+}
+
+/**
+ * get filter set in exposed filter settings
+ *
+ * @return type
+ */
+function _salto_statistics_node_get_view_role() {
+  static $role, $once;
+
+  if (!$once) {
+    //get view where ajax exposed form filter was set
+    //we need the date_from value to specify the filter
+    $role = $_GET['user_role_soft_salto_1'] ? $_GET['user_role_soft_salto_1'] : NULL;
+
+  }
+  return $role;
+}
+
+/**
+ * Helper Functions
+ */
+
+/**
+ * count members in group
+ *
+ * @param  [type] $gid [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_statistics_count_group_members($gid) {
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+  //role filter
+  $role = _salto_statistics_node_get_view_role();
+
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->entityCondition('bundle', 'group_membership ');
+  $query->propertyCondition('entity_type', 'user');
+  $query->propertyCondition('state', OG_STATE_ACTIVE);
+  $query->propertyCondition('gid', $gid);
+
+  if ($date_from) {
+    $query->propertyCondition('created', $date_from, '>=');
+  }
+
+  //add role args to query
+  if ($role == SALTO_STATISTICS_ROLE_PROJEKTTEAM) {
+    $query->propertyCondition('etid', $projektteam_uids, 'IN');
+  }
+  else {
+    if ($role == SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN) {
+      $query->propertyCondition('etid', $projektteam_uids + $ghost_uids, 'NOT IN');
+    }
+  }
+
+
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count nodes in group
+ *
+ * @param type $gid
+ *
+ * @return type
+ */
+function salto_statistics_count_group_nodes($gid) {
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+  //role filter
+  $role = _salto_statistics_node_get_view_role();
+
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->propertyCondition('entity_type', 'node');
+  $query->propertyCondition('gid', $gid);
+
+  if ($date_from) {
+    $query->propertyCondition('created', $date_from, '>=');
+  }
+
+  //add role args to query
+  if ($role == SALTO_STATISTICS_ROLE_PROJEKTTEAM) {
+    $query->propertyCondition('etid', $projektteam_uids, 'IN');
+  }
+  else {
+    if ($role == SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN) {
+      $query->propertyCondition('etid', $projektteam_uids + $ghost_uids, 'NOT IN');
+    }
+  }
+
+
+  $result = $query->count()->execute();
+
+  return $result;
+}
+
+/**
+ * count visits
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_count_unique_visitors($uid = NULL) {
+  $start_count = variable_get('visitors_start_count_total_visitors', 0);
+
+  $args = [];
+
+  if (!$uid) {
+    $query = 'SELECT SUM(salto_tmp.distinct_ips) FROM (
+        SELECT
+          COUNT(DISTINCT visitors_ip) distinct_ips
+        FROM visitors
+          GROUP BY DATE(FROM_UNIXTIME(visitors_date_time))
+        ) AS salto_tmp';
+  }
+  else {
+    $date_from = _salto_statistics_node_get_view_date_from();
+    if ($date_from) {
+      $query = 'SELECT SUM(salto_tmp.distinct_uid) FROM (
+        SELECT
+          COUNT(DISTINCT visitors_uid) distinct_uid
+        FROM visitors WHERE visitors_uid = :uid AND visitors_date_time >= :date
+          GROUP BY DATE(FROM_UNIXTIME(visitors_date_time))
+      ) AS salto_tmp
+      ';
+      $args = [':uid' => $uid, ':date' => $date_from];
+    }
+    else {
+      $query = 'SELECT SUM(salto_tmp.distinct_uid) FROM (
+        SELECT
+          COUNT(DISTINCT visitors_uid) distinct_uid
+        FROM visitors WHERE visitors_uid = :uid
+          GROUP BY DATE(FROM_UNIXTIME(visitors_date_time))
+      ) AS salto_tmp
+      ';
+      $args = [':uid' => $uid];
+    }
+  }
+
+
+  $unique_visitors = db_query($query, $args)->fetchField();
+
+  return $unique_visitors + $start_count;
+}
+
+
+/**
+ * count visits
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_count_unique_visitors_pt() {
+  $start_count = variable_get('visitors_start_count_total_visitors', 0);
+
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+
+  $args = [];
+
+  $query = 'SELECT SUM(salto_tmp.distinct_ips) FROM (
+      SELECT
+        COUNT(DISTINCT visitors_ip) distinct_ips
+      FROM visitors
+      WHERE visitors_uid IN (:uids)
+        GROUP BY DATE(FROM_UNIXTIME(visitors_date_time))
+      ) AS salto_tmp';
+
+
+  $args[':uids'] = $projektteam_uids;
+
+  $unique_visitors = db_query($query, $args)->fetchField();
+
+  return $unique_visitors + $start_count;
+}
+
+/**
+ * count visits
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_count_unique_visitors_br() {
+  $start_count = variable_get('visitors_start_count_total_visitors', 0);
+
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+  $args = [];
+
+  $query = 'SELECT SUM(salto_tmp.distinct_ips) FROM (
+      SELECT
+        COUNT(DISTINCT visitors_ip) distinct_ips
+      FROM visitors
+      WHERE visitors_uid NOT IN (:uids)
+        GROUP BY DATE(FROM_UNIXTIME(visitors_date_time))
+      ) AS salto_tmp';
+
+
+  $args[':uids'] = $projektteam_uids + $ghost_uids;
+
+  $unique_visitors = db_query($query, $args)->fetchField();
+
+  return $unique_visitors + $start_count;
+}
+
+
+/**
+ * count (users) site impressions
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_count_visitors_hits($uid = NULL) {
+  $count = 0;
+  //$date_to = _salto_statistics_node_get_view_date_to();
+  $date_from = _salto_statistics_node_get_view_date_from();
+
+  if ($uid) {
+    //page impressions by uid
+    if ($date_from) {
+      $query = 'SELECT COUNT(*) FROM {visitors} WHERE visitors_uid = :uid AND visitors_date_time >= :date ';
+      $count = db_query($query, [
+        ':uid' => $uid,
+        ':date' => $date_from,
+      ])->fetchField();
+    }
+    else {
+      $query = 'SELECT COUNT(*) FROM {visitors} WHERE visitors_uid = :uid';
+      $count = db_query($query, [':uid' => $uid])->fetchField();
+    }
+  }
+  else {
+    //nur in globaler statistik verwendet -> Bis date irrelevant
+    $query = 'SELECT COUNT(*) FROM {visitors}';
+    $count = db_query($query)->fetchField();
+  }
+
+  return $count;
+}
+
+/**
+ * count (users) site impressions projektteam
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_count_visitors_hits_pt() {
+  $count = 0;
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+
+  //nur in globaler statistik verwendet -> Bis date irrelevant
+  $query = 'SELECT COUNT(*) FROM {visitors} WHERE visitors_uid IN (:uids)';
+  $args = [':uids' => $projektteam_uids];
+  $count = db_query($query, $args)->fetchField();
+
+  return $count;
+}
+
+/**
+ * count (users) site impressions bildungsverantwortliche
+ *
+ * @return [type] [description]
+ */
+function _salto_statistics_count_visitors_hits_br() {
+  $count = 0;
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+  $query = 'SELECT COUNT(*) FROM {visitors} WHERE visitors_uid NOT IN (:uids)';
+  $args = [':uids' => $projektteam_uids + $ghost_uids];
+  $count = db_query($query, $args)->fetchField();
+
+  return $count;
+}
+
+/**
+ * get node page impressions
+ *
+ * @return [type] [description]
+ */
+function salto_statistics_node_count_visitors_hits($nid) {
+  $date_from = _salto_statistics_node_get_view_date_from();
+  $role = _salto_statistics_node_get_view_role();
+
+  $projektteam_uids = _salto_statistics_get_projektteam_uids();
+  $ghost_uids = _salto_statistics_get_ghost_uids();
+
+
+  if ($date_from) {
+    $query = "SELECT COUNT(*) FROM {visitors} WHERE visitors_url LIKE :pattern AND visitors_date_time >= :date_from";
+    $args = [
+      ":pattern" => '%' . db_like("node/" . $nid) . '%',
+      ':date_from' => $date_from,
+    ];
+  }
+  else {
+    $query = "SELECT COUNT(*) FROM {visitors} WHERE visitors_url LIKE :pattern";
+    $args = [":pattern" => '%' . db_like("node/" . $nid) . '%'];
+  }
+
+  //add role args to query
+  if ($role == SALTO_STATISTICS_ROLE_PROJEKTTEAM) {
+    $role_where = 'visitors_uid IN (:uids)';
+    $args[':uids'] = $projektteam_uids;
+  }
+  else {
+    if ($role == SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN) {
+      $role_where = 'visitors_uid NOT IN (:uids)';
+      $args[':uids'] = $projektteam_uids + $ghost_uids;
+    }
+  }
+
+  if ($role_where) {
+    $query .= ' AND ' . $role_where;
+  }
+
+
+  $count = db_query($query, $args)->fetchField();
+
+
+  return $count;
+}
+
+
+function salto_statistics_extended_render() {
+  module_load_include('inc', 'piwik_reports', 'piwik_reports.pages');
+  echo salto_statistics_extended();
+}
+
+function salto_statistics_extended() {
+
+  $piwik_auth = (isset($user->data['piwik_reports_token_auth']) && !empty($user->data['piwik_reports_token_auth']) ? $user->data['piwik_reports_token_auth'] : variable_get('piwik_reports_token_auth', ''));
+  $piwik_url = piwik_reports_get_url();
+  $sites = piwik_reports_get_sites($piwik_auth);
+  $site = current($sites);
+
+  if (empty($sites)) {
+    $_SESSION['piwik_reports_site'] == '';
+    drupal_set_message(t('You can not access any data on the selected Piwik server. Please check authentication string and permissions with your Piwik server administrator.'), 'warning');
+    return;
+  }
+
+  $piwik_site_id = $site['idsite'];
+
+  $default_date = salto_statistics_extended_sites_dateselect_form_default();
+
+  // Create an array of URL parameters for easier maintenance.
+  $date_from = $_SESSION['salto_statistics_extended_period_from'] ? $_SESSION['salto_statistics_extended_period_from'] : $default_date['from'];
+  $date_to = $_SESSION['salto_statistics_extended_period_to'] ? $_SESSION['salto_statistics_extended_period_to'] : $default_date['to'];
+
+  $date_from = date('Y-m-d', strtotime($date_from));
+  $date_to = date('Y-m-d', strtotime($date_to));
+
+  $data_params[0] = [];
+  $data_params[0]['idSite'] = $piwik_site_id;
+  $data_params[0]['date'] = $date_from . ',' . $date_to;
+  $data_params[0]['period'] = 'range';
+  $data_params[0]['disableLink'] = 1;
+  $data_params[0]['module'] = 'Widgetize';
+  $data_params[0]['action'] = 'iframe';
+  $data_params[0]['disableLink'] = 1;
+  $data_params[0]['widget'] = 1;
+  $data_params[0]['flat'] = 1;
+
+  // $data_params[0]['loading'] = t('Loading data...');
+  if (!empty($piwik_auth)) {
+    $data_params[0]['token_auth'] = $piwik_auth;
+  }
+
+
+  // ############# REPORT 1 - Sites ##############
+  $title[0] = t('Page visits');
+  $data_params[0]['moduleToWidgetize'] = 'Actions';
+  $data_params[0]['actionToWidgetize'] = 'getPageUrls';
+  $data_params[0]['filter_limit'] = 50;
+
+  $data_params[0]['columns[0]'] = 'nb_visits';
+  $data_params[0]['columns[1]'] = 'avg_time_on_page';
+
+
+  // Build the data URL with all params and urlencode it.
+  foreach ($data_params as $key => $data) {
+    $theme_args['data_url'][] = [
+      'url' => $piwik_url . 'index.php?' . drupal_http_build_query($data),
+      'title' => $title[$key],
+      'iframe_height' => (isset($iframe_height[$key]) && $iframe_height[$key] > 0 ? $iframe_height[$key] : 350),
+      'empty_text' => (isset($empty_text) ? $empty_text : NULL),
+    ];
+  }
+  unset($data_params[0]['columns[0]']);
+  unset($data_params[0]['columns[1]']);
+
+
+  $title[0] = t('Search');
+  $data_params[0]['moduleToWidgetize'] = 'Actions';
+  $data_params[0]['actionToWidgetize'] = 'getSiteSearchKeywords';
+
+
+  // Build the data URL with all params and urlencode it.
+  foreach ($data_params as $key => $data) {
+    $theme_args['data_url'][] = [
+      'url' => $piwik_url . 'index.php?' . drupal_http_build_query($data),
+      'title' => $title[$key],
+      'iframe_height' => (isset($iframe_height[$key]) && $iframe_height[$key] > 0 ? $iframe_height[$key] : 350),
+      'empty_text' => (isset($empty_text) ? $empty_text : NULL),
+    ];
+  }
+
+
+  // Render HTML code.
+  $output = theme('piwik_reports', $theme_args);
+  unset($_SESSION['salto_statistics_extended_period_from']);
+  unset($_SESSION['salto_statistics_extended_period_to']);
+
+  return $output;
+
+}
+
+
+/**
+ * Reports form submit function
+ */
+function salto_statistics_extended_sites_dateselect_form_submit($form, &$form_state) {
+
+  $_SESSION['salto_statistics_extended_period_from'] = $form_state['values']['period_from'];
+  $_SESSION['salto_statistics_extended_period_to'] = $form_state['values']['period_to'];
+}
+
+
+/**
+ * Return the form where to select the report period.
+ */
+function salto_statistics_extended_sites_dateselect_form($form = [], &$form_state) {
+
+  $default_date = salto_statistics_extended_sites_dateselect_form_default();
+
+  $form['container']['#attributes']['class'][] = 'views-exposed-widgets';
+  $form['container']['#prefix'] = '<div class="views-exposed-widgets">';
+  $form['container']['#suffix'] = '</div>';
+
+  $form['container']['period_from'] = [
+    '#type' => 'date_popup',
+    '#title' => 'Von',
+    '#date_format' => 'd.m.Y',
+    '#date_label_position' => 'within',
+    '#date_year_range' => ' -3:+0',
+    '#required' => TRUE,
+    '#default_value' => !empty($_SESSION['salto_statistics_extended_period_from']) ? $_SESSION['salto_statistics_extended_period_from'] : $default_date['from'],
+  ];
+  $form['container']['period_from']['#prefix'] = '<div class="views-exposed-widget">';
+  $form['container']['period_from']['#suffix'] = '</div>';
+
+  $form['container']['period_to'] = [
+    '#type' => 'date_popup',
+    '#title' => 'Bis',
+    '#date_format' => 'd.m.Y',
+    '#date_label_position' => 'within',
+    '#date_year_range' => ' -3:+0',
+    '#required' => TRUE,
+    '#default_value' => !empty($_SESSION['salto_statistics_extended_period_to']) ? $_SESSION['salto_statistics_extended_period_to'] : $default_date['to'],
+  ];
+  $form['container']['period_to']['#prefix'] = '<div class="views-exposed-widget">';
+  $form['container']['period_to']['#suffix'] = '</div>';
+
+  $form['container']['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Apply'),
+    '#weight' => 15,
+  ];
+
+  $form['options']['reset'] = [
+    '#type' => 'submit',
+    '#value' => t('Reset'),
+    '#submit' => ['salto_statistics_extended_sites_dateselect_form_reset_submit'],
+  ];
+
+
+  $form['container']['submit']['#prefix'] = '<div class="views-exposed-widget">';
+  $form['container']['submit']['#suffix'] = '</div>';
+
+  $form['#attributes']['class'][] = 'views-exposed-form';
+  $form['#attributes']['class'][] = 'clearfix';
+
+  return $form;
+
+}
+
+/**
+ * reset form
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_statistics_extended_sites_dateselect_form_reset_submit($form, &$form_state) {
+  $form_state['rebuild'] = FALSE;
+}
+
+
+function salto_statistics_extended_sites_dateselect_form_default() {
+  $result = [];
+  $result['from'] = date('Y-m-d', strtotime('-1 day'));
+  $result['to'] = date('Y-m-d', time());
+
+  return $result;
+}

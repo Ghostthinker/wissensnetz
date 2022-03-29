@@ -1,0 +1,199 @@
+@import "../../../less/variables";
+@import "../components/accordion";
+
+@background-input: #ffffff;
+
+@media only screen and (min-width: @min-width) {
+  .pane-menu-suche.mobile.responsive {
+    display: none;
+  }
+}
+
+@media only screen and (min-width: 768px) {
+  #navbar-primary {
+    #salto-search-search-form--2,
+    #salto-search-search-form {
+      display: none !important;
+    }
+  }
+}
+
+@media only screen and (max-width: 425px) {
+  #salto-facet-search-container {
+    .pane-menu-suche.mobile.responsive {
+      .menu.nav.nav-pills.nav-fill {
+        li.leaf > a {
+            font-size: 1.1rem;
+            padding-left: 1em;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+      }
+    }
+  }
+}
+
+.page-search {
+  .modal-tb .modal-content {
+    .panel {
+      margin-bottom: 0;
+      .accordion-container;
+
+      .panel-heading {
+        display: block !important;
+
+        .panel-title {
+          .accordion-button;
+        }
+
+        &.active .panel-title:after {
+          content: @fa-var-chevron-up;
+        }
+      }
+
+      .panel-body {
+        padding-bottom: 0;
+        .accordion-panel;
+      }
+    }
+
+    ul {
+      padding-left: 0;
+
+      li.leaf {
+        padding: 0.5em;
+        margin: 0.5em 0;
+        background: rgba(0, 0, 0, 0.1);
+
+        a {
+          display: block;
+        }
+      }
+    }
+  }
+}
+
+
+
+#navbar-primary,
+#salto-facet-search-container {
+
+  #salto-search-search-form--2,
+  #salto-search-search-form {
+    display: block;
+    margin: 0 0 1em 0;
+    padding: 0;
+    box-shadow: @card-background-shadow;
+    background-color: #fff;
+    > div {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .form-group {
+      margin: 0;
+      width: 100%;
+    }
+    .fa-search, .icon-search {
+      color: @dosb-light-grey;
+      //background-color: @background-input;
+      //position: unset;
+      padding: 0.5em;
+      z-index: 1;
+      top: auto;
+    }
+    input {
+      border: none;
+      background-color: @background-input;
+      z-index: 0;
+      padding-left: 2.5em;
+    }
+    .input-group-addon {
+      border: none;
+    }
+    .salto-search-result-container {
+      border: none;
+    }
+  }
+  .pane-menu-suche.mobile.responsive {
+    box-shadow: @card-background-shadow;
+    background-color: #ffffff;
+    padding: 0;
+
+    .menu.nav.nav-pills.nav-fill {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      li.leaf {
+        width: 33%;
+        > a {
+          background-color: #fff;
+          color: @dosb-orange;
+          font-weight: 700;
+          border: none;
+        }
+      }
+      li.leaf.active > a {
+        background-color: @dosb-orange;
+        color: #fff;
+      }
+    }
+  }
+
+  .pane-views-panes {
+    .view-header,
+    .view-empty {
+      margin: 1em 0;
+    }
+    .views-row {
+      border: none;
+
+      .header {
+        display: flex;
+      }
+      .views-field-php-title {
+        width: 85%;
+      }
+      .views-field-field-user-picture {
+        margin-right: 1.6em;
+        min-width: 4.5em;
+      }
+      .salto-user-online-status {
+        padding: 0;
+      }
+    }
+    .card img {
+      border-radius: 0;
+    }
+    .node-readmore {
+      text-align: right;
+      font-weight: bold;
+    }
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+
+    > li {
+      display: none;
+    }
+    .prev,
+    .active,
+    .next {
+      display: block;
+    }
+  }
+}
+
+#navbar-primary {
+  #salto-search-search-form--2,
+  #salto-search-search-form {
+    margin-top: 6.5em;
+    .input-group-addon,
+    .dropdown {
+      display: none !important;
+    }
+  }
+}

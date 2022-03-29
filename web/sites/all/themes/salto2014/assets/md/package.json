@@ -1,0 +1,26 @@
+{
+  "name": "md",
+  "version": "1.0.0",
+  "description": "responsive design (material)",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm-run-all less btw",
+    "less": "lessc less/modules.less dist/output.css",
+    "tail": "npx tailwind build css/base-tc.css -o dist/base.css",
+    "btw": "npx tailwind build dist/output.css -o dist/public.css",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "^5.9.0",
+    "less": "^3.9.0",
+    "npm-run-all": "^4.1.5",
+    "postcss-custom-properties": "^9.0.2",
+    "postcss-import": "^12.0.1",
+    "postcss-nested": "^4.1.2",
+    "postcss-preset-env": "^6.7.0",
+    "tailwindcss": "^1.0.5"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,3742 @@
+<?php
+
+/**
+ * @file
+ * Code for the Salto Knowledgebase feature.
+ */
+include_once 'salto_knowledgebase.features.inc';
+include_once 'inc/salto_knowledgebase.func.inc';
+include_once 'inc/salto_knowledgebase.access.inc';
+
+
+define('SALTO_KNOWLEDGEBASE_DEFAULT_BOOK_MLID', 993);
+define('SALTO_KNOWLEDGEBASE_DEFAULT_BOOK_BID', 159);
+
+define('SALTO_KNOWLEDGEBASE_CONTENT_CATEGORY_STARTING_EDIT_DEPTH', 2);
+define('SALTO_KNOWLEDGEBASE_CONTENT_CATEGORY_DEFAULT_PARENT', 'Noch nicht einsortiert');
+
+define('SALTO_KNOWLEDGEBASE_LLM_VID', 6);
+define('SALTO_KNOWLEDGEBASE_KB_VID', 7);
+define('SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID', 4863);
+define('SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID', 4454);
+define('SALTO_KNOWLEDGEBASE_KB_SPORT_TID', 6780);
+define('SALTO_KNOWLEDGEBASE_KB_DIGITAL_TID', 7979);
+define('SALTO_KNOWLEDGEBASE_BODY_TXT_LENGTH_MAX', 1500000);
+
+define('SALTO_FILE_ATTACHMENT_STATUS_UNCHECKED', 0);
+define('SALTO_FILE_ATTACHMENT_STATUS_CHECKED', 1);
+define('SALTO_FILE_ATTACHMENT_STATUS_LOCKED', 2);
+
+define('SALTO_KNOWLEDGEBASE_MENU_NAME', 'menu-knowledgebase');
+define('SALTO_KNOWLEDGEBASE_MENU_NAME_FILES', 'menu-knowledgebase-files-cats');
+
+// comment sorting
+define('SALTO_KNOWLEDGEBASE_SORT_COMMENTS_OLDER_FIRST', 1); // default
+define('SALTO_KNOWLEDGEBASE_SORT_COMMENTS_NEWER_FIRST', 2);
+define('SALTO_KNOWLEDGEBASE_SORT_COMMENTS_SYSTEM_DEFAULT', 3); // default in profile settings
+
+function salto_knowledgebase_init() {
+  $arg0 = arg(0);
+  $arg1 = arg(1);
+  $arg2 = arg(2);
+
+  if ($arg0 == 'comment' && $arg1 == 'reply' && is_numeric($arg2)) {
+    drupal_goto('node/' . $arg2, []);
+  }
+
+}
+
+/**
+ * Implements hook_ctools_plugin_directory()
+ */
+function salto_knowledgebase_menu() {
+
+  //Files Categories
+  $items['materials/category'] = [
+    'title' => 'Manage categorie',
+    'description' => 'Manage categorie taxonomy terms.',
+    'access callback' => 'salto_knowledgebase_category_access',
+    'access arguments' => ['add', NULL, 'lehr_lern_material_kategorien'],
+    'page callback' => 'salto_knowledgebase_materials_category_manage_callback',
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['materials/category/%/add'] = [
+    'title' => 'Add category term',
+    'description' => 'Add category taxonomy term.',
+    'access callback' => 'salto_knowledgebase_category_access',
+    'access arguments' => ['add', NULL, 'lehr_lern_material_kategorien'],
+    'page callback' => 'salto_knowledgebase_materials_category_add_term_callback',
+    'page arguments' => [2],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['materials/category/%taxonomy_term/edit'] = [
+    'title' => 'Edit category term',
+    'description' => 'Edit category taxonomy term.',
+    'access callback' => 'salto_knowledgebase_category_access',
+    'access arguments' => ['edit', 2],
+    'page callback' => 'salto_knowledgebase_materials_category_edit_term_callback',
+    'page arguments' => [2],
+    'type' => MENU_CALLBACK,
+  ];
+
+
+  //Knowledgebase content categories
+  $items['posts/category'] = [
+    'title' => 'Manage content categorie',
+    'description' => 'Manage knowledgebase categories.',
+    'access callback' => 'salto_knowledgebase_category_access',
+    'access arguments' => ['add', NULL, 'wissensbasis_kategorien'],
+    'page callback' => 'salto_knowledgebase_posts_category_manage_callback',
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['posts/category/%/add'] = [
+    'title' => 'Add category term',
+    'description' => 'Add category taxonomy term.',
+    'access callback' => 'salto_knowledgebase_category_access',
+    'access arguments' => ['add', NULL, 'wissensbasis_kategorien'],
+    'page callback' => 'salto_knowledgebase_posts_category_add_term_callback',
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['posts/category/%taxonomy_term/edit'] = [
+    'title' => 'Edit category term',
+    'description' => 'Edit category taxonomy term.',
+    'access callback' => 'salto_knowledgebase_category_access',
+    'access arguments' => ['edit', 2],
+    'page callback' => 'salto_knowledgebase_posts_category_edit_term_callback',
+    'page arguments' => [2],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['category/%taxonomy_term/delete'] = [
+    'title' => 'Delete category term',
+    'description' => 'Delete category taxonomy term.',
+    'access callback' => 'salto_knowledgebase_category_access',
+    'access arguments' => ['delete', 1],
+    'page callback' => 'salto_knowledgebase_posts_category_delete_term_callback',
+    'page arguments' => [1],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['knowledge/vote/js/%/%/%'] = [
+    'title' => 'Rate content',
+    'page callback' => 'salto_knowledgebase_js_callback',
+    'page arguments' => [3, 4, 5],
+    //We only giv things back for current users,so access check is not important
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['category/assign/%/%'] = [
+    'title' => 'Assign category',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_knowledgebase_assign_category_form', 2, 3],
+    'access callback' => 'user_access',
+    'access arguments' => ['assign categories'],
+    'type' => MENU_CALLBACK,
+  ];
+  return $items;
+}
+
+
+/**
+ * js callbacks for salto knowledgebase
+ *
+ * @param  [type] $op [description]
+ *
+ * @return [type]     [description]
+ */
+function salto_knowledgebase_js_callback($op, $entity_type, $entity_id) {
+
+  $entity = current(entity_load($entity_type, [$entity_id]));
+  switch ($op) {
+    case 'getCurrentVotes':
+      $id = $entity_id;
+
+      $field_info = field_info_field('field_content_rating');
+      $field_instance = field_info_instance($entity_type, 'field_content_rating', $entity->type);
+
+      $items = [];
+      fivestar_field_prepare_view($entity_type, [$id => $entity], $field_info, [$id => $field_instance], LANGUAGE_NONE, $items);
+      $items = current($items);
+
+
+      //render outputs
+      $average_output = '<span>' . _salto_knowledgebase_render_fivestar_stars($entity_type, $entity, $field_instance, $items, 'average', 'none', TRUE) . '</span>';
+      $user_output = _salto_knowledgebase_render_fivestar_user_stars($entity_type, $entity, $field_instance, $items);
+      $json = ['user' => $user_output, 'average' => $average_output];
+
+      drupal_json_output($json);
+      break;
+    default:
+      break;
+  }
+}
+
+
+/**
+ * access callback for content category managing operations
+ *
+ * @return boolean
+ * @global type $user
+ */
+function salto_knowledgebase_content_category_access_callback() {
+
+  global $user;
+  $account = $user;
+  $access = FALSE;
+
+  if (in_array('DOSB', $account->roles) || in_array('Admin', $account->roles)) {
+    $access = TRUE;
+  }
+
+  if (!$access && (user_access('manage knowledgebase categories', $account) || user_access('manage knowledgebase subcategories', $account))) {
+    $access = TRUE;
+  }
+
+  return $access;
+}
+
+/**
+ * access callback for file category managing operations
+ *
+ * @return boolean
+ * @global type $user
+ */
+function salto_knowledgebase_files_category_access_callback() {
+  return user_access('manage materials categories');
+}
+
+
+/**
+ * category manage taxonomy terms overview - callback
+ *
+ * @return type
+ */
+function salto_knowledgebase_materials_category_manage_callback() {
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  $vocabulary = taxonomy_vocabulary_machine_name_load('lehr_lern_material_kategorien');
+
+  $form = _salto_knowlegebase_category_manage_form($vocabulary, 'materials');
+
+  return drupal_render($form);
+}
+
+
+/**
+ * category manage taxonomy terms overview - callback
+ *
+ * @return type
+ */
+function salto_knowledgebase_posts_category_manage_callback() {
+
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  $vocabulary = taxonomy_vocabulary_machine_name_load('wissensbasis_kategorien');
+
+  $lock_depth = FALSE;
+  if ($vocabulary->machine_name == 'wissensbasis_kategorien' && !user_access('manage knowledgebase categories')) {
+    $lock_depth = TRUE;
+  }
+
+  $form = _salto_knowlegebase_category_manage_form($vocabulary, 'posts', $lock_depth);
+
+  return drupal_render($form);
+}
+
+
+/**
+ * Helper function to construct taxonomy term edit table
+ *
+ * @param  [type] $vocabulary [description]
+ *
+ * @return [type]             [description]
+ */
+function _salto_knowlegebase_category_manage_form($vocabulary, $op, $lock_depth = FALSE) {
+
+
+  drupal_set_title(t('Manage categories'));
+
+  salto_knowledgebase_set_breadcrumb($op);
+
+  $form = drupal_get_form('taxonomy_overview_terms', $vocabulary);
+
+  if (isset($form['#empty_text'])) {
+    $form['#empty_text'] = t('No terms available. <a href="@link">Add term</a>.', ['@link' => url($op . '/category/' . $vocabulary->vid . '/add', ['query' => drupal_get_destination()])]);
+  }
+
+  if ($lock_depth) {
+    drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . "/js/salto_knowledgebase.categories.js");
+  }
+
+
+  //alter href for every edit/view operation of each taxonomy term
+  foreach ($form as $key => &$fi) {
+    if (substr($key, 0, 4) == 'tid:') {
+
+      $fi['view']['#pre_render'][0] = $fi['view']['#pre_render'][1];
+      unset($fi['view']['#pre_render'][1]);
+      unset($fi['view']['#type']); // = 'hidden';
+      $fi['view']['#markup'] = $fi['view']['#title'];
+
+      //alter edit link
+      //check access
+      $tmp_term = taxonomy_term_load($fi['#term']['tid']);
+
+      //edit links
+      if (salto_knowledgebase_category_access('edit', $tmp_term)) {
+        $fi['edit']['#href'] = $op . '/category/' . $fi['#term']['tid'] . '/edit';
+
+      }
+      else {
+        //no access remove link
+        unset($fi['edit']);
+      }
+
+      //delete links, need to be added manually
+      if (salto_knowledgebase_category_access('delete', $tmp_term)) {
+        //delete link
+        //store delete and edit form elements to temp variables
+        $fi_edit = $fi['edit'];
+        $fi_delete = $fi['edit'];
+        $fi_delete['#title'] = t('delete');
+        $fi_delete['#href'] = 'category/' . $fi['#term']['tid'] . '/delete';
+
+        $fi_edit['#weight'] = 1;
+        $fi_delete['#weight'] = 2;
+
+        //new container, containing edit and delete form elements
+        $fi['edit'] = ['#type' => 'container'];
+        $fi['edit']['delete'] = $fi_delete;
+        $fi['edit']['space'] = ['#type' => 'markup', '#markup' => " "];
+        $fi['edit']['edit'] = $fi_edit;
+        $fi['edit']['edit']['#attributes'] = ['class' => ['salto-category-taxonomy-link']];
+      }
+    }
+  }
+
+  //remove "Reset to alphabetical" link - cause its causing additional effort
+  unset($form['actions']['reset_alphabetical']);
+
+  //add "create a new taxonomy" button
+  $form['actions']['add_term'] = [
+    '#type' => 'link',
+    '#title' => t('Add new element'),
+    '#href' => $op . '/category/' . $vocabulary->vid . "/add",
+    '#attributes' => ['class' => ['btn', 'btn-primary']],
+    '#options' => ['query' => drupal_get_destination()],
+  ];
+
+  return $form;
+}
+
+/**
+ * add form content category taxonomy term  - callback
+ *
+ * @return type
+ */
+function salto_knowledgebase_posts_category_add_term_callback() {
+
+  drupal_set_title(t('Add category'));
+  salto_knowledgebase_set_breadcrumb('posts', [l(t('Manage categories'), 'posts/category')]);
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+
+  $vocabulary = taxonomy_vocabulary_machine_name_load('wissensbasis_kategorien');
+
+  $form = drupal_get_form('taxonomy_form_term', [], $vocabulary);
+
+  return drupal_render($form);
+}
+
+/**
+ * add form category taxonomy term  - callback
+ *
+ * @return type
+ */
+function salto_knowledgebase_materials_category_add_term_callback($vid) {
+
+  drupal_set_title(t('Add category'));
+  salto_knowledgebase_set_breadcrumb('materials', [l(t('Manage categories'), 'materials/category')]);
+
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+
+  $vocabulary = taxonomy_vocabulary_load($vid);
+
+  $form = drupal_get_form('taxonomy_form_term', [], $vocabulary);
+
+  return drupal_render($form);
+}
+
+
+/**
+ * edit form category taxonomy term  - callback
+ *
+ * @param type $term
+ *
+ * @return type
+ */
+function salto_knowledgebase_posts_category_edit_term_callback($term) {
+  drupal_set_title(t('Edit !term_name', ['!term_name' => $term->name]));
+  salto_knowledgebase_set_breadcrumb('posts', [l(t('Manage categories'), 'posts/category')]);
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  $vocabulary = taxonomy_vocabulary_machine_name_load('wissensbasis_kategorien');
+  $form = drupal_get_form('taxonomy_form_term', $term, $vocabulary);
+
+  return drupal_render($form);
+}
+
+
+function salto_knowledgebase_posts_category_delete_term_callback($term) {
+
+  $reassign_term_tid = salto_knowledgebase_taxonomy_get_default_tid($term);
+
+  $confirmation_form = drupal_get_form('salto_knowledgebase_content_category_delete_term_form', $term, $reassign_term_tid);
+  drupal_set_title(t('Delete !term_name', ['!term_name' => $term->name]));
+  salto_knowledgebase_set_breadcrumb('posts', [l(t('Manage categories'), 'posts/category')]);
+
+  return drupal_render($confirmation_form);
+}
+
+/**
+ *
+ * @param  [type] $form              [description]
+ * @param  [type] &$form_state       [description]
+ * @param  [type] $term              [description]
+ * @param  [type] $reassign_term_tid if term has children, those will be
+ *   reassigned to this term
+ *
+ * @return [type]                    [description]
+ */
+function salto_knowledgebase_content_category_delete_term_form($form, &$form_state, $term, $reassign_term_tid, $confirmation_message = NULL) {
+
+  if (empty($confirmation_message)) {
+    $confirmation_message = t('Please consider that this action cannot be undone. All nodes assigned to this term and its subcategories will be reassigned into the "Not sorted yet" category.');
+  }
+
+  $form = [];
+  $form_state['#reassign_term_tid'] = $reassign_term_tid;
+
+  // check group category - adapt behavior
+  $is_group_category = FALSE;
+  $group = og_vocab_relation_get($term->vid);
+  if (!empty($group)) {
+    $is_group_category = TRUE;
+    $confirmation_message = "";
+  }
+
+  $form['_term'] = ['#type' => 'value', '#value' => $term];;
+  $form['info'] = [
+    '#prefix' => '<div class="confirmation-message>',
+    '#type' => 'item',
+    '#markup' => '<h2>' . t('Submit deletion of "%category" category', ['%category' => $term->name]) . '</h2>' . t('Are you sure you want to delete this category?'),
+    '#suffix' => '</div>' . '<div class="confirmation-warning">' . $confirmation_message . '</div>',
+  ];
+
+
+  if (!$is_group_category) {
+    //options
+    $children = taxonomy_get_tree($term->vid, $term->tid);
+
+    // A term can't be the child of itself, nor of its children.
+    foreach ($children as $child) {
+      $exclude[] = $child->tid;
+    }
+    $exclude[] = $term->tid;
+
+    //limit depth to 1, because llm and kb terms are only syncronizet in level 1
+    $tree = taxonomy_get_tree($term->vid, 0, 1);
+
+    //default term id selection
+    $default_tid = NULL;
+
+    //Default category: Noch nicht einsortiert
+    $default_tid = salto_knowledgebase_taxonomy_get_default_tid($term);
+
+    //check if user may acces all categories - allow to select the topmost hierarchy level
+    if (user_access('manage knowledgebase categories')) {
+      $options = ['<' . t('root') . '>'];
+    }
+
+    foreach ($tree as $item) {
+      if (!in_array($item->tid, $exclude)) {
+        $options[$item->tid] = str_repeat('-', $item->depth) . $item->name;
+      }
+    }
+    $form['relations']['new_category'] = [
+      '#type' => 'select',
+      '#prefix' => '<div class="">' . t('Posts are assigned to the category below. Please select a category') . '</div>',
+      //'#title' => t('Parent terms'),
+      '#options' => $options,
+      '#default_value' => $default_tid,
+      '#multiple' => FALSE,
+    ];
+  }
+
+
+  return confirm_form($form,
+    t('Do you want to delete "%category"?', ['%category' => $term->name]),
+    '', //path
+    '',
+    t('Delete category'),
+    t('Cancel')
+  );
+}
+
+function salto_knowledgebase_content_category_delete_term_form_submit($form, &$form_state) {
+
+  $term = $form_state['values']['_term'];
+
+  //take form selection if set, otherwise take reassign_term_tid parameter
+  if (!empty($form_state['values']['new_category']) || $form_state['values']['new_category'] === "0") {
+    $reassign_term_tid = (int) $form_state['values']['new_category'];
+  }
+  else {
+    $reassign_term_tid = $form_state['#reassign_term_tid'];
+  }
+
+  //0 means move term to topmost level
+  if (!empty($reassign_term_tid) || $reassign_term_tid === 0) {
+    //start reassigning
+    $post_term_tid = NULL;
+    $materials_term_tid = NULL;
+
+    $reassign_post_term_tid = NULL;
+    $reassign_materials_term_tid = NULL;
+
+    if ($term->vid == SALTO_KNOWLEDGEBASE_KB_VID) {
+      $post_term_tid = $term->tid;
+      $materials_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($term);
+      $reassign_post_term_tid = $reassign_term_tid;
+      $reassign_term = taxonomy_term_load($reassign_post_term_tid);
+      $reassign_materials_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($reassign_term);
+    }
+    elseif ($term->vid == SALTO_KNOWLEDGEBASE_LLM_VID) {
+      $materials_term_tid = $term->tid;
+      $post_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($term);
+      $reassign_materials_term_tid = $reassign_term_tid;
+      $reassign_term = taxonomy_term_load($reassign_materials_term_tid);
+      $reassign_post_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($reassign_term);
+    }
+
+    //1. --- NODES ---
+    //reassign node categories
+    //update values for field_revision_field_kb_content_category field
+    $tf_num_updated = db_update('field_data_field_kb_content_category')
+      ->fields(['field_kb_content_category_tid' => $reassign_post_term_tid])
+      ->condition('field_kb_content_category_tid', $post_term_tid, '=')
+      ->execute();
+
+    $tf_num__rev_updated = db_update('field_revision_field_kb_content_category')
+      ->fields(['field_kb_content_category_tid' => $reassign_post_term_tid])
+      ->condition('field_kb_content_category_tid', $post_term_tid, '=')
+      ->execute();
+
+    $group_tf_num_updated = db_update('field_data_og_vocabulary')
+      ->fields(['og_vocabulary_target_id' => $reassign_post_term_tid])
+      ->condition('og_vocabulary_target_id', $post_term_tid, '=')
+      ->execute();
+
+    $group_tf_num__rev_updated = db_update('field_revision_og_vocabulary')
+      ->fields(['og_vocabulary_target_id' => $reassign_post_term_tid])
+      ->condition('og_vocabulary_target_id', $post_term_tid, '=')
+      ->execute();
+
+
+    //2. --- Files ---
+    //get material categorie fields
+    $tf_num_updated = db_update('field_data_field_kb_kategorie')
+      ->fields(['field_kb_kategorie_tid' => $reassign_materials_term_tid])
+      ->condition('field_kb_kategorie_tid', $materials_term_tid, '=')
+      ->execute();
+
+    $tf_num__rev_updated = db_update('field_revision_field_kb_kategorie')
+      ->fields(['field_kb_kategorie_tid' => $reassign_materials_term_tid])
+      ->condition('field_kb_kategorie_tid', $materials_term_tid, '=')
+      ->execute();
+
+
+    // --- Term Structure ---
+    //update taxonomy_index
+    $tpi_num_updated = db_update('taxonomy_index')
+      ->fields(['tid' => $reassign_post_term_tid])
+      ->condition('tid', $post_term_tid, '=')
+      ->execute();
+
+    $tmi_num_updated = db_update('taxonomy_index')
+      ->fields(['tid' => $reassign_post_term_tid])
+      ->condition('tid', $materials_term_tid, '=')
+      ->execute();
+
+
+    $tp_num_updated = db_update('taxonomy_term_hierarchy')
+      ->fields(['parent' => $reassign_post_term_tid])
+      ->condition('parent', $post_term_tid, '=')
+      ->execute();
+    $tp_num_updated = db_update('taxonomy_term_hierarchy')
+      ->fields(['parent' => $reassign_materials_term_tid])
+      ->condition('parent', $materials_term_tid, '=')
+      ->execute();
+  }
+
+  //store tmp vid var
+  $vid_tmp = $term->vid;
+  //delete taxonomy term
+  taxonomy_term_delete($term->tid);
+
+  //rebuild taxonomy menu
+  salto_debug_rebuild_taxonomy_menu($vid_tmp);
+
+  //clear cache for all entities
+  //Clear field cache
+  cache_clear_all('*', 'cache_field', TRUE);
+  field_info_cache_clear();
+
+}
+
+/**
+ * edit form category taxonomy term  - callback
+ *
+ * @param type $term
+ *
+ * @return type
+ */
+function salto_knowledgebase_materials_category_edit_term_callback($term) {
+  drupal_set_title(t('Edit !term_name', ['!term_name' => $term->name]));
+
+  //set breadcrumbs
+  salto_knowledgebase_set_breadcrumb('materials', [l(t('Manage categories'), 'materials/category')]);
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  $vocabulary = taxonomy_vocabulary_machine_name_load('lehr_lern_material_kategorien');
+
+  $form = drupal_get_form('taxonomy_form_term', $term, $vocabulary);
+  return drupal_render($form);
+}
+
+/**
+ * Implements hook_ctools_plugin_directory()
+ */
+function salto_knowledgebase_ctools_plugin_directory($module, $plugin) {
+  return "plugins/$plugin";
+}
+
+/**
+ *
+ * Breadcrumb helper for materials and posts
+ *
+ * @param $type
+ * @param array $additional_path
+ */
+function salto_knowledgebase_set_breadcrumb($type, $additional_path = []) {
+  $breadcrumb = [];
+  $breadcrumb[] = l(t('Home'), '<front>');
+
+  switch ($type) {
+    case 'materials':
+      $breadcrumb[] = l(t('Materials'), 'materials');
+      break;
+    case 'posts':
+      $breadcrumb[] = l(t('Posts'), 'posts');
+      break;
+  }
+  $breadcrumb = array_merge($breadcrumb, $additional_path);
+  drupal_set_breadcrumb($breadcrumb);
+}
+
+function salto_knowledgebase_set_menu_breadcrumb($type, $item, $additional_path = []) {
+  $breadcrumb = [];
+  $breadcrumb[] = l(t('Home'), '<front>');
+
+  switch ($type) {
+    case 'materials':
+      $breadcrumb[] = l(t('Materials'), 'materials');
+      break;
+    case 'posts':
+      $breadcrumb[] = l(t('Posts'), 'posts');
+      if (!empty($item->type) && $item->type == 'post') {
+        $breadcrumb = array_merge($breadcrumb, _salto_knowledgebase_post_category_breadcrumb($item));
+      }
+      break;
+  }
+  $breadcrumb = array_merge($breadcrumb, $additional_path);
+  drupal_set_breadcrumb($breadcrumb);
+}
+
+/**
+ * get the Breadcrumb term hirarchie by post node
+ *
+ * @param $node
+ *
+ * @return array
+ */
+function _salto_knowledgebase_post_category_breadcrumb($node) {
+  $breadcrumb = [];
+  $wrapper = entity_metadata_wrapper('node', $node);
+
+  $values = $wrapper->field_kb_content_category->value();
+
+  $first_deepest_term = NULL;
+  if (!empty($values)) {
+    foreach ($values as $val) {
+      if ($val === reset($values)) {
+        $first_deepest_term = $val;
+        continue;
+      }
+
+      if (!empty($val->field_term_sync_material_ref)) {
+        break;
+      }
+      $first_deepest_term = $val;
+    }
+  }
+
+  if ($first_deepest_term) {
+    $breadcrumb = _salto_knowledgebase_get_category_hirarchie('posts', $first_deepest_term);
+  }
+  return $breadcrumb;
+}
+
+/**
+ * get the Breadcrumb term hirarchie by file
+ *
+ * @param $node
+ *
+ * @return array
+ */
+function _salto_knowledgebase_file_category_breadcrumb($file) {
+  $breadcrumb = [];
+  $wrapper = entity_metadata_wrapper('file', $file);
+  if ($term = $wrapper->field_kb_kategorie->value()) {
+    $breadcrumb = _salto_knowledgebase_get_category_hirarchie('materials', $term);
+  }
+  return $breadcrumb;
+}
+
+function salto_knowledgebase_views_data_alter(&$data) {
+
+  //profile categories (themenfelder)
+  $data["field_data_field_profile_categories"]["field_profile_themenfelder_tid"] = $data["field_data_field_profile_categories"]["field_profile_categories_tid"];
+  $data["field_data_field_profile_categories"]["field_profile_themenfelder_tid"]['title'] = "Salto - Dynamischer Themenfeld(er) Filter";
+  $data["field_data_field_profile_categories"]["field_profile_themenfelder_tid"]['filter']['handler'] = 'views_handler_filter_salto_themenfelder_tid';
+  //group categories (themenfelder)
+  $data["field_data_field_group_categories"]["field_group_themenfelder_tid"] = $data["field_data_field_group_categories"]["field_group_categories_tid"];
+  $data["field_data_field_group_categories"]["field_group_themenfelder_tid"]['title'] = "Salto - Dynamischer Themenfeld(er) Filter";
+  $data["field_data_field_group_categories"]["field_group_themenfelder_tid"]['filter']['handler'] = 'views_handler_filter_salto_themenfelder_tid';
+
+  //post categories (themenfelder)
+  $data["field_data_field_kb_content_category"]["field_kb_content_themenfelder_tid"] = $data["field_data_field_kb_content_category"]["field_kb_content_category_tid"];
+  $data["field_data_field_kb_content_category"]["field_kb_content_themenfelder_tid"]['title'] = "Salto - Dynamischer Themenfeld(er) Filter";
+  $data["field_data_field_kb_content_category"]["field_kb_content_themenfelder_tid"]['filter']['handler'] = 'views_handler_filter_salto_themenfelder_tid';
+
+}
+
+function _salto_knowledgebase_get_category_hirarchie($type, $term) {
+
+  $basepath = 'term';
+  if ($type == 'posts') {
+    $basepath = 'posts';
+  }
+  elseif ($type == 'materials') {
+    $basepath = 'materials';
+  }
+
+  $parents = taxonomy_get_parents_all($term->tid);
+
+  while ($parent = array_pop($parents)) {
+    if ($type == 'materials') {
+      if ($term->tid == $parent->tid) {
+        continue;
+      }
+    }
+
+    $breadcrumb[] = l($parent->name, $basepath . '/' . $parent->tid);
+  }
+  return $breadcrumb;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function salto_knowledgebase_permission() {
+  return [
+    'edit any collaboration access' => [
+      'title' => t('Edit any collaboration access'),
+      'description' => t('Given one has the right to edit a node, this perm allows to edit the access without being author.'),
+    ],
+    'manage knowledgebase categories' => [
+      'title' => t('Manage knowledgebase (content) categories'),
+      'description' => t('Allows to manage the knowledgebase categories of any depth'),
+    ],
+    'manage knowledgebase subcategories' => [
+      'title' => t('Manage knowledgebase (content) subcategories'),
+      'description' => t('Allows to manage the knowledgebase subcategories. These are taxonomy terms starting from a specific depth (default = 2).'),
+    ],
+    'delete knowledgebase categories' => [
+      'title' => t('Delete knowledgebase (content) categories'),
+      'description' => t('Allows to delete the knowledgebase categories of any depth.'),
+    ],
+    'manage materials categories' => [
+      'title' => t('Manage materials categories'),
+      'description' => t('Allows to manage the material categories of any depth'),
+    ],
+    'assign categories' => [
+      'title' => t('Assign categories'),
+      'description' => t('Allows users to assign categories for posts and materials in common space.'),
+    ],
+
+  ];
+}
+
+function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id) {
+
+  global $user;
+
+  $account = clone $user;
+  $node = $form['#node'];
+
+
+  //group og vocabulary POSTS
+  if ($node->type == 'post') {
+
+    $form['#after_build'][] = 'salto_knowledgebase_form_post_node_form_after_build';
+
+    //check og widget
+    $og = og_context();
+    if (!empty($og)) {
+      $form_state['og_context'] = $og;
+      $node = $form['#node'];
+      $form['#after_build'][] = 'salto_knowledgebase_form_post_node_form_category_after_build';
+      array_unshift($form['#submit'], 'salto_knowledgebase_form_post_node_form_submit');
+      $form['field_kb_content_category'][LANGUAGE_NONE]['#required'] = FALSE;
+
+      $form['field_kb_content_category'][LANGUAGE_NONE]['#access'] = $form['field_post_collaboration']['#access'];
+
+      //descriptions
+      $description = $form['og_vocabulary'][LANGUAGE_NONE]['#description'];
+      unset($form['og_vocabulary'][LANGUAGE_NONE]['#description']);
+      foreach ($form['og_vocabulary'][LANGUAGE_NONE][0] as &$item) {
+        if (is_array($item) && !empty($item['#description'])) {
+          $item['#description'] = t("Description group category posts");
+        }
+      }
+
+      $form['field_kb_content_category'][LANGUAGE_NONE]['#description'] = t("Description group global category posts");
+
+
+      $form['og_vocabulary']['#prefix'] = '<div class="row col-md-12" id="salto_og_vocab_wrapper"><div class="col-md-6">';
+      $form['og_vocabulary']['#suffix'] = '</div>';
+
+      $form['field_kb_content_category']['#prefix'] = '<div class="col-md-6">';
+      $form['field_kb_content_category']['#suffix'] = '</div></div>';
+    }
+    else {
+      $form['field_kb_content_category'][LANGUAGE_NONE]['#required'] = TRUE;
+      $form['field_kb_content_category'][LANGUAGE_NONE]['#description'] = t("Description global category posts");
+      unset($form['og_vocabulary']);
+    }
+
+
+    //because of media ajax (and maybe other ajax forms) triggers this form alter
+    //we must exclude this the validation in this case
+    if (!empty($form_state['submit_handlers'][0]) && $form_state['submit_handlers'][0] == 'media_file_submit') {
+      hide($form['field_kb_content_category']);
+      $form['field_kb_content_category'][LANGUAGE_NONE]['#required'] = FALSE;
+    }
+
+    $attachment_fields = _attachments_field_names();
+
+    if ($fields = array_intersect_key($attachment_fields, $form)) {
+      foreach ($fields as $field) {
+        $items = &$form[$field]['und'];
+
+        foreach ($items as $key => $file) {
+          if (!is_numeric($key)) {
+            continue;
+          }
+
+          if ($items[$key]['#default_value']['fid'] == 0) {
+            continue;
+          }
+          $fid = $items[$key]['#default_value']['fid'];
+          $file = file_load($fid);
+
+          $gid = $form_state['og_context']['gid'];
+          if (!empty($gid)) {
+
+            $default_value = FALSE;
+            if (salto_knowledgebase_file_contains_group($file, $gid)) {
+              $default_value = TRUE;
+            }
+
+            $items[$key]['file_attachment_check_group'] = [
+              '#type' => 'checkbox',
+              '#title' => t('Show file in datas of the group'),
+              '#default_value' => $default_value,
+              '#weight' => 100,
+            ];
+
+          }
+          else {
+            $default_value = $items[$key]['#default_value']['field_file_attachment_status'][LANGUAGE_NONE][0]['value'];
+            if (!empty($form_state['values']['field_file_attachment_status'][LANGUAGE_NONE][$key])) {
+              $default_value = $form_state['values']['field_post_attachment'][LANGUAGE_NONE][$key]['file_attachment_status'];
+            }
+
+            $disable = FALSE;
+            $postRef = $file->field_file_attachment_post_ref[LANGUAGE_NONE][0]['target_id'];
+            if ($default_value == SALTO_FILE_ATTACHMENT_STATUS_CHECKED && $node->nid != $postRef) {
+              $disable = TRUE;
+            }
+            if ($default_value == SALTO_FILE_ATTACHMENT_STATUS_LOCKED) {
+              $disable = TRUE;
+            }
+            else {
+              if ($default_value == SALTO_FILE_ATTACHMENT_STATUS_UNCHECKED) {
+                $disable = FALSE;
+              }
+            }
+
+            // only post or new file without category and exist file with category
+            if (empty($postRef) && empty($file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'])) {
+              $disable = FALSE;
+
+
+            }
+            else {
+              if (empty($postRef) && !empty($file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'])) {
+                $disable = TRUE;
+              }
+            }
+
+            $file_attachment_status = $default_value;
+            $items[$key]['file_attachment_status'] = [
+              '#type' => 'checkbox',
+              '#title' => t('Store in Materials'),
+              '#default_value' => $default_value,
+              '#disabled' => $disable,
+              '#weight' => 100,
+              '#attributes' => ['class' => ['attachmentStatus']],
+            ];
+          }
+
+
+          $type = variable_get('file_title_type', 'textfield');
+          $value = $file->field_file_title[LANGUAGE_NONE][0]['value'];
+          if ($file->type == 'image') {
+            $type = variable_get('file_image_title_text_type', 'textfield');
+            $value = $file->field_file_image_title_text[LANGUAGE_NONE][0]['value'];
+          }
+          $stateValue = $form_state['values']['field_post_attachment'][LANGUAGE_NONE][$key]['file_attachment_title'];
+
+          //set value = statevalue if formstate was set
+          $value = !empty($stateValue) ? $stateValue : $value;
+          //set value = filename if state and title are empty
+          $value = !empty($value) ? $value : $file->filename;
+
+          $items[$key]['file_attachment_title'] = [
+            '#type' => $type,
+            '#title' => t('Filename'),
+            '#default_value' => isset($stateValue) ? salto_core_check_plain($stateValue) : salto_core_check_plain($value),
+            '#maxlength' => variable_get('file_title_length', 128),
+            '#description' => t('Set you direct the filename of the attachments.'),
+          ];
+
+          if (!file_entity_access('update', $file, $account)) {
+            $items[$key]['file_attachment_title']['#disabled'] = TRUE;
+          }
+
+          if (file_entity_access('update', $file, $account)) {
+            ctools_include('modal');
+            ctools_include('ajax');
+            ctools_modal_add_js();
+
+            $nodeQuery = 'node/' . $node->nid . '/edit';
+            if (empty($node->nid)) {
+              $nodeQuery = 'file/' . $file->fid . '/edit';
+            }
+
+
+            $replaceButton = [
+              '#type' => 'link',
+              '#title' => t('Replace file'),
+              '#href' => 'media/' . $file->fid . '/edit/ajax',
+              '#options' => [
+                'query' => ['replace' => '1', "field_og_group" => $gid],
+                'attributes' => [
+                  'class' => 'ctools-use-modal ctools-modal-media-file-edit action_link attachment_link btn btn-danger',
+                ],
+                'html' => TRUE,
+              ],
+            ];
+
+            $editButton = [
+              '#type' => 'link',
+              '#title' => t('Edit file'),
+              '#href' => 'media/' . $file->fid . '/edit/ajax',
+              '#options' => [
+                'query' => ["field_og_group" => $gid],
+                'attributes' => [
+                  'class' => 'ctools-use-modal ctools-modal-media-file-edit action_link attachment_link btn btn-danger',
+                ],
+                'html' => TRUE,
+              ],
+            ];
+
+
+            $items[$key]['file_attachment_buttons']['#prefix'] = '<div class="file_action_buttons hide">';
+            $items[$key]['file_attachment_buttons']['file_edit'] = $editButton;
+            $items[$key]['file_attachment_buttons']['file_replace'] = $replaceButton;
+            $items[$key]['file_attachment_buttons']['#suffix'] = '</div>';
+
+          }
+        }
+      }
+    }
+
+    //set the attributes for checkboxes og Beitragstags
+    $post_tags_title = $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#title'];
+    $post_tags_desc = $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#description'];
+    $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#title'] = salto_core_check_plain($post_tags_title . ' - ' . $post_tags_desc);
+    $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#description'] = '';
+
+    $form['field_taxonomy_post_tags']['#process'][] = 'salto_knowledgebase_add_checkbox_attribute';
+
+    //control versioning controls - only authors can control it
+    if (salto_knowledgebase_user_is_author($node) || user_access('administer nodes')) {
+      $form['revision_information']['revision']['#access'] = TRUE;
+    }
+    else {
+      //user is not in authors list
+      //mark revision option as checked
+      $form['revision_information']['revision']['#default_value'] = TRUE;
+      hide($form['revision_information']);
+    }
+
+
+    //edit form
+    if ($node->nid > 0) {
+      //node creator and last update > 24h ago
+      $notify_default = TRUE;
+      if ($node->uid == $account->uid && $node->changed >= time() - 60 * 60 * 24) {
+        $notify_default = FALSE;
+      }
+
+      //add notify checkbox
+      $form['salto_notification'] = [
+        '#title' => t('Notify on changes'),
+        '#type' => 'checkbox',
+        '#default_value' => $notify_default,
+      ];
+    }
+
+    $form['actions']['submit']['#submit'][] = 'salto_knowledgebase_post_form_submitted';
+  }
+}
+
+/*
+ * check file (field_og_group) has group id
+ * @return boolean
+ */
+function salto_knowledgebase_file_contains_group($file, $gid) {
+  $groupIds = $file->field_og_group[LANGUAGE_NONE];
+  foreach ($groupIds as $groupId) {
+    if ($groupId['target_id'] == $gid) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/*
+ * if group id not in $file->field_og_group
+ * then append group id
+ * else do nothing
+ */
+function salto_knowledgebase_file_set_group_ref($file, $gid) {
+  $contain = FALSE;
+  $groupIds = $file->field_og_group[LANGUAGE_NONE];
+  foreach ($groupIds as $groupId) {
+    if ($groupId['target_id'] == $gid) {
+      $contain = TRUE;
+      break;
+    }
+  }
+  if (!$contain) {
+    $len = sizeof($file->field_og_group[LANGUAGE_NONE]);
+    $file->field_og_group[LANGUAGE_NONE][$len - 1]['target_id'] = $gid;
+  }
+}
+
+/*
+ * if group id in $file->field_og_group
+ * then extract group id by array_slice and array_merge
+ */
+function salto_knowledgebase_file_remove_group_ref($file, $gid) {
+  $groupIds = $file->field_og_group[LANGUAGE_NONE];
+  for ($k = 0; $k < sizeof($groupIds); $k++) {
+    if ($groupIds[$k]['target_id'] == $gid) {
+      $first = array_slice($file->field_og_group[LANGUAGE_NONE], 0, $k - 1);
+      $last = array_slice($file->field_og_group[LANGUAGE_NONE], $k + 1);
+      $file->field_og_group[LANGUAGE_NONE] = array_merge($first, $last);
+      break;
+    }
+  }
+}
+
+/*
+ * this includes the post field name for attachments (in template)
+ * change fields/config then also here
+ */
+function _attachments_field_names() {
+  return ['field_post_attachment' => 'field_post_attachment'];
+}
+
+function salto_knowledgebase_form_post_node_form_after_build(&$form, &$form_state) {
+  //drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . '/js/salto_knowledgebase_taxonomy_term_tree.js', array('scope' => 'footer'));
+  drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . '/js/salto_knowledgebase_post_length.js', ['scope' => 'footer']);
+  $textLengthMax = variable_get('salto_knowledgebase_node_body_txt_length', SALTO_KNOWLEDGEBASE_BODY_TXT_LENGTH_MAX);
+  drupal_add_js(["post_length_max" => $textLengthMax], 'setting');
+  return $form;
+}
+
+
+/**
+ * Custom submit function to enable US 100.09
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_knowledgebase_form_post_node_form_submit(&$form, &$form_state) {
+  //unset the category field when the input is null
+  if (isset($form_state['input']['field_kb_content_category']) && empty($form_state['input']['field_kb_content_category']['und'])) {
+    $form_state['values']['field_kb_content_category']['und'][0] = NULL;
+  }
+  if (!empty($form_state['values']['field_kb_content_category']['und'][0])) {
+    $term = taxonomy_term_load($form_state['values']['field_kb_content_category']['und'][0]['tid']);
+
+    drupal_set_message(t("This post is now categorized under %term_name", ['%term_name' => $term->name]));
+  }
+}
+
+/**
+ * Post form has been submitted and node has been created
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_knowledgebase_post_form_submitted(&$form, &$form_state) {
+
+  $node = $form_state['node'];
+  $attachment_fields = _attachments_field_names();
+  if ($fields = array_intersect_key($attachment_fields, $form_state['values'])) {
+    foreach ($fields as $field) {
+      $items = $form_state['values'][$field]['und'];
+
+      foreach ($items as $value) {
+        $fid = $value['fid'];
+        if ($fid < 1) {
+          continue;
+        }
+
+        $file = file_load($fid);
+
+        global $user;
+        $account = clone $user;
+        if (isset($value['file_attachment_title']) && file_entity_access('update', $file, $account)) {
+
+          if ($file->type == 'image') {
+            $file->field_file_image_title_text[LANGUAGE_NONE][0]['value'] = salto_core_check_plain($value['file_attachment_title']);
+          }
+          else {
+            $file->field_file_title[LANGUAGE_NONE][0]['value'] = salto_core_check_plain($value['file_attachment_title']);
+          }
+          field_attach_update('file', $file);
+        }
+
+        $og = og_context();
+        if (!empty($og)) {
+          $check_group = $value['file_attachment_check_group'];
+          if ($check_group == 1) {
+            salto_knowledgebase_file_set_group_ref($file, $form_state['og_context']['gid']);
+          }
+          else {
+            if ($check_group == 0) {
+
+              salto_knowledgebase_file_remove_group_ref($file, $form_state['og_context']['gid']);
+            }
+          }
+        }
+        else {
+          $file_status = $value['file_attachment_status'];
+          if ($file->field_file_attachment_status[LANGUAGE_NONE][0]['value'] == $file_status) {
+            continue;
+          }
+
+          if ($file_status == SALTO_FILE_ATTACHMENT_STATUS_CHECKED) {
+            $file = salto_knowledgebase_post_set_attachment_ref($file, $node->nid);
+            $arrayTerms = salto_knowledgebase_post_get_themenfelder($node);
+            if (!empty($arrayTerms)) {
+              $key = 0;
+              foreach ($arrayTerms as $term) {
+                if (!empty($term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'])) {
+                  $file->field_kb_kategorie[LANGUAGE_NONE][$key]['tid'] = $term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'];
+                  $key++;
+                }
+              }
+            }
+          }
+          else {
+            if ($file_status == SALTO_FILE_ATTACHMENT_STATUS_UNCHECKED) {
+              $file = salto_knowledgebase_post_set_attachment_ref_empty($file, $node->nid);
+            }
+          }
+
+          $file->field_file_attachment_status[LANGUAGE_NONE][0]['value'] = $file_status;
+        }
+        file_save($file);
+      }
+    }
+  }
+
+  if (isset($form_state['values']['salto_notification']) && $form_state['values']['salto_notification'] == FALSE) {
+    //set ignore notification flag
+    $node->salto_ignore_notification = TRUE;
+  }
+
+  module_invoke_all('knowledgebase_post_submitted', $node, empty($form['#node']->nid));
+
+}
+
+function salto_knowledgebase_post_set_attachment_ref($file, $nid) {
+  if (empty($file->field_file_attachment_post_ref)) {
+    $file->field_file_attachment_post_ref[LANGUAGE_NONE][0]['target_id'] = $nid;
+  }
+  return $file;
+}
+
+function salto_knowledgebase_post_set_attachment_ref_empty($file, $nid) {
+  if ($file->field_file_attachment_post_ref[LANGUAGE_NONE][0]['target_id'] == $nid) {
+    $file->field_kb_kategorie = [];
+    $file->field_file_attachment_post_ref = '';
+    $file->field_file_attachment_status[LANGUAGE_NONE][0]['value'] = SALTO_FILE_ATTACHMENT_STATUS_UNCHECKED;
+  }
+  return $file;
+}
+
+/**
+ * @param $form
+ * @param $form_state
+ * @param $type materials|posts
+ * @param $eid
+ */
+function salto_knowledgebase_assign_category_form($form, &$form_state, $type, $eid) {
+  if ($type == 'materials') {
+    $entity_type = 'file';
+    $entity = file_load($eid);
+    $title = $entity->filename;
+  }
+  elseif ($type == 'posts') {
+    $entity_type = 'node';
+    $entity = node_load($eid);
+    $title = $entity->title;
+  }
+  //set title
+  $old_title = drupal_get_title();
+  drupal_set_title($title . " - " . $old_title);
+
+  //attach proper field
+  salto_knowledgebase_category_field_attach($form, $form_state, $entity_type, $eid);
+
+  $form_state['rebuild'] = TRUE;
+
+  $form_state['#entity_type'] = $entity_type;
+  $form_state['#entity_id'] = $eid;
+
+  $form['actions'] = ['#type' => 'actions'];
+  $form['actions']['assign_category'] = [
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  ];
+
+  return $form;
+
+}
+
+function salto_knowledgebase_assign_category_form_submit($form, &$form_state) {
+  $entity_type = $form_state['#entity_type'];
+  $entity_id = $form_state['#entity_id'];
+
+  if ($entity_type == 'file') {
+    $file = file_load($entity_id);
+    //set category
+    $file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'] = $form_state['values']['field_kb_kategorie'][LANGUAGE_NONE][0]['tid'];
+    file_save($file);
+  }
+  elseif ($entity_type == 'node') {
+    $node = node_load($entity_id);
+    //set category
+    $node->field_kb_content_category[LANGUAGE_NONE][0]['tid'] = $form_state['values']['field_kb_content_category'][LANGUAGE_NONE][0]['tid'];
+    node_save($node);
+  }
+
+}
+
+/**
+ * @param $form
+ * @param $form_state
+ * @param $type
+ * @param $eid
+ */
+function salto_knowledgebase_category_field_attach(&$form, &$form_state, $entity_type, $eid) {
+
+  //attach the related field
+  if ($entity_type == 'file') {
+    $entity = file_load($eid);
+    $field_name = 'field_kb_kategorie';
+
+  }
+  elseif ($entity_type == 'node') {
+    $entity = node_load($eid);
+    $field_name = 'field_kb_content_category';
+  }
+
+  if (empty($field_name)) {
+    return;
+  }
+
+  field_attach_form($entity_type, $entity, $form, $form_state, LANGUAGE_NONE, ['field_name' => $field_name]);
+
+  $form[$field_name][LANGUAGE_NONE]['#required'] = TRUE;
+
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function salto_knowledgebase_form_alter(&$form, &$form_state, $form_id) {
+
+  global $user;
+
+  //override submit callback for term overview form
+  if ($form_id == 'taxonomy_overview_terms') {
+    $submit_key = array_search('taxonomy_overview_terms_submit', $form['#submit']);
+    if ($submit_key !== FALSE) {
+      $form['#submit'][$submit_key] = "salto_knowledgebase_taxonomy_overview_terms_submit";
+    }
+  }
+
+  if ($form_id == 'taxonomy_overview_terms') {
+    if (!empty($form['#vocabulary']) && $form['#vocabulary']->machine_name == 'wissensbasis_kategorien') {
+      if (!user_access('manage knowledgebase categories')) {
+        $form['#validate'][] = 'salto_knowledgebase_content_taxonomy_overview_depth_lock_validate';
+      }
+    }
+  }
+
+  if ($form_id == 'taxonomy_form_term') {
+
+    if (!empty($form["field_term_sync_material_ref"])) {
+      $form["field_term_sync_material_ref"]["#access"] = FALSE;
+    }
+    if (!empty($form["field_term_sync_post_ref"])) {
+      $form["field_term_sync_post_ref"]["#access"] = FALSE;
+    }
+
+    if (empty($form['field_taxonomy_author'])) {
+      return;
+    }
+
+    //only admins may change this value
+    $form['field_taxonomy_author']['#access'] = user_access('administer taxonomy');
+
+    //set author
+    $term = $form['#term'];
+    if (empty($term['tid'])) {
+      $form['field_taxonomy_author'][LANGUAGE_NONE][0]['target_id']['#default_value'] = $user->name . ' (' . $user->uid . ')';
+    }
+
+    if ($form['#vocabulary']->machine_name != 'wissensbasis_kategorien') {
+      return;
+    }
+
+    $term_id = variable_get('salto_knowledgebase_content_category_default_term_tid', NULL);
+
+    //check if we are in add or edit form mode
+    if (empty($form['#term']['tid'])) {
+      $form['relations']['parent']['#default_value'] = $term_id;
+    }
+
+    if (!user_access('manage knowledgebase categories')) {
+      //unset top level parent
+      unset($form['relations']['parent']['#options'][0]);
+    }
+
+    $form['relations']['parent']['#required'] = TRUE;
+
+  }
+
+  if (preg_match('/node_form$/', $form_id)) {
+
+    $category_tid = $_GET['content_category'];
+    if (is_numeric($category_tid)) {
+      $term_check = taxonomy_term_load($category_tid);
+
+      if ($term_check) {
+        $form['field_kb_content_category'][LANGUAGE_NONE]['#default_value'] = $category_tid;
+      }
+    }
+
+  }
+
+  if (isset($form['body'][LANGUAGE_NONE][0]) && empty($form['body'][LANGUAGE_NONE][0]['#default_value'])) {
+    $form['body'][LANGUAGE_NONE][0]['#default_value'] = "&nbsp;";
+  }
+
+  //hide booktab
+  if (isset($form['book'])) {
+    unset($form['book']['#group']);
+    $form['book']['#collapsed'] = FALSE;
+  }
+
+  //hide revision tab
+  if (isset($form['revision_information'])) {
+    unset($form['revision_information']['#group']);
+    $form['revision_information']['#collapsed'] = FALSE;
+  }
+
+  if ($form_id == 'node_delete_confirm') {
+    // replace 'article' in next line with your node type machine name
+    if ($form['#node']->type == 'post') {
+      $form['#action'] = url('node/' . $form['#node']->nid . '/delete');
+      $form['actions']['submit']['#submit'][] = 'node_delete_confirm_submit';
+      $form['actions']['submit']['#submit'][] = '_salto_knowledgebase_node_delete_confirm_submit';
+    }
+  }
+
+}
+
+
+function salto_knowledgebase_add_checkbox_attribute($element) {
+  if (!empty($element[LANGUAGE_NONE]) && $element[LANGUAGE_NONE]['#field_name'] == 'field_taxonomy_post_tags') {
+    $element[LANGUAGE_NONE]['#tooltips'] = [];
+    foreach ($element[LANGUAGE_NONE]['#options'] as $key => $value) {
+      $term = taxonomy_term_load($key);
+      $element[LANGUAGE_NONE]['#tooltips'][$key] = strip_tags($term->description);
+    }
+  }
+  return $element;
+
+}
+
+/**
+ * changes validator - if lockdepth for term edition is set
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_knowledgebase_content_taxonomy_overview_depth_lock_validate(&$form, &$form_state) {
+
+  $vocabulary = taxonomy_vocabulary_machine_name_load('wissensbasis_kategorien');
+  $tax_tree = taxonomy_get_tree($vocabulary->vid, 0, 1);
+
+  $old_tids = [];
+  foreach ($tax_tree as $item) {
+    $old_tids[$item->tid] = $item->tid;
+  }
+
+  $new_tids = [];
+  foreach ($form_state['values'] as $key => $term) {
+    if (is_array($term) && strstr($key, 'tid:') && $term['parent'] == 0) {
+      $new_tids[$term['tid']] = $term['tid'];
+    }
+  }
+
+  $a_diff = array_diff($new_tids, $old_tids);
+
+  if (!empty($a_diff)) {
+    form_set_error('', 'Invalid selection.');
+  }
+
+}
+
+/**
+ * Implements hook_node_prepare().
+ */
+function salto_knowledgebase_node_prepare($node) {
+
+  $types = ['post', 'online_meeting'];
+
+  //prepare new node-> set author
+  if (in_array($node->type, $types)) {
+    if (empty($node->field_post_authors[LANGUAGE_NONE])) {
+      $node->field_post_authors = [LANGUAGE_NONE => [['target_id' => $node->uid]]];
+    }
+  }
+}
+
+/**
+ * Implements hook_node_prepare().
+ */
+function salto_knowledgebase_node_presave($node) {
+
+  $types = ['post'];
+
+  if (in_array($node->type, $types)) {
+    $node->title = salto_core_strip_input($node->title);
+
+    if (empty($node->field_post_authors[LANGUAGE_NONE])) {
+      $node->field_post_authors = [LANGUAGE_NONE => []];
+    }
+    //check if uid is in array already
+    $search_flag = FALSE;
+    $a_pos = 0;
+    foreach ($node->field_post_authors[LANGUAGE_NONE] as $entry) {
+      if (array_search($node->uid, $entry)) {
+        $search_flag = TRUE;
+        break;
+      }
+      $a_pos++;
+    }
+
+    //check if uid is already set in array
+    if (!$search_flag) {
+      //if uid is not set yet
+      if ($node->uid > 0 && $node->uid != USER_DELETED_UID) {
+        //make sure, NOT to add anonymous guest user and deleted user to author list
+        $node->field_post_authors[LANGUAGE_NONE] = array_merge([['target_id' => $node->uid]], $node->field_post_authors[LANGUAGE_NONE]);
+      }
+    }
+    else {
+      if ($a_pos > 0) {
+        //make sure uid is on the first position of the array
+        $node->field_post_authors[LANGUAGE_NONE] = array_merge(
+          [['target_id' => $node->uid]],
+          array_slice($node->field_post_authors[LANGUAGE_NONE], 0, $a_pos),
+          array_slice($node->field_post_authors[LANGUAGE_NONE], $a_pos + 1));
+      }
+    }
+
+    $textLengthMax = variable_get('salto_knowledgebase_node_body_txt_length', SALTO_KNOWLEDGEBASE_BODY_TXT_LENGTH_MAX);
+    if (strlen($node->body[LANGUAGE_NONE][0]['value']) > $textLengthMax) {
+      $text = $node->body[LANGUAGE_NONE][0]['value'];
+      // truncate text
+      $textCut = substr($text, 0, $textLengthMax);
+      $endPoint = strrpos($textCut, ' ');
+
+      //if the text doesn't contain any space then it will cut without word basis.
+      $text = $endPoint ? substr($textCut, 0, $endPoint) : substr($textCut, 0);
+      $node->body[LANGUAGE_NONE][0]['value'] = $text . ' ... ';
+      drupal_set_message(t('Your text body is trimmed of the max !textLengthMax length!', ['!textLengthMax' => $textLengthMax]), 'warning', FALSE);
+    }
+
+  }
+}
+
+
+function _knowledgebase_get_educoncepts_by_earemotes($earemote, $limit = 3) {
+  if (!$earemote) {
+    return;
+  }
+
+  //get organisations
+  $rel_organisations = _knowledgebase_get_organisations_by_earemotes($earemote);
+
+  $organisations_educoncepts = [];
+  //get educoncepts for ech of those organisations
+  foreach ($rel_organisations as $r_o) {
+
+    $o_ecs = _knowledgebase_get_educoncepts_by_organisation((object) ($r_o));
+    if (count($o_ecs) > 0) {
+
+    }
+    $organisations_educoncepts[] = [
+      'organisation' => $r_o,
+      'educoncepts' => $o_ecs,
+    ];
+  }
+
+  $counter = 0;
+  $total = count($organisations_educoncepts);
+  //rendering
+  $output = '<div class="organisations-educoncepts">';
+
+  foreach ($organisations_educoncepts as $item) {
+    if ($limit != 0 && $counter >= $limit) {
+      $output .= '... ';
+      break;
+    }
+
+    $org = $item['organisation'];
+    $output .= l($org['title'], 'node/' . $org['nid']);
+    if (!empty($item['educoncepts'])) {
+      //first educoncept only
+      $first_ec = current($item['educoncepts']);
+      $output .= ' mit ' . l($first_ec['title'], 'node/' . $first_ec['nid']);
+    }
+
+    $counter++;
+
+    if ($total > $counter) {
+      $output .= ', ';
+    }
+  }
+
+  $output .= '</div>';
+
+  return $output;
+}
+
+function _knowledgebase_render_earemotes_organisations($earemotes) {
+
+  $output = '';
+  $total = count($earemotes);
+  if ($total > 0) {
+
+    $counter = 0;
+    foreach ($earemotes as $earemote) {
+      $output .= l($earemote['title'], 'node/' . $earemote['nid']);
+
+      $counter++;
+
+      //$output .= '';
+      if ($total > $counter) {
+        $output .= ', ';
+      }
+
+      if ($counter == 1) {
+        $output = ' mit ' . $output;
+      }
+    }
+  }
+  return $output;
+}
+
+/**
+ * get all organisations which are related to an earemote
+ *
+ * @param type $earemote
+ *
+ * @return type
+ */
+function _knowledgebase_get_organisations_by_earemotes($earemote) {
+
+  $result = [];
+
+  if (!$earemote) {
+    return $result;
+  }
+
+
+  $query = db_select('node', 'n');
+  $query->leftJoin('field_data_field_organisation_earemotes', 'fea', "fea.entity_id = n.nid AND (fea.entity_type = 'node') AND fea.deleted = '0'");
+  $query->innerJoin('node', 'nea', "fea.field_organisation_earemotes_target_id  = nea.nid");
+  $query->fields('n', ['nid', 'title'])
+    ->condition('fea.field_organisation_earemotes_target_id', $earemote->nid, '=')
+    ->condition('n.type', ['organisation'], 'IN')
+    ->condition('n.status', '0', '>')
+    ->orderBy('n.title', 'ASC');
+
+  $q_result = $query->execute();
+
+  while ($record = $q_result->fetchAssoc()) {
+    $result[] = $record;
+  }
+
+  return $result;
+}
+
+/**
+ * get all educoncepts which are related to an organisation
+ *
+ * @param type $organisation
+ *
+ * @return array
+ */
+function _knowledgebase_get_educoncepts_by_organisation($organisation) {
+  $result = [];
+  if (!$organisation) {
+    return $result;
+  }
+
+
+  $query = db_select('node', 'n');
+  $query->fields('n', ['nid', 'title']);
+  $query->innerJoin('og_membership', 'ogm', "n.nid = ogm.etid AND (ogm.entity_type = 'node' AND ogm.entity_type = 'node')");
+
+  $query->condition('ogm.gid ', $organisation->nid, '=')
+    ->condition('n.type', ['ausbildungskonzept'], 'IN')
+    ->condition('n.status', '0', '>')
+    ->orderBy('n.title', 'ASC');
+
+  $q_result = $query->execute();
+
+  while ($record = $q_result->fetchAssoc()) {
+    $result[] = $record;
+  }
+
+  return $result;
+}
+
+/**
+ * Implements hook_og_permission().
+ */
+function salto_knowledgebase_og_permission() {
+
+  $perms['edit collaboration fields'] = [
+    'title' => t('Edit collaboration fields'),
+    'description' => t('Edit collaboration fields'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+  return $perms;
+}
+
+/**
+ * Implements hook_action_links_info
+ */
+function salto_knowledgebase_action_links_info() {
+  $items['posts'] = t('Posts links');
+  $items['materials'] = t('Materials links');
+  return $items;
+}
+
+/**
+ * Implements hook_salto_action_links
+ *
+ * @param type $category
+ *
+ * @return type
+ */
+function salto_knowledgebase_salto_action_links($category, $context) {
+  $links = [];
+  switch ($category) {
+    case 'posts':
+      $links += _salto_action_links_posts($context['node_context']);
+      break;
+    case 'materials':
+      $links += _salto_action_links_materials($context['file_context']);
+      break;
+    case 'file':
+      $links += _salto_action_links_file($context['file_context']);
+      break;
+  }
+  return $links;
+}
+
+/**
+ * Context links used for knowledgebase nodes and on the overview
+ * we use a wrapper to avaoid deep nested switch clause in
+ * hook_salto_action_links
+ *
+ * @return [type] [description]
+ */
+function _salto_action_links_posts($node = NULL) {
+
+  $base_query = drupal_get_destination();
+
+  $links = [];
+
+  //the edit link
+  if (!empty($node)) {
+    if (!empty($node) && node_access("update", $node)) {
+      $path = 'node/' . $node->nid . '/edit';
+      $text = t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]);
+      $link = [
+        '#theme' => 'link',
+        '#text' => $text,
+        '#path' => $path,
+        '#options' => [
+          'query' => $base_query,
+          'attributes' => [
+            'title' => t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]),
+            'class' => 'action_link edit_node edit_article',
+          ],
+          'html' => TRUE,
+        ],
+      ];
+      $links["edit_node"] = $link;
+    }
+    if (!empty($node) && user_access("assign categories")) {
+      $path = 'category/assign/posts/' . $node->nid;
+      $text = t('Assign category');
+      $link = [
+        '#theme' => 'link',
+        '#text' => $text,
+        '#path' => $path,
+        '#options' => [
+          'query' => $base_query,
+          'attributes' => [
+            'title' => t('Assign category to this @node_type', ['@node_type' => node_type_get_name($node)]),
+            'class' => 'action_link assign_category',
+          ],
+          'html' => TRUE,
+        ],
+      ];
+      $links["assign_category_node"] = $link;
+    }
+  }
+
+  //append category tid, if category context is set
+  //appending to article/question/report add links
+  $regex = '#^posts/([0-9]+)$#s';
+  $matches = [];
+  preg_match($regex, $base_query['destination'], $matches);
+
+  $active_category_tid = NULL;
+  if (!empty($matches)) {
+    $active_category_tid = $matches[1];
+  }
+
+  //set the reference field for url prepoulation
+  if (!empty($node->nid)) {
+    $query = ['field_references' => $node->nid];
+  }
+  else {
+    $query = [];
+  }
+
+  //post
+  if (user_access("create post content")) {
+    $path = 'node/add/post';
+    $text = t('Create post');
+
+    $query_tmp = $query;
+    if ($active_category_tid) {
+      $query += ['content_category' => $active_category_tid];
+    }
+
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => $query,
+        'attributes' => [
+          'title' => t('Add a new post'),
+          'class' => 'action_link add_node add_post',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["add_report"] = $link;
+
+    $query = $query_tmp;
+  }
+
+
+  //categories for DOSB and Admin Role only
+  $cur_p = current_path();
+  //context sensitive "Manage categories link"
+  //1. content category
+  $tmp_arg0 = arg(0);
+  $tmp_arg1 = arg(1);
+  $tmp_arg2 = arg(2);
+  if ($tmp_arg0 == 'node' && is_numeric($tmp_arg1) && empty($tmp_arg2)) {
+    $tmp_node = node_load(arg(1));
+    $tmp_node_type = $tmp_node->type;
+  }
+  if (drupal_valid_path('posts/category') && (strstr($cur_p, 'knowledge') && strstr($cur_p, 'materials') == FALSE || strstr($tmp_node_type, 'kb_'))) {
+    $path = 'posts/category';
+    $text = t('Manage categories');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => [], // $base_query, //$query,
+        'attributes' => [
+          'title' => t('Manage categories'),
+          'class' => 'action_link  manage_categories',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["manage_categories"] = $link;
+  }
+
+  //revisions
+  if (!empty($node) && $node->type == 'post' && _node_revision_access($node)) {
+    $path = 'node/' . $node->nid . '/revisions';
+    $text = t('Manage revisions');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => $query,
+        'attributes' => [
+          'title' => t('See all versions of this article'),
+          'class' => 'action_link manage_revisions',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["manage_revisions"] = $link;
+  }
+
+  //categories for DOSB and Admin Role only
+  if (user_access('manage knowledgebase categories') || user_access('manage knowledgebase subcategories')) {
+    $path = 'posts/category';
+    $text = t('Manage categories');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => [], // $base_query, //$query,
+        'attributes' => [
+          'title' => t('Manage categories'),
+          'class' => 'action_link manage_categories',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["manage_categories"] = $link;
+  }
+
+  return $links;
+}
+
+/**
+ * Context links used for knowledgebase nodes and on the overview
+ * we use a wrapper to avaoid deep nested switch clause in
+ * hook_salto_action_links
+ *
+ * @return [type] [description]
+ */
+function _salto_action_links_materials($file = NULL) {
+
+  $base_query = drupal_get_destination();
+
+  $links = [];
+
+  //check category
+  $regex = '#^materials/([0-9]+)$#s';
+  $matches = [];
+  preg_match($regex, $base_query['destination'], $matches);
+
+  $active_category_tid = NULL;
+
+  if (!empty($matches)) {
+    $active_category_tid = $matches[1];
+  }
+
+  //files
+  if (user_access("create files")) {
+    $path = 'file/add_anything';
+    $text = t('File upload');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => [], // $base_query, //$query,
+        'attributes' => [
+          'title' => t('Materialien einstellen und andere Dateien einstellen.'),
+          'class' => 'action_link add_node add_file',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["add_file"] = $link;
+  }
+
+  //categories for DOSB and Admin Role only
+  //context sensitive "Manage categories link"
+  //file category
+  if (salto_knowledgebase_files_category_access_callback()) {
+    $path = 'materials/category';
+    $text = t('Manage categories');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => [], // $base_query, //$query,
+        'attributes' => [
+          'title' => t('Manage categories'),
+          'class' => 'action_link  manage_categories',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["manage_categories"] = $link;
+  }
+
+  return $links;
+}
+
+
+function _salto_action_links_file($file = NULL) {
+  $base_query = drupal_get_destination();
+
+  $links = [];
+
+  //assign category link
+  if (!empty($file) && user_access("assign categories")) {
+    $path = 'category/assign/materials/' . $file->fid;
+    $text = t('Assign category');
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => $base_query,
+        'attributes' => [
+          'title' => t('Assign category to this file'),
+          'class' => 'action_link assign_category',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["assign_category_node"] = $link;
+  }
+
+  return $links;
+}
+
+
+function salto_knowledgebase_entity_diff_alter(&$entity_diffs, $context) {
+
+  $labels = salto_knowledgebase_post_access_options('view');
+
+  $entity_diffs['field_post_collaboration_read'] = [
+    '#name' => "Zusammenarbeit (" . t('Read access') . ")",
+    '#settings' => [
+      'show_header' => 1,
+    ],
+    '#weight' => -3,
+  ];
+
+  $old = $context['old_entity']->field_post_collaboration[LANGUAGE_NONE][0]['read'];
+  $new = $context['new_entity']->field_post_collaboration[LANGUAGE_NONE][0]['read'];
+  $entity_diffs['field_post_collaboration_read']['#states']['raw']['#old'][] = $labels[$old];
+  $entity_diffs['field_post_collaboration_read']['#states']['raw']['#new'][] = $labels[$new];
+
+
+  $entity_diffs['field_post_collaboration_edit'] = [
+    '#name' => "Zusammenarbeit (" . t('Edit access') . ")",
+    '#settings' => [
+      'show_header' => 1,
+    ],
+    '#weight' => -2,
+  ];
+
+  $old = $context['old_entity']->field_post_collaboration[LANGUAGE_NONE][0]['edit'];
+  $new = $context['new_entity']->field_post_collaboration[LANGUAGE_NONE][0]['edit'];
+  $entity_diffs['field_post_collaboration_edit']['#states']['raw']['#old'][] = $labels[$old];
+  $entity_diffs['field_post_collaboration_edit']['#states']['raw']['#new'][] = $labels[$new];
+
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function salto_knowledgebase_node_view($node, $view_mode, $langcode) {
+
+  // attachments
+  if (node_access('view', $node)) {
+    $attachments_count =
+      !empty($node->field_post_attachment[LANGUAGE_NONE]) ? count($node->field_post_attachment[LANGUAGE_NONE]) : 0;
+    if ($attachments_count > 0) {
+      $links_attachments['statistics_attachments']['title'] = format_plural($attachments_count,
+        '1 attachment', '@count attachments');
+
+      $node->content['links']['attachments'] = [
+        '#theme' => 'links__node__statistics',
+        '#links' => $links_attachments,
+        '#weight' => 20,
+        '#attributes' => ['class' => ['links', 'inline', 'left']],
+      ];
+
+    }
+  }
+
+  //fivestar rating
+
+  //check if field is set up for this ct
+  $field_instance = field_info_instance('node', 'field_content_rating', $node->type);
+
+  if (empty($field_instance)) {
+    return;
+  }
+
+  // show result in teaser view mode
+  $rendered_stars =
+    _salto_knowledgebase_render_fivestar_stars('node', $node, $field_instance, $node->field_content_rating[LANGUAGE_NONE],
+      'average', 'none', TRUE);
+
+  $links['content_rating'] = [
+    'title' => $rendered_stars,
+    'html' => TRUE,
+  ];
+
+  $node->content['links_right']['content_rating_display'] = [
+    '#theme' => 'links',
+    '#links' => $links,
+    'html' => TRUE,
+    '#weight' => 20,
+    '#attributes' => [
+      'class' => [
+        'links',
+        'inline',
+        'content_rating_display',
+      ],
+    ],
+  ];
+
+  if ($view_mode == 'teaser') {
+    return;
+  }
+
+  $user_link =
+    _salto_knowledgebase_render_fivestar_user_stars('node', $node, $field_instance, $node->field_content_rating[LANGUAGE_NONE]);
+
+  $links['content_rating'] = [
+    'title' => $user_link,
+    '#weight' => 10,
+    'html' => TRUE,
+  ];
+
+  $node->content['links_right']['content_rating_action'] = [
+    '#theme' => 'links',
+    '#links' => $links,
+    'html' => TRUE,
+    '#weight' => -1,
+    '#attributes' => [
+      'class' => ['link', 'content_rating_action'],
+    ],
+  ];
+}
+
+/**
+ * render file stars
+ *
+ * @param $entity_type
+ * @param $entity
+ * @param $field_instance
+ * @param $items
+ * @param string $style
+ * @param string $text
+ * @param bool $custom_text
+ *
+ * @return string
+ */
+function _salto_knowledgebase_render_fivestar_stars($entity_type, $entity, $field_instance, $items, $style = 'average', $text = 'none', $custom_text = FALSE) {
+
+  $display = [
+    'label' => 'above',
+    'type' => 'fivestar_formatter_default',
+    'weight' => 0,
+    'module' => 'fivestar',
+    'settings' => [
+      'widget' => ['fivestar_widget' => "sites/all/modules/contrib/fivestar/widgets/outline/outline.css"],
+      'expose' => '0',
+      'style' => $style,
+      'text' => $text,
+    ],
+  ];
+
+  $field_instance = field_info_instance($entity_type, $field_instance['field_name'], $entity->type);
+  $field_data = fivestar_field_formatter_view($entity_type, $entity, field_info_field('field_content_rating'), $field_instance, LANGUAGE_NONE, $items, $display);
+
+  //render avg and num votes textes behind the stars, if custom_text argument is set to TRUE
+  if ($custom_text) {
+    $avg = $items[0]['average'];
+    $stars_number = $field_instance['settings']['stars'];
+    $avg_display = number_format($avg / 100 * $stars_number, 1, ',', '');
+    $output = render($field_data) . $avg_display . ' (' . $items[0]['count'] . ')';
+  }
+  else {
+    $output = render($field_data);
+  }
+
+  return $output;
+}
+
+
+/**
+ * render rating action Link
+ *
+ * @param $node
+ * @param $field_instance
+ * @param $items
+ *
+ * @return string
+ */
+function _salto_knowledgebase_render_fivestar_user_stars($entity_type, $entity, $field_instance, $items) {
+  drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . "/js/salto_knowledgebase.js");
+
+  $rate_content_text = t('rate content');
+  $prefix = '<i class="salto_rate_content"></i>';
+  //check if user already has rated this content
+  if ($items[0]['user'] > 0) {
+    //user alteady voted for this content
+    $rendered_stars = _salto_knowledgebase_render_fivestar_stars($entity_type, $entity, $field_instance, $items, 'user', 'none');
+
+    $prefix = $rendered_stars;
+
+    $rate_content_text = t('Change your content rating');
+  }
+
+  //get id
+  switch ($entity_type) {
+    case 'node':
+      $id = $entity->nid;
+      break;
+    case 'file':
+      $id = $entity->fid;
+      break;
+  }
+
+  $output = $prefix . '<a class="salto_rate_content_action" href="#" data-type="' . $entity_type . '" data-id="' . $id . '">' . $rate_content_text . "</a>";
+
+
+  return $output;
+}
+
+/**
+ * alter knowledgebase navigation items block
+ *
+ * @param type $tree
+ * @param type $config
+ */
+function salto_knowledgebase_menu_block_tree_alter(&$tree, &$config) {
+
+  if ($config['menu_name'] != SALTO_KNOWLEDGEBASE_MENU_NAME && $config['menu_name'] != SALTO_KNOWLEDGEBASE_MENU_NAME_FILES
+    && $config['menu_name'] != 'menu-groups') {
+    return;
+  }
+
+  $tmp_arg0 = arg(0);
+  $tmp_arg1 = arg(1);
+  $tmp_arg2 = arg(2);
+
+  $context = og_context();
+
+
+  $is_full_node_view = ($tmp_arg0 == 'node' && is_numeric($tmp_arg1));
+
+  $users_themenfelder = salto_user_get_themenfelder();
+  $users_themenfelder_tids = [];
+  foreach ($users_themenfelder as $ti) {
+    $users_themenfelder_tids[] = $ti->tid;
+  }
+
+  if ($is_full_node_view) {
+    $node = node_load($tmp_arg1);
+
+    $node_themenfelder_tids = [];
+    $group_category_tid = NULL;
+    if (empty($context)) {
+      if (!empty($node->field_kb_content_category[LANGUAGE_NONE])) {
+        foreach ($node->field_kb_content_category[LANGUAGE_NONE] as $nc) {
+          $users_themenfelder_tids[] = $nc["tid"];
+        }
+      }
+    }
+    else {
+      //group context
+      //take og_vocab term id
+      $group_category_tid = $node->og_vocabulary[LANGUAGE_NONE][0]['target_id'];
+    }
+
+    $node_themenfelder_tids = array_merge($users_themenfelder_tids, $node_themenfelder_tids);
+    if ($group_category_tid) {
+      $node_themenfelder_tids = array_merge($node_themenfelder_tids, [$group_category_tid]);
+    }
+
+    _salto_knowledgebase_main_menu_placeholder_replace_helper($tree, $node_themenfelder_tids, TRUE);
+  }
+  else {
+    _salto_knowledgebase_main_menu_placeholder_replace_helper($tree, $users_themenfelder_tids, TRUE);
+  }
+
+}
+
+/**
+ *
+ * @param  [type] $tree   [description]
+ * @param  [type] $region [description]
+ *
+ * @return [type]         [description]
+ */
+function _salto_knowledgebase_main_menu_placeholder_replace_helper(&$tree, $category_tids = [], $init = FALSE) {
+
+  $tmp_arg0 = arg(0);
+  $tmp_arg1 = arg(1);
+  $tmp_arg2 = arg(2);
+  $tmp_arg3 = arg(3);
+  $tmp_arg4 = arg(4);
+
+
+  //initialize $active_tids
+  if ($init) {
+    $active_tids = $category_tids;
+    //knowledgebase -> not group context
+    if (($tmp_arg0 == 'posts' || $tmp_arg0 == 'materials') && is_numeric($tmp_arg1)) {
+      //$ti['link']['href'] = str_replace('/placeholder/', '/' . $region . '/', $ti['link']['href']);
+      $active_tids[] = $tmp_arg1;
+    }
+    elseif ($tmp_arg0 == 'groups' && is_numeric($tmp_arg4)) {
+      //group context
+      $active_tids[] = $tmp_arg4;
+    }
+    elseif ($tmp_arg2 == 'online-meetings') {
+      $active_tids[] = $tmp_arg2;
+    }
+    elseif ($tmp_arg0 == 'node' && is_numeric($tmp_arg1)) {
+      $node = node_load($tmp_arg1);
+      if ($node->type == 'online_meeting') {
+        $active_tids = ['online-meetings'];
+        //Remove the active trail on the first menu entry when visiting a online meeting
+        $first_array_key = key($tree);
+        $tree[$first_array_key]['link']['in_active_trail'] = FALSE;
+      }
+    }
+  }
+  else {
+    $active_tids = $category_tids;
+  }
+
+
+  foreach ($tree as &$ti) {
+
+    $ti['link']['link_path'] = $ti['link']['href'];
+    $menu_tid = substr(strrchr($ti['link']['href'], '/'), 1);
+    $parents = [];
+    foreach ($active_tids as $active_tid) {
+      $new_parents = taxonomy_get_parents_all($active_tid);
+      $parents = array_merge($parents, $new_parents);
+    }
+
+    foreach ($parents as $p_term) {
+      if ($menu_tid == $p_term->tid) {
+        $ti['link']['in_active_trail'] = TRUE;
+      }
+    }
+
+    foreach ($active_tids as $active_tid) {
+      //set menu item itself active
+      if ($menu_tid == $active_tid) {
+        $ti['link']['in_active_trail'] = TRUE;
+      }
+    }
+
+    if (!empty($ti['below'])) {
+      _salto_knowledgebase_main_menu_placeholder_replace_helper($ti['below'], $active_tids);
+    }
+
+  }
+  return;
+}
+
+/**
+ * check if user is author of a post
+ *
+ * @param $node
+ * @param null $account
+ *
+ * @return bool
+ */
+function salto_knowledgebase_user_is_author($node, $account = NULL) {
+  //set user
+  if (!$account) {
+    global $user;
+    $account = clone $user;
+  }
+
+  if (!empty($node->field_post_authors)) {
+    //check if user's uid is in array
+    foreach ($node->field_post_authors[LANGUAGE_NONE] as $entry) {
+      if (array_search($account->uid, $entry)) {
+        return TRUE;
+      }
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * @param $op
+ * @param $term
+ * @param null $voc_name
+ * @param null $account
+ *
+ * @return bool
+ */
+function salto_knowledgebase_category_access($op, $term, $voc_name = NULL, $account = NULL) {
+
+  //term is set on node edit/delete forms
+  //need to get vocabulary name for right access control
+  if (!empty($term)) {
+    $voc = taxonomy_vocabulary_load($term->vid);
+    $voc_name = $voc->machine_name;
+  }
+
+  $access = salto_knowledgebase_posts_category_access($op, $term, $account);
+
+  if ($access) {
+    return $access;
+  }
+
+  $group = og_vocab_relation_get($voc->vid);
+  if (!empty($group)) {
+    $access = salto_group_category_access($op, $term, $account, $group->gid);
+  }
+
+  return $access;
+}
+
+/**
+ * @param $op
+ * @param $tid
+ * @param null $account
+ *
+ * @return bool
+ */
+function salto_knowledgebase_posts_category_access($op, $term = NULL, $account = NULL) {
+  if (empty($account)) {
+    global $user;
+    $account = clone $user;
+  }
+
+  $access = FALSE;
+  switch ($op) {
+    case 'view':
+      $access = TRUE;
+      break;
+    case 'add':
+      $access = user_access('manage knowledgebase categories') || user_access('manage knowledgebase subcategories');
+      break;
+    case 'edit':
+      //depending on 2 permissions. helper function
+      $access = salto_knowledgebase_posts_term_edit_access($term);
+      break;
+    case 'delete':
+      $term_misc_tid = salto_knowledgebase_taxonomy_get_default_tid($term);
+      //forbid deleting "Noch nicht einsortiert" term
+      if ($term_misc_tid != $term->tid) {
+        $access = user_access('delete knowledgebase categories', $account);
+        //check if current user is author of the term
+        if (!empty($term->field_taxonomy_author)) {
+          $access = $access || $term->field_taxonomy_author[LANGUAGE_NONE][0]['target_id'] == $account->uid;
+        }
+
+      }
+      else {
+        $access = FALSE;
+      }
+      break;
+  }
+
+  return $access;
+}
+
+/**
+ * check update/edit permission for a post category term respecting term depth
+ *
+ * @param  [type] $term [description]
+ *
+ * @return [type]       [description]
+ */
+function salto_knowledgebase_posts_term_edit_access($term) {
+
+  //global permission
+  if (user_access('manage knowledgebase categories')) {
+    return TRUE;
+  }
+
+  $term_depth = count(taxonomy_get_parents_all($term->tid));
+
+  //permission check for authentificated users
+  if (user_access('manage knowledgebase subcategories') && $term_depth >= SALTO_KNOWLEDGEBASE_CONTENT_CATEGORY_STARTING_EDIT_DEPTH) {
+    return TRUE;
+  }
+
+  return FALSE;
+
+}
+
+
+/**
+ * @param $op
+ * @param $tid
+ * @param null $account
+ *
+ * @return bool
+ */
+function salto_knowledgebase_materials_category_access($op, $term, $account = NULL) {
+  if (empty($account)) {
+    global $user;
+    $account = clone $user;
+  }
+
+  $access = FALSE;
+  switch ($op) {
+    case 'view':
+      $access = TRUE;
+      break;
+    case 'add':
+    case 'edit':
+      $access = user_access('manage materials categories');
+      break;
+    case 'delete':
+      $access = FALSE;
+      break;
+  }
+
+  return $access;
+}
+
+
+/**
+ * get search index value for authors and editors of a post
+ *
+ * @param $node
+ */
+function salto_knowledgebase_search_index_post_get_authors_and_editors($node) {
+  $editors = salto_knowledgebase_post_get_revision_authors($node->nid);
+  $authors = salto_knowledgebase_post_get_authors($node);
+
+  $merged_users = array_merge($editors, $authors);
+  $merged_users = array_unique($merged_users);
+
+  $realnames = [];
+  foreach ($merged_users as $uid) {
+    $acc = user_load($uid);
+    $realnames[$uid] = $acc->realname;
+  }
+
+  return implode(' ', $realnames);
+}
+
+
+function salto_knowledgebase_taxonomy_term_insert($term) {
+  if ($term->skip_sync) {
+    return;
+  }
+
+  //1st level terms only!
+  $parents = taxonomy_get_parents($term->tid);
+  if (!empty($parents)) {
+    return;
+  }
+
+  $sync_term = salto_knowledgebase_taxonomy_created_sync_term($term);
+
+}
+
+function salto_knowledgebase_taxonomy_term_update($term) {
+  if ($term->skip_sync) {
+    return;
+  }
+
+
+  $remove_ref = FALSE;
+  $remove_ref_field = FALSE;
+
+  if (empty($term->parent) || (count($term->parent[0]) == 1 && empty($term->parent[0]))) {
+    $parents = taxonomy_get_parents($term->tid);
+  }
+  else {
+    $parents = $term->parent;
+  }
+
+  if (!empty($parents)) {
+    $remove_ref = TRUE;
+  }
+
+
+  //check if this vocubulary should be synced fist
+  if (_salto_knowledgebase_is_sync_vid($term->vid)) {
+    $sync_tid = NULL;
+    if ($term->vid == SALTO_KNOWLEDGEBASE_KB_VID) {
+      //create post term with reference to the material term
+      $sync_tid = !empty($term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid']) ? $term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'] : NULL;
+
+      ///release referenc
+      if ($remove_ref && !empty($term->field_term_sync_material_ref)) {
+        $term->field_term_sync_material_ref = NULL;
+        //need to save the triggering term again, to reset its reference field
+        $term->skip_sync = TRUE;
+        taxonomy_term_save($term);
+      }
+    }
+    else {
+      if ($term->vid == SALTO_KNOWLEDGEBASE_LLM_VID) {
+        //create material term with reference to the post term
+        $sync_tid = !empty($term->field_term_sync_post_ref[LANGUAGE_NONE][0]['tid']) ? $term->field_term_sync_post_ref[LANGUAGE_NONE][0]['tid'] : NULL;
+
+        //release referenc
+        if ($remove_ref && !empty($term->field_term_sync_post_ref)) {
+          $term->field_term_sync_post_ref = NULL;
+          //need to save the triggering term again, to reset its reference field
+          $term->skip_sync = TRUE;
+          taxonomy_term_save($term);
+        }
+      }
+    }
+
+    //sync the related term
+    if (!empty($sync_tid)) {
+      $sync_term = taxonomy_term_load($sync_tid);
+
+      $sync_term->name = $term->name;
+      $sync_term->description = $term->description;
+      $sync_term->format = $term->format;
+      $sync_term->weight = $term->weight;
+      //set skip sync flag to prevent infinite loop
+      $sync_term->skip_sync = TRUE;
+
+      //release reference if flag has been set
+      if ($remove_ref) {
+        if ($sync_term->vid == SALTO_KNOWLEDGEBASE_KB_VID) {
+          $sync_term->field_term_sync_material_ref = NULL;
+        }
+        else {
+          if ($sync_term->vid == SALTO_KNOWLEDGEBASE_LLM_VID) {
+            $sync_term->field_term_sync_post_ref = NULL;
+          }
+        }
+      }
+
+      if (!empty($parents)) {
+
+        $parent_tid = current($parents);
+        $parent_term = taxonomy_term_load($parent_tid);
+        $ref_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($parent_term);
+        $sync_term->parent = $ref_term_tid;
+
+      }
+
+      //move the sync term to fallback term ID
+      if (empty($sync_term->parent) && $remove_ref) {
+
+        $sync_term->parent = salto_knowledgebase_taxonomy_get_default_tid($sync_term);
+      }
+
+
+      taxonomy_term_save($sync_term);
+    }
+    else {
+      //do not create sync term if we have parents set!
+      if (!$remove_ref) {
+        $sync_term = salto_knowledgebase_taxonomy_created_sync_term($term);
+      }
+    }
+
+  }
+}
+
+/**
+ * helper function to create a synced taxonomyterm
+ * references will be set between the new and $source_term
+ *
+ * @param $source_term
+ */
+function salto_knowledgebase_taxonomy_created_sync_term(&$source_term) {
+  //check if this vocubulary should be synced fist
+  if (_salto_knowledgebase_is_sync_vid($source_term->vid)) {
+    $sync_term = (object) [];
+    $sync_term->name = $source_term->name;
+    $sync_term->description = $source_term->description;
+    $sync_term->format = $source_term->format;
+    $sync_term->weight = $source_term->weight;
+    //set skip sync flag to prevent infinite loop
+    $sync_term->skip_sync = TRUE;
+
+    if ($source_term->vid == SALTO_KNOWLEDGEBASE_KB_VID) {
+      //create material term with reference to the post term
+      $sync_term->vid = SALTO_KNOWLEDGEBASE_LLM_VID;
+      $sync_term->field_term_sync_post_ref[LANGUAGE_NONE][0]['tid'] = $source_term->tid;
+    }
+    else {
+      if ($source_term->vid == SALTO_KNOWLEDGEBASE_LLM_VID) {
+        //create post term with reference to the material term
+        $sync_term->vid = SALTO_KNOWLEDGEBASE_KB_VID;
+        $sync_term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'] = $source_term->tid;
+      }
+    }
+
+    //set backreference
+    taxonomy_term_save($sync_term);
+
+    if ($source_term->vid == SALTO_KNOWLEDGEBASE_KB_VID) {
+      //create post term with reference to the material term
+      $source_term->vid = SALTO_KNOWLEDGEBASE_KB_VID;
+      $source_term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'] = $sync_term->tid;
+    }
+    else {
+      if ($source_term->vid == SALTO_KNOWLEDGEBASE_LLM_VID) {
+        //create material term with reference to the post term
+        $source_term->vid = SALTO_KNOWLEDGEBASE_LLM_VID;
+        $source_term->field_term_sync_post_ref[LANGUAGE_NONE][0]['tid'] = $sync_term->tid;
+      }
+    }
+
+    //set skip sync flag to prevent infinite loop
+    $source_term->skip_sync = TRUE;
+    taxonomy_term_save($source_term);
+  }
+
+  return $sync_term;
+
+}
+
+function salto_knowledgebase_taxonomy_term_delete($term) {
+  static $salto_knowledgebase_delete_sync_tid;
+
+  if ($term->tid == $salto_knowledgebase_delete_sync_tid) {
+    $term->skip_sync = TRUE;
+  }
+
+  if ($term->skip_sync) {
+    return;
+  }
+  //check if this vocubulary should be synced fist
+  if (_salto_knowledgebase_is_sync_vid($term->vid)) {
+    $ref_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($term);
+    if (!empty($ref_term_tid)) {
+      //prevent inifite loop
+      $salto_knowledgebase_delete_sync_tid = $ref_term_tid;
+      taxonomy_term_delete($ref_term_tid);
+    }
+
+  }
+}
+
+/**
+ * helper function to detemine if vid should be synced
+ *
+ * @param $vid
+ *
+ * @return bool
+ */
+function _salto_knowledgebase_is_sync_vid($vid) {
+  return in_array($vid, [
+    SALTO_KNOWLEDGEBASE_KB_VID,
+    SALTO_KNOWLEDGEBASE_LLM_VID,
+  ]);
+}
+
+
+/**
+ * overriding taxonomy_overview_terms_submit in taxonomy.admin.inc
+ *
+ * Submit handler for terms overview form.
+ *
+ * Rather than using a textfield or weight field, this form depends entirely
+ * upon the order of form elements on the page to determine new weights.
+ *
+ * Because there might be hundreds or thousands of taxonomy terms that need to
+ * be ordered, terms are weighted from 0 to the number of terms in the
+ * vocabulary, rather than the standard -10 to 10 scale. Numbers are sorted
+ * lowest to highest, but are not necessarily sequential. Numbers may be skipped
+ * when a term has children so that reordering is minimal when a child is
+ * added or removed from a term.
+ *
+ * @see taxonomy_overview_terms()
+ */
+function salto_knowledgebase_taxonomy_overview_terms_submit($form, &$form_state) {
+  if ($form_state['triggering_element']['#value'] == t('Reset to alphabetical')) {
+    // Execute the reset action.
+    if ($form_state['values']['reset_alphabetical'] === TRUE) {
+      return taxonomy_vocabulary_confirm_reset_alphabetical_submit($form, $form_state);
+    }
+    // Rebuild the form to confirm the reset action.
+    $form_state['rebuild'] = TRUE;
+    $form_state['confirm_reset_alphabetical'] = TRUE;
+    return;
+  }
+
+  // Sort term order based on weight.
+  uasort($form_state['values'], 'drupal_sort_weight');
+
+  $vocabulary = $form['#vocabulary'];
+  $hierarchy = 0; // Update the current hierarchy type as we go.
+
+  $changed_terms = [];
+  $tree = taxonomy_get_tree($vocabulary->vid);
+
+  if (empty($tree)) {
+    return;
+  }
+
+  // Build a list of all terms that need to be updated on previous pages.
+  $weight = 0;
+  $term = (array) $tree[0];
+  while ($term['tid'] != $form['#first_tid']) {
+    if ($term['parents'][0] == 0 && $term['weight'] != $weight) {
+      $term['parent'] = $term['parents'][0];
+      $term['weight'] = $weight;
+      $changed_terms[$term['tid']] = $term;
+    }
+    $weight++;
+    $hierarchy = $term['parents'][0] != 0 ? 1 : $hierarchy;
+    $term = (array) $tree[$weight];
+  }
+
+  // Renumber the current page weights and assign any new parents.
+  $level_weights = [];
+  foreach ($form_state['values'] as $tid => $values) {
+    if (isset($form[$tid]['#term'])) {
+      $term = $form[$tid]['#term'];
+      // Give terms at the root level a weight in sequence with terms on previous pages.
+      if ($values['parent'] == 0 && $term['weight'] != $weight) {
+        $term['weight'] = $weight;
+        $changed_terms[$term['tid']] = $term;
+      }
+      // Terms not at the root level can safely start from 0 because they're all on this page.
+      elseif ($values['parent'] > 0) {
+        $level_weights[$values['parent']] = isset($level_weights[$values['parent']]) ? $level_weights[$values['parent']] + 1 : 0;
+        if ($level_weights[$values['parent']] != $term['weight']) {
+          $term['weight'] = $level_weights[$values['parent']];
+          $changed_terms[$term['tid']] = $term;
+        }
+      }
+      // Update any changed parents.
+      if ($values['parent'] != $term['parent']) {
+        $term['parent'] = $values['parent'];
+        $changed_terms[$term['tid']] = $term;
+      }
+      $hierarchy = $term['parent'] != 0 ? 1 : $hierarchy;
+      $weight++;
+    }
+  }
+
+  // Build a list of all terms that need to be updated on following pages.
+  for ($weight; $weight < count($tree); $weight++) {
+    $term = (array) $tree[$weight];
+    if ($term['parents'][0] == 0 && $term['weight'] != $weight) {
+      $term['parent'] = $term['parents'][0];
+      $term['weight'] = $weight;
+      $changed_terms[$term['tid']] = $term;
+    }
+    $hierarchy = $term['parents'][0] != 0 ? 1 : $hierarchy;
+  }
+
+  foreach ($changed_terms as $changed) {
+    $term = taxonomy_term_load($changed['tid']);
+    $term->parent = $changed['parent'];
+    $term->weight = $changed['weight'];
+    taxonomy_term_save($term);
+  }
+
+  // Update the vocabulary hierarchy to flat or single hierarchy.
+  if ($vocabulary->hierarchy != $hierarchy) {
+    $vocabulary->hierarchy = $hierarchy;
+    taxonomy_vocabulary_save($vocabulary);
+  }
+  drupal_set_message(t('The configuration options have been saved.'));
+}
+
+
+/**
+ * helper function, to get the default tid
+ *
+ * @param $term
+ */
+function salto_knowledgebase_taxonomy_get_default_tid($term) {
+  $vocabulary = taxonomy_vocabulary_load($term->vid);
+
+  $result_terms = taxonomy_get_term_by_name(SALTO_KNOWLEDGEBASE_CONTENT_CATEGORY_DEFAULT_PARENT, $vocabulary->machine_name);
+
+  $result_term = current($result_terms);
+  $default_tid = $result_term->tid;
+
+  return $default_tid;
+
+}
+
+/**
+ * helper function, to get the referenced term tid
+ *
+ * @param $term
+ */
+function salto_knowledgebase_taxonomy_get_refereced_tid($term) {
+  $ref_term_tid = NULL;
+  if ($term->vid == SALTO_KNOWLEDGEBASE_KB_VID) {
+    if (!empty($term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'])) {
+      $ref_term_tid = $term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'];
+    }
+  }
+  else {
+    if ($term->vid == SALTO_KNOWLEDGEBASE_LLM_VID) {
+      if (!empty($term->field_term_sync_post_ref[LANGUAGE_NONE][0]['tid'])) {
+        $ref_term_tid = $term->field_term_sync_post_ref[LANGUAGE_NONE][0]['tid'];
+      }
+    }
+  }
+
+  return $ref_term_tid;
+
+}
+
+/**
+ * get all themenfelder
+ * first level KB terms
+ */
+function salto_knowledgebase_get_themenfelder($include_fallback = FALSE) {
+  $tree = taxonomy_get_tree(SALTO_KNOWLEDGEBASE_KB_VID, 0, 1);
+
+  if (!empty($tree) && !$include_fallback) {
+    $tree = array_filter($tree, function ($item) {
+      return $item->tid != SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID;
+    });
+  }
+
+  return $tree;
+}
+
+function salto_knowledgebase_post_get_themenfelder($entity) {
+  $themenfelder = [];
+
+  $isNode = !empty($entity->nid);
+  $fieldName = $isNode ? 'field_kb_content_category' : 'field_kb_kategorie';
+
+  if (!empty($entity->{$fieldName}[LANGUAGE_NONE])) {
+    foreach ($entity->{$fieldName}[LANGUAGE_NONE] as $ti) {
+
+      $parents = taxonomy_get_parents_all($ti["tid"]);
+      $themenfeld = end($parents);
+
+      $realTerm = $ti;
+
+      if (!$isNode) {
+        $realTerm = taxonomy_term_load($realTerm['tid']);
+        $realTermId = salto_knowledgebase_taxonomy_get_refereced_tid($realTerm);
+        $themenfeld = taxonomy_term_load($realTermId);
+      }
+
+      $themenfelder[$themenfeld->tid] = $themenfeld;
+    }
+  }
+
+  return $themenfelder;
+}
+
+
+/**
+ * correcting view title on /posts page
+ *
+ * @param $view
+ */
+function salto_knowledgebase_views_pre_render(&$view) {
+  if ($view->name == 'knowledgebase_content_by_category') {
+    $title = $view->get_title();
+    if ($title == "Kein Name") {
+      $view->set_title(t('Posts'));
+    }
+  }
+
+  if ($view->name == 'kb_files') {
+    $title = $view->get_title();
+    if ($title == "Kein Name") {
+      $view->set_title(t('Materials'));
+    }
+  }
+}
+
+/**
+ * @param $element
+ * @param $form_state
+ * @param $context
+ */
+function salto_knowledgebase_field_widget_form_alter(&$element, &$form_state, $context) {
+  //attach taxonomy tree widget bahavior alteration
+  if (!empty($element["#field_name"]) && in_array($element["#field_name"], [
+      "field_kb_content_category",
+      "field_kb_kategorie",
+    ])) {
+    drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . '/js/salto_knowledgebase_taxonomy_term_tree.js', ['scope' => 'footer']);
+  }
+
+  //replace buttons in files
+  if (!empty($element["#field_name"]) && $element["#field_name"] == "field_post_attachment") {
+    $num_items = $element['#file_upload_delta'];
+
+    for ($element_index = 0; $element_index <= $num_items; $element_index++) {
+      $element[$element_index]["#process"][] = "salto_knowledgebase_media_element_process";
+    }
+  }
+
+}
+
+/**
+ * @param $element
+ * @param $form_state
+ * @param $form
+ *
+ * @return mixed
+ */
+function salto_knowledgebase_media_element_process($element, &$form_state, $form) {
+
+  $element["remove_button"]["#value"] = t("Remove from post");
+  $element["remove_button"]['#attributes']['class'][] = 'action_link attachment_link btn btn-danger';
+
+  return $element;
+}
+
+/**
+ * Custom redirect for deleting knowledgebase posts
+ *
+ * @param $form
+ * @param $form_state
+ */
+function _salto_knowledgebase_node_delete_confirm_submit($form, &$form_state) {
+  $form_state['redirect'] = 'posts';
+}
+
+/**
+ * Take action before activity is saved.
+ *
+ * @param HeartbeatActivity $heartbeatActivity
+ *   The heartbeat activity object.
+ */
+function salto_knowledgebase_heartbeat_activity_presave($heartbeatActivity) {
+
+  if ($heartbeatActivity->message_id == 'heartbeat_edit_node') {
+
+    global $user;
+    $node = node_load($heartbeatActivity->nid);
+    if ($node->uid == $user->uid) {
+      // once post creator make a update, then must updated other heartbeat edit node
+      salto_knowledgebase_update_heartbeat($heartbeatActivity, 'heartbeat_edit_node');
+    }
+    else {
+
+      db_delete('heartbeat_activity')
+        ->condition('message_id', 'heartbeat_edit_node')
+        ->condition('nid', $heartbeatActivity->nid)
+        ->execute();
+    }
+    // always update the create node activity
+    salto_knowledgebase_update_heartbeat($heartbeatActivity, 'heartbeat_add_node');
+  }
+
+}
+
+
+function salto_knowledgebase_update_heartbeat_activity_node($node, $messageId) {
+
+  $value = $node->body['und'][0]['value'];
+  $value = check_markup($value, 'editor');
+  $value = strip_tags($value);
+
+  $alter['max_length'] = 200;
+  $alter['word_boundary'] = TRUE;
+  $alter['ellipsis'] = TRUE;
+  $alter['html'] = TRUE;
+
+  $query = db_select('heartbeat_activity', 'ha')
+    ->fields('ha', ['nid', 'variables'])
+    ->condition('message_id', $messageId)
+    ->condition('nid', $node->nid)
+    ->execute();
+  $result = $query->fetchAllKeyed(0);
+
+  // update all_nodes
+  $variables = heartbeat_decode_message_variables($result[$node->nid]);
+  $variables['!node_title'] = '<a href="' . $node->path['source'] . '">' . $node->title . '</a>';
+  $variables['!node_preview'] = views_trim_text($alter, $value) . " " . l(t('Read more'), "node/$node->nid");
+
+  $encodeVars = heartbeat_encode_message_variables($variables);
+
+  db_update('heartbeat_activity')
+    ->fields(['variables' => $encodeVars])
+    ->condition('message_id', $messageId)
+    ->condition('nid', $node->nid)
+    ->execute();
+}
+
+/**
+ * DB-Update heartbeat_activity table
+ *
+ * @param HeartbeatActivity $heartbeatActivity
+ * @param String $messageId e.q. 'heartbeat_add_node' || 'heartbeat_edit_node'
+ */
+function salto_knowledgebase_update_heartbeat($heartbeatActivity, $messageId) {
+  // read add_node
+  $query = db_select('heartbeat_activity', 'ha')
+    ->fields('ha', ['nid', 'variables'])
+    ->condition('message_id', $messageId)
+    ->condition('nid', $heartbeatActivity->nid)
+    ->execute();
+  $result = $query->fetchAllKeyed(0);
+
+  // update add_node
+  $variables = heartbeat_decode_message_variables($result[$heartbeatActivity->nid]);
+  $variables['!node_title'] = $heartbeatActivity->variables['!node_title'];
+  $variables['!node_preview'] = $heartbeatActivity->variables['!node_preview'];
+
+  $encodeVars = heartbeat_encode_message_variables($variables);
+  db_update('heartbeat_activity')
+    ->fields(['variables' => $encodeVars])
+    ->condition('message_id', $messageId)
+    ->condition('nid', $heartbeatActivity->nid)
+    ->execute();
+}
+
+/**
+ * Get an array to match post themenfelder ids to material themen felder ids as
+ * flat array
+ *
+ * @return array
+ */
+function salto_knowledgebase_get_themenfelder_sync_array_by_post() {
+
+  $themen_post_stubs = salto_knowledgebase_get_themenfelder(TRUE);
+  $term_id_post = [];
+  $sync_array = [];
+
+  //get term ids
+  foreach ($themen_post_stubs as $t) {
+    $term_id_post[] = $t->tid;
+  }
+
+  //load full terms and extract ref ids
+  $terms_post = taxonomy_term_load_multiple($term_id_post);
+
+  foreach ($terms_post as $term) {
+
+    if (!empty($term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'])) {
+      $sync_array["tid-" . $term->tid] = $term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'];
+    }
+  }
+
+  return $sync_array;
+
+}
+
+/**
+ * Invoked before a feed item is saved.
+ *
+ * @param FeedsSource $source
+ *   FeedsSource object that describes the source that is being imported.
+ * @param $entity
+ *   The entity object. (Post)
+ * @param array $item (ParserItems)
+ *   The parser result for this entity.
+ * @param int|null $entity_id
+ *   The id of the current item which is going to be updated. If this is a new
+ *   item, then NULL is passed.
+ */
+function salto_knowledgebase_feeds_presave(FeedsSource $source, $entity, $item, $entity_id) {
+  if ($entity->type == 'post') {
+    $user = user_load_by_mail('TiLs@byom.de');
+    $entity->uid = $user->uid;
+    $entity->revision_uid = $user->uid;
+    $entity->body[LANGUAGE_NONE][0]['format'] = 'editor';
+    $entity->field_post_collaboration[LANGUAGE_NONE][0]['read'] = '1';
+    $entity->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = '4';
+    $entity->field_post_authors[LANGUAGE_NONE][0]['target_id'] = $user->uid;
+    $body = $entity->body[LANGUAGE_NONE][0]['value'];
+    $output = [];
+
+    //notice the U flag - it is important here
+    preg_match_all('|<script[^>]*>.*</script>|U', $body, $output, PREG_PATTERN_ORDER);
+    if (!empty($output[0])) {
+      $body = str_replace($output[0], $output[1], $body);
+    }
+    // only open script tag
+    preg_match_all('|<script[^>]*>(.*)|U', $body, $output, PREG_PATTERN_ORDER);
+    if (!empty($output[0])) {
+      $body = str_replace($output[0], $output[1], $body);
+    }
+    // only close script tag
+    preg_match_all('|.*(.*)</script>|U', $body, $output, PREG_PATTERN_ORDER);
+    if (!empty($output[0])) {
+      $body = str_replace($output[0], $output[1], $body);
+    }
+
+    //remove all abbr with the inner links/text
+    preg_match_all('|<abbr [^>]+>(.*)</abbr>|U', $body, $output, PREG_PATTERN_ORDER);
+    if (!empty($output[0])) {
+      $body = str_replace($output[0], $output[1], $body);
+    }
+
+    //remove all glossary term links with the inner text
+    preg_match_all('|<a class="glossary-term"[^>]+>(.*)</a>|U', $body, $output, PREG_PATTERN_ORDER);
+    if (!empty($output[0])) {
+      $body = str_replace($output[0], $output[1], $body);
+    }
+
+    preg_match_all('|<a href="/[^>]+>(.*)</a>|U', $body, $output, PREG_PATTERN_ORDER);
+    if (!empty($output[0])) {
+      foreach ($output[0] as $idx => $arr) {
+        $posStr = strpos($arr, 'href=');
+        $output[1][$idx] = '<a href="https://trainer-im-leistungssport.de' . substr($arr, $posStr + 6);
+      }
+      $body = str_replace($output[0], $output[1], $body);
+    }
+    $entity->body[LANGUAGE_NONE][0]['value'] = $body . '<p>' . 'Mehr Informationen auf <a href="https://trainer-im-leistungssport.de">trainer-im-leistungssport.de</a>' . '</p>';
+
+    $terms = salto_knowledgebase_get_taxonomy_terms_by_name('Trainer-im-Leistungssport.de', 2);
+    foreach ($terms as $id => $term) {
+      $entity->field_kb_content_category[LANGUAGE_NONE][] = ['tid' => $id];
+    }
+  }
+}
+
+/**
+ * @param $termName
+ * @param int $depth
+ * @param string $parentId
+ *
+ * @return array
+ */
+function salto_knowledgebase_get_taxonomy_terms_by_name($termName, $depth = 1, $parentId = '0') {
+
+  $terms = [];
+  $tree = taxonomy_get_tree(SALTO_KNOWLEDGEBASE_KB_VID, $parentId, $depth);
+  foreach ($tree as $ti) {
+    if ($ti->name == $termName) {
+      $terms[$ti->tid] = $ti;
+    }
+  }
+  return $terms;
+}
+
+function salto_knowledgebase_get_taxonomy_term_by_name($termName) {
+  $vocabulary = taxonomy_vocabulary_load(SALTO_KNOWLEDGEBASE_KB_VID);
+  return taxonomy_get_term_by_name($termName, $vocabulary->machine_name);
+}
+
+function salto_knowledgebase_get_nids_by_uid($uid, $type = 'post') {
+  $query = new EntityFieldQuery;
+  $result = $query
+    ->entityCondition('entity_type', 'node')
+    ->propertyCondition('status', 1)
+    ->propertyCondition('type', $type)
+    ->propertyCondition('uid', $uid)
+    ->execute();
+
+  return $result['node'];
+}
+
+function salto_knowledgebase_preprocess_salto_363_toolbar_alter(&$variables) {
+  if (!salto_knowledgebase_has_current_path()) {
+    return;
+  }
+
+  $title = $variables['node'] ? $variables['node']->title : t('Posts');
+  // set toolbar title to term name
+  if (arg(0) == 'posts' && is_numeric(arg(1))) {
+    $term = taxonomy_term_load(arg(1));
+    if ($term) {
+      $title = $term->name;
+    }
+  }
+
+  $variables['toolbar']['title'] = $title;
+
+  $variables['toolbar']['context_menu'] = [];
+  //categories for DOSB and Admin Role only
+  $hasAccess = user_access('manage knowledgebase categories') || user_access('manage knowledgebase subcategories');
+  if ($hasAccess) {
+    $variables['toolbar']['action_links'][] = [
+      'icon' => 'tag',
+      'target' => '/posts/category',
+      'text' => t('Manage categories'),
+      'title' => t('Manage categories'),
+      'class' => 'action_link manage_categories',
+    ];
+  }
+}
+
+function salto_knowledgebase_preprocess_page_toolbar_alter(&$variables) {
+  // toolbar not show in delete path
+  if (stripos(current_path(), 'delete') !== FALSE) {
+    return;
+  }
+  // toolbar not show for node form (node_forms current path is posts, why?)
+  if ($variables['page']['content']['system_main']['#node_edit_form']) {
+    return;
+  }
+  if (empty($variables['node']) || $variables['node']->type !== 'post') {
+    return;
+  }
+
+  $node = $variables['node'];
+
+  $title = $node ? $node->title : t('Posts');
+  $variables['toolbar']['title'] = $title;
+
+
+  if ($node->type == 'post') {
+    $variables['toolbar']['back'] = '/posts';
+
+    if (!empty($node->field_kb_content_category[LANGUAGE_NONE][0]['tid'])) {
+      $term = taxonomy_term_load($node->field_kb_content_category[LANGUAGE_NONE][0]['tid']);
+      $variables['toolbar']['back'] = '/posts/' . $term->tid;
+      $title = $term->name;
+      $variables['toolbar']['title'] = $title;
+    }
+
+  }
+
+  $variables['toolbar']['context_links'] = _salto_action_links_posts($variables['node']);
+
+  if (count($variables['node']->field_og_group) < 1) {
+    $node = $variables['node'];
+    $path = '/node/add/shared-post';
+    $text = t("Share");
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => ['field_sharedpost_reference' => $node->nid],
+        'attributes' => [
+          'title' => t("You can share this post to one of your groups"),
+          'class' => 'share-alt share-action salto_knowledgebase-processed',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links = [];
+    $links["share_node"] = $link;
+    $variables['toolbar']['context_links'] = array_merge($variables['toolbar']['context_links'], $links);
+  }
+  else {
+    // group content
+    $node = $variables['node'];
+    $variables['toolbar']['back'] = '/node/' . $node->field_og_group[LANGUAGE_NONE][0]['target_id'];
+    // set group title
+    $group = node_load($node->field_og_group[LANGUAGE_NONE][0]['target_id']);
+    $variables['toolbar']['title'] = $group->title;
+  }
+
+  $node = $variables['node'];
+  global $user;
+  if (!onsite_notification_autosubscribe_enabled($user->uid)) {
+    $flagLink = flag_create_link('notification_subscribe_node', $node->nid);
+  }
+  else {
+    $flagLink = flag_create_link('notification_ignore_post', $node->nid);
+  }
+
+  if ($flagLink) {
+    $link = [
+      '#markup' => $flagLink,
+      '#text' => t('Subscribe'),
+      '#options' => [],
+    ];
+    $links = [];
+    $links["subscribe"] = $link;
+    $variables['toolbar']['context_links'] = array_merge($variables['toolbar']['context_links'], $links);
+  }
+
+  if ($variables['toolbar']['context_links']['edit_node']) {
+    $edit = $variables['toolbar']['context_links']['edit_node'];
+    $variables['toolbar']['action_links'][] = [
+      'icon' => 'pen',
+      'target' => '/' . $edit['#path'] . '?destination=' . $edit['#options']['query']['destination'],
+      'text' => $edit['#text'],
+      'title' => $edit['#options']['attributes']['title'],
+      'class' => $edit['#options']['attributes']['class'],
+    ];
+    unset($variables['toolbar']['context_links']['edit_node']);
+  }
+}
+
+function salto_knowledgebase_preprocess_page_floating_button_alter(&$variables) {
+  if (!salto_knowledgebase_has_current_path()) {
+    return;
+  }
+
+  $variables['floating_button']['links'] = [];
+  $variables['floating_button']['links'][] = [
+    'icon' => 'align-left',
+    'target' => '/node/add/post',
+    'title' => t('Create post'),
+  ];
+}
+
+function salto_knowledgebase_has_current_path() {
+  if (stripos(current_path(), 'posts') === FALSE) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Implements hook_preprocess_salto_363_modal_alter().
+ *
+ * @param $variables
+ */
+function salto_knowledgebase_preprocess_salto_363_modal_alter(&$variables) {
+  if (!salto_knowledgebase_has_current_path()) {
+    return;
+  }
+
+  salto_knowledgebase_preprocess_salto_363_modal_toc($variables);
+  salto_knowledgebase_preprocess_salto_363_modal_filter($variables);
+}
+
+function salto_knowledgebase_preprocess_salto_363_modal_toc(&$variables) {
+  $panelId = $variables['display']->panels['left'][0];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, SALTO_KNOWLEDGEBASE_MENU_NAME) === FALSE) {
+    return;
+  }
+
+  $variables['modals']['toc']['title'] = t('Themenfelder');
+  $variables['modals']['toc']['html'] = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+}
+
+function salto_knowledgebase_preprocess_salto_363_modal_filter(&$variables) {
+  $panelId = $variables['display']->panels['left'][1];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, 'views-') === FALSE) {
+    return;
+  }
+
+  $variables['modals']['filter']['title'] = t('Filter');
+  $variables['modals']['filter']['html'] = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+  $variables['modals']['filter']['icon'] = 'filter';
+}
+
+function salto_knowledgebase_preprocess_salto_363_panel_alter(&$variables) {
+  if (stripos(current_path(), 'node/') === FALSE) {
+    return;
+  }
+
+  salto_knowledgebase_preprocess_salto_363_panel_authors($variables);
+  salto_knowledgebase_preprocess_salto_363_panel_attachment($variables);
+  //dpm($variables);
+}
+
+function salto_knowledgebase_preprocess_salto_363_panel_authors(&$variables) {
+  $panelId = $variables['display']->panels['right'][1];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, 'node_authors') === FALSE) {
+    return;
+  }
+
+  $panel = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+
+  $variables['authors']['title'] = t('Collaboration');
+  $variables['authors']['content'] = $panel;
+}
+
+function salto_knowledgebase_preprocess_salto_363_panel_attachment(&$variables) {
+  $panelId = $variables['display']->panels['right'][2];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, 'tmp_files_by_node-panel_file_with_ref') === FALSE) {
+    return;
+  }
+
+  $panel = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+  if ($panel == NULL) {
+    return;
+  }
+
+  $keys = array_keys($variables['display']->context);
+  $attachmentCount = count($variables['display']->context[$keys[0]]->data->field_post_attachment[LANGUAGE_NONE]);
+  $attachments = $variables['node']->field_post_attachment[LANGUAGE_NONE];
+  $html = '';
+  foreach ($attachments as $attachment) {
+    $user = user_load($attachment['uid']);
+    $username = $user->realname;
+    $data['attachment'] = $attachment;
+    $data['attachment']['username'] = $username;
+
+    $file = file_load($attachment['fid']);
+    $icon = theme('file_icon', [
+      'file' => $file,
+      'icon_directory' => 'sites/default/files/media-icons/default',
+    ]);
+
+    if ($attachment['filesize'] > 0) {
+      $data['attachment']['url'] = file_create_url($attachment['uri']);
+      $fileEntity = file_entity_download_uri($file);
+      $data['attachment']['file'] = $fileEntity;
+      $data['attachment']['download_url'] = '/' . $fileEntity['path'] . '?token=' . $fileEntity['options']['query']['token'];
+    }
+    $data['attachment']['file_title'] = $data['attachment']['title'];
+    if (!$data['attachment']['file_title']) {
+      $data['attachment']['file_title'] = $attachment['field_file_title'][LANGUAGE_NONE][0]['value'];
+    }
+    if (!$data['attachment']['file_title']) {
+      $data['attachment']['file_title'] = $attachment['filename'];
+    }
+    $data['attachment']['icon'] = $icon;
+    $data['attachment']['date'] = format_date($attachment['timestamp']);;
+    $html .= theme('file_attachment', $data);
+  }
+
+  $variables['attachment']['title'] = t('Attachments') . ' (' . $attachmentCount . ') ';
+  $variables['attachment']['content'] = $html;
+}
+
+/**
+ * copy links from menu-knowledgebase & menu-knowledgebase-files-cats (level
+ * one) to main-menu
+ */
+function _salto_knowledgebase_menu_links_copy_to_main() {
+  $postMLid = 0;
+  $materialsMLid = 0;
+  $linksMain = menu_load_links('main-menu');
+  foreach ($linksMain as $link) {
+    if ($link['link_path'] === 'posts') {
+      $postMLid = $link['mlid'];
+    }
+    if ($link['link_path'] === 'materials') {
+      $materialsMLid = $link['mlid'];
+    }
+  }
+
+  //add to posts
+  $links = menu_tree_all_data(SALTO_KNOWLEDGEBASE_MENU_NAME);
+  foreach ($links as $link) {
+    $link = $link['link'];
+    if (!isset($link['link_path'])) {
+      continue;
+    }
+    unset($link['mlid']);
+    $link['menu_name'] = 'main-menu';
+    $link['plid'] = $postMLid;
+    $mid = menu_link_save($link);
+  }
+
+  //add to materials
+  $links = menu_tree_all_data(SALTO_KNOWLEDGEBASE_MENU_NAME_FILES);
+  foreach ($links as $link) {
+    $link = $link['link'];
+    if (!isset($link['link_path'])) {
+      continue;
+    }
+    unset($link['mlid']);
+    $link['menu_name'] = 'main-menu';
+    $link['plid'] = $materialsMLid;
+    $mid = menu_link_save($link);
+  }
+}
+
+/*
+ * remove main menu links (level one) for posts and materials
+ * and make a new copy from current
+ */
+function _salto_knowledgebase_menu_links_sync_main_below() {
+  //remove
+  $links = menu_tree_all_data('main-menu');
+  foreach ($links as $link) {
+    if (empty($link['below'])) {
+      continue;
+    }
+    $belows = $link['below'];
+    $link = $link['link'];
+    if ($link['link_path'] !== 'materials' && $link['link_path'] !== 'posts') {
+      continue;
+    }
+
+    foreach ($belows as $below) {
+      menu_link_delete($below['link']['mlid']);
+    }
+  }
+
+  _salto_knowledgebase_menu_links_copy_to_main();
+}
+
+function _salto_knowledgebase_menu_link_sync($menu) {
+  $menu_name = $menu['menu_name'];
+  if ($menu_name !== SALTO_KNOWLEDGEBASE_MENU_NAME && $menu_name !== SALTO_KNOWLEDGEBASE_MENU_NAME_FILES) {
+    return;
+  }
+  _salto_knowledgebase_menu_links_sync_main_below();
+}
+
+/**
+ * implements hook_menu_link_insert()
+ *
+ * @param $menu
+ */
+function salto_knowledgebase_menu_link_insert($menu) {
+  _salto_knowledgebase_menu_link_sync($menu);
+}
+
+/**
+ * implements hook_menu_link_update()
+ *
+ * @param $menu
+ */
+function salto_knowledgebase_menu_link_update($menu) {
+  _salto_knowledgebase_menu_link_sync($menu);
+}
+
+/**
+ * implements hook_menu_link_delete()
+ *
+ * @param $menu
+ */
+function salto_knowledgebase_menu_link_delete($menu) {
+  $menu_name = $menu['menu_name'];
+  if ($menu_name !== SALTO_KNOWLEDGEBASE_MENU_NAME && $menu_name !== SALTO_KNOWLEDGEBASE_MENU_NAME_FILES) {
+    return;
+  }
+  variable_set('salto_knowledgebase_menu_link_delete', $menu_name);
+}
+
+
+/**
+ * Alter node type form: allow user to decide comments sorting
+ *
+ * @param $form
+ * @param $form_state
+ * @param $form_id
+ */
+function salto_knowledgebase_form_user_profile_form_alter(&$form, $form_state, $form_id) {
+  global $user;
+
+
+  if ($form['#user_category'] != 'account') {
+    return;
+  }
+
+  $account = user_load($user->uid);
+
+  $form['wn_custom'] = [
+    '#type' => 'fieldset',
+    '#title' => t('settings'),
+    '#weight' => 1,
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+  ];
+
+  // system default as default value
+  $default_comment_setting = SALTO_KNOWLEDGEBASE_SORT_COMMENTS_SYSTEM_DEFAULT;
+
+  // override if user already saved the setting
+  if (isset($account->data['salto_knowledgebase_comment_default_sorting'])) {
+    $default_comment_setting = $account->data['salto_knowledgebase_comment_default_sorting'];
+  }
+
+  $form['wn_custom']['salto_knowledgebase_comment_default_sorting'] = [
+    '#title' => t('Sort comments'),
+    '#type' => 'select',
+    '#options' => [
+      SALTO_KNOWLEDGEBASE_SORT_COMMENTS_OLDER_FIRST => t('Ascending'),
+      SALTO_KNOWLEDGEBASE_SORT_COMMENTS_NEWER_FIRST => t('Descending'),
+      SALTO_KNOWLEDGEBASE_SORT_COMMENTS_SYSTEM_DEFAULT => t('default'),
+    ],
+    '#default_value' => $default_comment_setting,
+  ];
+
+  $form['#submit'][] = "salto_knowledgebase_form_user_profile_form_submit";
+}
+
+/**
+ * @param $form
+ * @param $form_state
+ *
+ * @throws Exception
+ */
+function salto_knowledgebase_form_user_profile_form_submit($form, $form_state) {
+  global $user;
+
+  if (isset($form_state['values']['salto_knowledgebase_comment_default_sorting'])) {
+    $account = user_load($user->uid);
+    // delete user data if value is set to system default
+    if ($form_state['values']['salto_knowledgebase_comment_default_sorting'] == SALTO_KNOWLEDGEBASE_SORT_COMMENTS_SYSTEM_DEFAULT) {
+      unset($account->data['salto_knowledgebase_comment_default_sorting']);
+    }
+    else {
+      $account->data['salto_knowledgebase_comment_default_sorting'] =
+        $form_state['values']['salto_knowledgebase_comment_default_sorting'];
+    }
+
+    user_save($account);
+  }
+}
+
+/* Alter comments query */
+function salto_knowledgebase_query_comment_filter_alter(QueryAlterableInterface $query) {
+
+
+  if (($node = $query->getMetaData('node')) && (get_class($query) == 'PagerDefault')) {
+    $sort = salto_knowledgebase_get_comment_sorting();
+
+    if ($sort == SALTO_KNOWLEDGEBASE_SORT_COMMENTS_NEWER_FIRST) {
+      $orderby =& $query->getOrderBy();
+      $expressions =& $query->getExpressions();
+      if (isset($orderby['torder'])) {
+        unset($expressions['torder']);
+        unset($orderby['torder']);
+        $orderby['c.thread'] = 'DESC';
+      }
+      else {
+        $orderby['c.cid'] = 'DESC';
+      }
+    }
+  }
+}
+
+/**
+ * get sorting setting for comments view
+ *
+ * @return mixed|null
+ */
+function salto_knowledgebase_get_comment_sorting() {
+  global $user;
+  $sort = variable_get('salto_knowledgebase_comment_default_sorting', SALTO_KNOWLEDGEBASE_SORT_COMMENTS_OLDER_FIRST);
+
+  $account = user_load($user->uid);
+  // highest prio page filter
+  if (isset($_REQUEST['wn_comment_sorting'])) {
+    $sort = $_REQUEST['wn_comment_sorting'];
+  }
+  else {
+    if (isset($account->data['salto_knowledgebase_comment_default_sorting'])) {
+
+      $sort = $account->data['salto_knowledgebase_comment_default_sorting'];
+    }
+  }
+  return $sort;
+}
+
+/**
+ * implements hook_exit()
+ */
+function salto_knowledgebase_exit() {
+  $menu = variable_get('salto_knowledgebase_menu_link_delete', FALSE);
+  if ($menu === SALTO_KNOWLEDGEBASE_MENU_NAME || $menu === SALTO_KNOWLEDGEBASE_MENU_NAME_FILES) {
+    variable_set('salto_knowledgebase_menu_link_delete', FALSE);
+    _salto_knowledgebase_menu_links_sync_main_below();
+  }
+}
+
+
+

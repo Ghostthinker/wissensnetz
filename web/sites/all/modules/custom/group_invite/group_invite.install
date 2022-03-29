@@ -1,0 +1,56 @@
+<?php
+
+
+/**
+ * @file
+ * Install, update, and uninstall functions..
+ */
+
+/**
+ * Implements hook_install().
+ */
+function og_invite_schema() {
+  $schema['og_invites'] = [
+    'fields' => [
+      'uid' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The uid of the user that send the invite',
+        'mail' => [
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+          'data' => [
+            'type' => 'text',
+            'not null' => FALSE,
+            'default' => '',
+          ],
+          'gid' => [
+            'description' => "The group's unique ID.",
+            'type' => 'serial',
+            'unsigned' => TRUE,
+            'not null' => TRUE,
+          ],
+          'state' => [
+            'description' => 'The state of the group (i.e. active or disabled).',
+            'type' => 'int',
+            'not null' => TRUE,
+            'default' => 1,
+          ],
+          'created' => [
+            'description' => 'The Unix timestamp when the group was created.',
+            'type' => 'int',
+            'not null' => TRUE,
+            'default' => 0,
+          ],
+        ],
+        'primary key' => ['gid'],
+      ],
+    ],
+  ];
+
+  return $schema;
+}

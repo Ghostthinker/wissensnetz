@@ -1,0 +1,71 @@
+.context-support-tab {
+  top: 25%;
+  left: 0;
+  width: 342px;
+  height: 155px;
+  color: #FFF;
+  cursor: pointer;
+  overflow: hidden;
+  position: fixed;
+  display: block;
+  z-index: 100000;
+  margin-left: -7px;
+  text-decoration: none !important;
+  background-color: #444;
+  background-repeat: no-repeat;
+  background-image: url(assets/help.png);
+  _position: absolute;
+  _background-image: url(https://s3.amazonaws.com/getsatisfaction.com/feedback/feedback_tab_ie6.png);
+}
+
+a.context-support-tab span.title {
+  display: block;
+  text-indent: -100000px;
+}
+
+a.context-support-tab.hover {
+  margin-left: -4px;
+}
+
+a.context-support-tab-right {
+  right: 0;
+  left: auto;
+  margin-right: -307px;
+  margin-left: auto;
+}
+
+a.context-support-tab.hover {
+  margin-right: -4px;
+  margin-left: auto;
+}
+
+a.context-support-tab-bottom {
+  top: auto !important;
+  bottom: 0;
+  left: 20%;
+  height: 38px;
+  width: 102px;
+  background-position: 0 -102px;
+  margin-bottom: -7px;
+  margin-left: auto;
+}
+
+a.context-support-tab-bottom.hover {
+  margin-bottom: -4px;
+  margin-left: auto;
+}
+
+a.context-support-tab-hidden {
+  display: none;
+}
+
+a.context-support-tab span.content {
+  display: block;
+  color: white;
+  text-decoration: none;
+  margin: -0.7em 1em 0 60px;
+}
+
+a.context-support-tab strong:hover {
+  text-decoration: underline;
+}

@@ -1,0 +1,8 @@
+name = Salto Debug
+description = Various admin functions for salto
+package = Salto-Bip
+core = 7.x
+configure = admin/config/development/devel
+dependencies[] = salto_core
+tags[] = developer
+tags[] = salto

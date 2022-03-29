@@ -1,0 +1,32 @@
+# Contains synonyms to use for your index. For the format used, see
+# http://wiki.apache.org/solr/AnalyzersTokenizersTokenFilters#solr.SynonymFilterFactory
+# (Lines starting with a pound character # are ignored.)
+# Synonym mappings can be used for spelling correction too
+
+# Synonym mappings can be used for spelling correction too
+Bländed,Bländet,Blendet => Blended
+Fußbal => Fußball
+
+# Some synonym groups specific
+Fußball, Fussball
+Trainer, Trainerin, Trainerinnen
+Lizenzmanagement, LiMS
+LSB, LSV, Landessportbund, Landessportverband
+Fachverband, Bundesfachverband, SV, Spitzenverband
+SMK, Sportministerkonferenz, KMK, Kultusministerkonferenz
+FWS, Freiwilligensurvey
+SEB, Sportentwicklungsbericht
+Bundesministerium, BMFSFJ, BMBF, BMI, BMG, BM*
+DQR, Qualifikationsrahmen, EQF
+Übungsleiter, Übungsleiterin, Übungsleiterinnen, ÜL, Übungsleitern
+
+# one dimensional =>
+dsj, Deutsche Sportjugend
+BBE, "Bundesnetzwerk Bürgerschaftliches Engagement"
+#IdS, "Integration durch Sport"
+VIBSS, "Vereins-, Informations-, Beratungs- und Schulungssystem"
+ZiviZ, "Zivilgesellschaft in Zahlen"
+
+
+#DOSB, "Deutscher Olympischer Sportbund"
+#DQR, Qualifikationsrahmen, EQF, "Qualification Framework"

@@ -1,0 +1,934 @@
+<?php
+/**
+ * @file
+ * Main module file for security_questions.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function security_questions_permission() {
+  return array(
+    'administer security questions' => array(
+      'title' => t('Administer security questions'),
+      'restrict access' => TRUE,
+    ),
+    'bypass security questions' => array(
+      'title' => t('Bypass security questions'),
+      'description' => t('Use protected forms without answering a security question.'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function security_questions_menu() {
+  $items = array();
+  $items['admin/config/people/security_questions'] = array(
+    'title' => 'Security questions',
+    'description' => 'Manage security questions.',
+    'access arguments' => array('administer security questions'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('security_questions_list_form'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'security_questions.admin.inc',
+  );
+  $items['admin/config/people/security_questions/questions'] = array(
+    'title' => 'Questions',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/config/people/security_questions/questions/delete/%security_questions_question'] = array(
+    'title' => 'Delete question',
+    'description' => 'Delete security question.',
+    'access arguments' => array('administer security questions'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('security_questions_delete_question_form', 6),
+    'file' => 'security_questions.admin.inc',
+  );
+  $items['admin/config/people/security_questions/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Manage the security questions module.',
+    'access arguments' => array('administer security questions'),
+    'page callback' => 'drupal_get_form',
+    'type' => MENU_LOCAL_TASK,
+    'page arguments' => array('security_questions_settings_form'),
+    'file' => 'security_questions.admin.inc',
+  );
+  $items['user/%user/security_questions'] = array(
+    'title' => 'Security questions',
+    'description' => 'Select your security questions and answers.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('security_questions_user_form', 1),
+    'access callback' => 'security_questions_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'security_questions.pages.inc',
+  );
+  return $items;
+}
+
+/**
+ * Access callback for viewing or editing a user's security questions.
+ *
+ * @param $account
+ *   The user account whose security questions are being accessed.
+ */
+function security_questions_access($account) {
+  global $user;
+  return ($user->uid == $account->uid || user_access('administer users', $user));
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Allows the user to select security questions during registration.
+ */
+function security_questions_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+  // Hide the questions form when the user is being registered by an admin.
+  if (!user_access('administer users')) {
+    // Merge in our user form.
+    module_load_include('inc', 'security_questions', 'security_questions.pages');
+    $form += drupal_retrieve_form('security_questions_user_form', $form_state);
+    array_unshift($form['#validate'], 'security_questions_user_register_form_validate');
+    // We can't add our submit handler here, because the user account doesn't
+    // exist yet. Instead, we will get the info during hook_user_insert().
+  }
+}
+
+/**
+ * Validation handler for security_questions_form_user_register_form_alter().
+ */
+function security_questions_user_register_form_validate($form, &$form_state) {
+  module_load_include('inc', 'security_questions', 'security_questions.pages');
+  security_questions_user_form_validate($form, $form_state);
+}
+
+/**
+ * Implements hook_user_insert().
+ */
+function security_questions_user_insert(&$edit, $account, $category) {
+  // During registration, save the user's answers.
+  if (!empty($edit['questions'])) {
+    security_questions_user_answers_save($account, $edit['questions']);
+  }
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function security_questions_user_login(&$edit, $account) {
+  // Upon successful login, set the "remember" cookie.
+  if (!empty($edit['security_questions']['remember'])) {
+    security_questions_set_cookie($account);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Adds a question challenge to the login form.
+ */
+function security_questions_form_user_login_alter(&$form, &$form_state, $form_id) {
+  _security_questions_user_login_form_alter($form, $form_state);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Adds a question challenge to the login block.
+ */
+function security_questions_form_user_login_block_alter(&$form, &$form_state, $form_id) {
+  // Redirect login block submissions to the main login form.
+  // @todo Is there a better way to hand off from the login block to /user?
+  $form['form_id']['#value'] = 'user_login';
+  // Preserve the login block's destination.
+  $url = drupal_parse_url($form['#action']);
+  if (isset($url['query']['destination'])) {
+    $options = array('query' => array('destination' => $url['query']['destination']));
+  }
+  else {
+    $options = array();
+  }
+  $form['#action'] = url('user', $options);
+
+  _security_questions_user_login_form_alter($form, $form_state);
+}
+
+/**
+ * Helper function for altering the login forms.
+ *
+ * @see security_questions_form_user_login_alter()
+ * @see security_questions_form_user_login_block_alter()
+ */
+function _security_questions_user_login_form_alter(&$form, &$form_state) {
+  // Abort if the login forms are not protected.
+  if (!variable_get('security_questions_user_login', FALSE)) {
+    return;
+  }
+  $protection_mode = variable_get('security_questions_protection_mode', 'after');
+
+  // We need our own submission handler to make this a multistep form.
+  $form['#submit'] = array('security_questions_user_login_submit');
+
+  // Phase 1: Initial login prompt.
+  if (empty($form_state['security_questions']['name'])) {
+    // If the questions come before the password, hide the password field.
+    if ($protection_mode == 'before') {
+      unset($form['pass']);
+      // Without a password, some of core's validators won't work.
+      $form['#validate'] = array(
+        // We can keep the core validator for a blocked username.
+        'user_login_name_validate',
+        // But we need to provide our own to test that the user exists.
+        'security_questions_user_login_name_validate',
+        // And we need our own flood event handler, to avoid clearing the flood
+        // event before the password is entered.
+        'security_questions_user_login_flood_validate',
+      );
+    }
+    // Otherwise, it's possible that the user may be able to skip phase 2, so
+    // we need to keep core's validators and add our answer validator.
+    else {
+      $form['#validate'][] = 'security_questions_user_login_answer_validate';
+    }
+  }
+  // Phase 2: Security questions.
+  else {
+    $name = $form_state['security_questions']['name'];
+    $form['name'] = array('#type' => 'value', '#value' => $name);
+    $account = user_load_by_name($name);
+
+    // If the user has already chosen "remember this computer" on a challenge,
+    // remember that choice.
+    if (!empty($form_state['security_questions']['remember'])) {
+      $form['remember'] = array('#type' => 'value', '#value' => TRUE);
+    }
+
+    // What we do next depends on whether we have the user's password yet.
+    if (empty($form_state['security_questions']['pass'])) {
+      // If the user is allowed to bypass question challenges or has already
+      // successfully answered one, then we just need to collect the password
+      // and add our answer validator.
+      if (!empty($form_state['security_questions']['passed_challenge']) || security_questions_bypass_challenge($account)) {
+        $form['#validate'][] = 'security_questions_user_login_answer_validate';
+      }
+      // Otherwise, it's time for a challenge.
+      else {
+        $form += security_questions_challenge($account);
+        // Show the "remember this computer" option, if enabled.
+        if (variable_get('security_questions_cookie', FALSE)) {
+          $form['remember'] = array(
+            '#title' => t('Remember this computer'),
+            '#type' => 'checkbox',
+          );
+        }
+        // We also don't want to get the password until after the challenge,
+        // so we need to unset it and use the alternate validators.
+        unset($form['pass']);
+        $form['#validate'] = array(
+          'user_login_name_validate',
+          'security_questions_user_login_name_validate',
+          'security_questions_user_login_flood_validate',
+          'security_questions_user_login_answer_validate',
+        );
+      }
+    }
+    else {
+      $form['pass'] = array('#type' => 'value', '#value' => $form_state['security_questions']['pass']);
+      $form['#validate'][] = 'security_questions_user_login_answer_validate';
+
+      // If we're here, it means that both the user name and password have been
+      // validated, but the user has not been logged in yet because either a
+      // challenge is needed or the required number of answers is not on file.
+      if (empty($form_state['security_questions']['passed_challenge'])) {
+        $form += security_questions_challenge($account);
+        // Show the "remember this computer" option, if enabled.
+        if (variable_get('security_questions_cookie', FALSE)) {
+          $form['remember'] = array(
+            '#title' => t('Remember this computer'),
+            '#type' => 'checkbox',
+          );
+        }
+      }
+      else {
+        module_load_include('inc', 'security_questions', 'security_questions.pages');
+        $form += security_questions_user_form($form, $form_state, $account);
+        $form['#validate'][] = 'security_questions_user_login_user_form_validate';
+        array_unshift($form['#submit'], 'security_questions_user_login_user_form_submit');
+      }
+    }
+  }
+}
+
+/**
+ * Validation handler for _security_questions_user_login_form_alter().
+ *
+ * Replaces user_login_authenticate_validate() when the questions are set to
+ * be asked before the password.
+ */
+function security_questions_user_login_name_validate($form, &$form_state) {
+  if (!empty($form_state['values']['name'])) {
+    // Flood control copied from user_login_authenticate_validate().
+    if (!flood_is_allowed('failed_login_attempt_ip', variable_get('user_failed_login_ip_limit', 50), variable_get('user_failed_login_ip_window', 3600))) {
+      $form_state['flood_control_triggered'] = 'ip';
+      return;
+    }
+    $account = db_query("SELECT * FROM {users} WHERE name = :name AND status = 1", array(':name' => $form_state['values']['name']))->fetchObject();
+    if ($account) {
+      if (variable_get('user_failed_login_identifier_uid_only', FALSE)) {
+        $identifier = $account->uid;
+      }
+      else {
+        $identifier = $account->uid . '-' . ip_address();
+      }
+      $form_state['flood_control_user_identifier'] = $identifier;
+      if (!flood_is_allowed('failed_login_attempt_user', variable_get('user_failed_login_user_limit', 5), variable_get('user_failed_login_user_window', 21600), $identifier)) {
+        $form_state['flood_control_triggered'] = 'user';
+        return;
+      }
+    }
+
+    // If we cleared flood control, save the uid as a flag for
+    // security_questions_user_login_flood_validate(), but as
+    // $form_state['unauthenticated_uid'] to distinguish it from
+    // $form_state['uid'], which we only set when the user fully authenticates.
+    $form_state['unauthenticated_uid'] = $account ? $account->uid : FALSE;
+  }
+}
+
+/**
+ * Validation handler for _security_questions_user_login_form_alter().
+ *
+ * Replaces user_login_final_validate() when the questions are set to be asked
+ * before the password.
+ */
+function security_questions_user_login_flood_validate($form, &$form_state) {
+  if (empty($form_state['unauthenticated_uid'])) {
+    // If no uid was found in security_questions_user_login_name_validate(),
+    // then either we triggered flood control or it's an unknown user name.
+    // In either case, we can let the normal validator handle the errors.
+    user_login_final_validate($form, $form_state);
+  }
+  // Otherwise, there's nothing we need to do here. This avoids the
+  // flood_clear_event() call that would normally occur in
+  // user_login_final_validate(), which we don't want to happen yet, because we
+  // haven't validated the user's password.
+}
+
+/**
+ * Validation handler for _security_questions_user_login_form_alter().
+ *
+ * Validates the user's response to the security question challenge.
+ */
+function security_questions_user_login_answer_validate($form, &$form_state) {
+  // Only check if the user hasn't passed a challenge yet.
+  if (!form_get_errors() && empty($form_state['security_questions']['passed_challenge'])) {
+    if ($account = user_load_by_name($form_state['values']['name'])) {
+      // If the user is allowed to bypass challenges, give them a pass.
+      if (security_questions_bypass_challenge($account)) {
+        $form_state['security_questions']['passed_challenge'] = TRUE;
+      }
+      // Otherwise, if the user was challenged, we need to validate the answer.
+      elseif (!empty($form_state['values']['question'])) {
+        $sqid = $form_state['values']['question'];
+        $answer = _security_questions_clean_answer($form_state['values']['answer']);
+        $valid_answer = _security_questions_clean_answer(security_questions_get_answer($account->uid, $sqid));
+        $form_state['security_questions']['passed_challenge'] = ($valid_answer == $answer);
+
+        // If the answer was correct, flush the flood event.
+        if ($form_state['security_questions']['passed_challenge']) {
+          security_questions_flush_incorrect($account->uid);
+        }
+        // Otherwise, register the failed attempt.
+        else {
+          drupal_set_message(t('That answer does not match the one on the user account. Please try again with a different question.'), 'error');
+          security_questions_register_incorrect($sqid, $account->uid);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Validation handler for _security_questions_user_login_form_alter().
+ *
+ * Validates security questions and answers created during login.
+ */
+function security_questions_user_login_user_form_validate($form, &$form_state) {
+  module_load_include('inc', 'security_questions', 'security_questions.pages');
+  security_questions_user_form_validate($form, $form_state);
+}
+
+/**
+ * Submission handler for _security_questions_user_login_form_alter().
+ */
+function security_questions_user_login_submit($form, &$form_state) {
+  // Were the user name and password valid?
+  $is_authenticated = !empty($form_state['uid']);
+
+  // Was the security question challenge answered correctly or not required?
+  $passed_challenge = !empty($form_state['security_questions']['passed_challenge']);
+
+  // Is the required number of security question answers on file?
+  if ($is_authenticated) {
+    $account = user_load($form_state['uid']);
+    // Users with bypass permission aren't required to have answers on file.
+    if (user_access('bypass security questions', $account)) {
+      $has_required_number = TRUE;
+    }
+    else {
+      $required = variable_get('security_questions_number_required', 3);
+      $answers = count(security_questions_get_answer_list($account->uid));
+      $has_required_number = ($answers >= $required);
+    }
+  }
+  else {
+    $has_required_number = FALSE;
+  }
+
+  // If all of the above tests passed, log in as normal.
+  if ($is_authenticated && $passed_challenge && $has_required_number) {
+    if (!empty($form_state['values']['remember'])) {
+      $form_state['security_questions']['remember'] = TRUE;
+    }
+    user_login_submit($form, $form_state);
+  }
+  // Otherwise, save what information we have and rebuild for the next phase.
+  else {
+    $form_state['security_questions'] = array(
+      'name' => $form_state['values']['name'],
+      'pass' => empty($form_state['values']['pass']) ? FALSE : $form_state['values']['pass'],
+      'passed_challenge' => $passed_challenge,
+      'remember' => !empty($form_state['values']['remember']),
+    );
+    $form_state['rebuild'] = TRUE;
+    // Also, wipe the uid from the form state to ensure that the user name and
+    // password are retested on the next run.
+    if (isset($form_state['uid'])) {
+      unset($form_state['uid']);
+    }
+  }
+}
+
+/**
+ * Submission handler for _security_questions_user_login_form_alter().
+ *
+ * Saves security questions and answers created during login.
+ */
+function security_questions_user_login_user_form_submit($form, &$form_state) {
+  module_load_include('inc', 'security_questions', 'security_questions.pages');
+  security_questions_user_form_submit($form, $form_state);
+}
+
+/**
+ * Checks whether a user can bypass a security question challenge.
+ *
+ * @param $account
+ *   The user account object.
+ *
+ * @return
+ *   Boolean indicating whether the user can skip normally required challenges.
+ */
+function security_questions_bypass_challenge($account) {
+  // Check for the bypass permission.
+  if (user_access('bypass security questions', $account)) {
+    return TRUE;
+  }
+  // If "remember me" cookies are allowed, check for one.
+  // @todo Replace the cookies option with a more secure method.
+  if (variable_get('security_questions_cookie', FALSE) && isset($_COOKIE['security_questions'])) {
+    $cookie = $_COOKIE['security_questions'];
+    $cookie = explode('-', $cookie);
+    $cookie_uid = $cookie[3];
+    if ($account->uid == $cookie_uid) {
+      return TRUE;
+    }
+  }
+  // Finally, if the user has no answers on file, we have to skip it.
+  if (!security_questions_get_answer_list($account->uid)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Adds a question challenge to the password reset form.
+ */
+function security_questions_form_user_pass_alter(&$form, &$form_state, $form_id) {
+  // Abort if the password form is not protected.
+  if (!variable_get('security_questions_password_reset', FALSE)) {
+    return;
+  }
+  global $user;
+
+  // We need our own submission handler to make this a multistep form.
+  $form['#submit'] = array('security_questions_user_pass_submit');
+
+  // If the user is already logged in but not allowed to bypass, or our submit
+  // handler triggered a rebuild, then we need to issue a challenge.
+  $account = FALSE;
+  if ($user->uid > 0 && !security_questions_bypass_challenge($user)) {
+    $account = $user;
+  }
+  elseif (!empty($form_state['security_questions']['uid'])) {
+    $account = user_load($form_state['security_questions']['uid']);
+  }
+  if ($account) {
+    $form += security_questions_challenge($account);
+    $form['#validate'][] = 'security_questions_user_pass_answer_validate';
+    $form['name']['#type'] = 'value';
+    $form['name']['#value'] = $account->mail;
+  }
+}
+
+/**
+ * Validation handler for security_questions_form_user_pass_alter().
+ */
+function security_questions_user_pass_answer_validate($form, &$form_state) {
+  // @todo Can security_questions_user_pass_answer_validate() be combined with security_questions_user_login_answer_validate()?
+  // user_pass_validate() adds the 'account' value on a successful load.
+  if (!empty($form_state['values']['account'])) {
+    $account = $form_state['values']['account'];
+    $sqid = $form_state['values']['question'];
+    $answer = _security_questions_clean_answer($form_state['values']['answer']);
+    $valid_answer = _security_questions_clean_answer(security_questions_get_answer($account->uid, $sqid));
+    $form_state['security_questions']['passed_challenge'] = ($valid_answer == $answer);
+
+    // If the answer was correct, flush the flood event.
+    if ($form_state['security_questions']['passed_challenge']) {
+      security_questions_flush_incorrect($account->uid);
+    }
+    // Otherwise, register the failed attempt.
+    else {
+      drupal_set_message(t('That answer does not match the one on the user account. Please try again with a different question.'), 'error');
+      security_questions_register_incorrect($sqid, $account->uid);
+    }
+  }
+}
+
+/**
+ * Submission handler for security_questions_form_user_pass_alter().
+ */
+function security_questions_user_pass_submit($form, &$form_state) {
+  // If the user is allowed to bypass or has already answered the challenge,
+  // hand off to the normal password reset submission handler.
+  $account = $form_state['values']['account'];
+  if (security_questions_bypass_challenge($account) || !empty($form_state['security_questions']['passed_challenge'])) {
+    user_pass_submit($form, $form_state);
+  }
+  // Otherwise, store the ID of the user requesting the reset and rebuild.
+  else {
+    $form_state['security_questions']['uid'] = $account->uid;
+    $form_state['rebuild'] = TRUE;
+  }
+}
+
+/**
+ * Helper function to clean users answers.
+ */
+function _security_questions_clean_answer($answer) {
+  // Clean the users answer so we have nice variables to compare.
+  $answer = drupal_strtolower(trim($answer));
+  return $answer;
+}
+
+/**
+ * Generates the form elements for a security question challenge.
+ *
+ * @param $account
+ *   The user being challenged.
+ *
+ * @return
+ *   The form elements for the challenge.
+ */
+function security_questions_challenge($account) {
+  $question = security_questions_require_question($account->uid);
+  $form['question'] = array('#type' => 'value', '#value' => $question->sqid);
+  $form['answer'] = array(
+    '#title' => t(check_plain($question->question)),
+    '#type' => 'textfield',
+  );
+  return $form;
+}
+
+/**
+ * Denies access if an answerable question cannot be found for a given user.
+ *
+ * This function should be used any time the user is required to answer a
+ * security question in order to proceed.  It first checks for failed attempts
+ * by the visitor (as identified by IP address) to answer questions as the given
+ * user and removes those questions from consideration; this impedes brute force
+ * attempts to guess a user's answers, and also prevents the same question from
+ * being presented repeatedly.  It then randomly selects a question from those
+ * that remain in consideration.  Finally, if no question can be found, it
+ * aborts the request with an access denied message.
+ *
+ * @param $uid
+ *   The user's ID.
+ *
+ * @return
+ *   A security question.
+ */
+function security_questions_require_question($uid) {
+  // Get a list of questions that this visitor has already failed to answer.
+  $failed = db_query('SELECT sqid FROM {security_questions_incorrect} WHERE uid = :uid AND ip = :ip AND expiration > :timestamp', array(
+    ':uid' => $uid,
+    ':ip' => ip_address(),
+    ':timestamp' => REQUEST_TIME,
+  ))->fetchCol();
+
+  // Get a random question from the database where the user has an answer,
+  // excluding those where the visitor has logged a failed attempt.
+  $select = db_select('security_questions', 'q');
+  if (!empty($failed)) {
+    $select->condition('q.sqid', $failed, 'NOT IN');
+  }
+  $select->join('security_questions_answers', 'a', 'q.sqid = a.sqid AND a.uid = :uid', array(':uid' => $uid));
+  $qid = $select->fields('q', array('sqid'))
+    ->orderRandom()
+    ->range(0,1)
+    ->execute()
+    ->fetchField();
+  $question = empty($qid) ? FALSE : security_questions_question_load($qid);
+
+  // If no question could be selected, we need to abort.
+  if (empty($question)) {
+    drupal_set_message(t('Too many failed attempts to answer security questions in @interval. Try again later.', array('@interval' => format_interval(variable_get('security_questions_flood_expire', 3600)))), 'error');
+    if(module_exists('rules')){
+      $account = user_load($uid);
+      rules_invoke_event('security_questions_all_incorrect_answers', $account);
+    }
+    drupal_access_denied();
+    drupal_exit();
+  }
+  return $question;
+}
+
+/**
+ * Set a cookie to bypass future challenges.
+ *
+ * @param $account
+ *   The user account.
+ *
+ * @todo Upgrade the cookie to compare the uniqueness of the user's computer, so if someone steals this cookie, it will be harder to impersonate them.
+ */
+function security_questions_set_cookie($account) {
+  if (variable_get('security_questions_cookie', FALSE)) {
+    $expire = variable_get('security_questions_cookie_expire', 604800);
+    setcookie('security_questions', 'do-not-challenge-' . $account->uid, time() + $expire, '/');
+  }
+}
+
+/**
+ * Saves a question to the database.
+ *
+ * In most cases, it is better to use security_questions_add_question().
+ *
+ * @param $question
+ *   The question object to be saved. If $question->sqid is omitted, a new
+ *   question will be added.
+ *
+ * @return
+ *   SAVED_NEW or SAVED_UPDATED if successful, otherwise FALSE.
+ *
+ * @see security_questions_add_question()
+ */
+function security_questions_question_save($question) {
+  // If a machine name was provided, make sure it is unique.
+  if (!empty($question->machine_name)) {
+    $existing_sqid = db_query('SELECT sqid FROM {security_questions} WHERE machine_name = :machine_name', array(':machine_name' => $question->machine_name))->fetchField();
+    if ($existing_sqid && (empty($question->sqid) || $question->sqid != $existing_sqid)) {
+      return FALSE;
+    }
+  }
+
+  if (empty($question->sqid)) {
+    return drupal_write_record('security_questions', $question);
+  }
+  else {
+    return drupal_write_record('security_questions', $question, array('sqid'));
+  }
+}
+
+/**
+ * Utility function to add a question.
+ *
+ * @param $text
+ *   The question text.
+ * @param $uid
+ *   (optional) If this is a per-user question, the ID of the user. Defaults to
+ *   0 to indicate a system-wide question.
+ * @param $machine_name
+ *   (optional) A machine-readable name, to make the question exportable.
+ *
+ * @return
+ *   The ID of the newly created question, or FALSE if failed to save.
+ */
+function security_questions_add_question($text, $uid = 0, $machine_name = NULL) {
+  $question = new stdClass();
+  $question->question = $text;
+  $question->uid = $uid;
+  $question->machine_name = $machine_name;
+  if (security_questions_question_save($question)) {
+    return $question->sqid;
+  }
+  return FALSE;
+}
+
+/**
+ * Saves a user's answer to the database.
+ *
+ * @param $uid
+ *   The user's ID.
+ * @param $sqid
+ *   The security question ID.
+ * @param $answer
+ *   The answer text.
+ */
+function security_questions_answer_save($uid, $sqid, $answer) {
+  db_merge('security_questions_answers')
+    ->key(array('uid' => $uid, 'sqid' => $sqid))
+    ->fields(array('answer' => $answer))
+    ->execute();
+}
+
+/**
+ * Saves a full set of answers and custom questions for a user.
+ *
+ * @param $account
+ *   The user account object.
+ * @param &$edit
+ *   The submitted question and answer values from the user form.
+ *
+ * @see security_questions_user_form()
+ */
+function security_questions_user_answers_save($account, &$edit) {
+  // Delete all existing answers for this user.
+  db_delete('security_questions_answers')
+    ->condition('uid', $account->uid)
+    ->execute();
+
+  $chosen = array();
+  foreach ($edit as $question) {
+    // Save new custom questions.
+    if ($question['question'] == 'other') {
+      $sqid = security_questions_add_question($question['custom_question'], $account->uid);
+      if ($sqid) {
+        $question['question'] = $sqid;
+      }
+      else {
+        // If the custom question could not be saved, skip.
+        continue;
+      }
+    }
+    $chosen[] = $question['question'];
+
+    // Save new answers.
+    security_questions_answer_save($account->uid, $question['question'], $question['answer']);
+  }
+
+  // Clean-up unused custom questions.
+  db_delete('security_questions')
+    ->condition('uid', $account->uid)
+    ->condition('sqid', $chosen, 'NOT IN')
+    ->execute();
+
+  if(module_exists('rules')){
+    rules_invoke_event('security_questions_updated_answers', $account);
+  }
+}
+
+/**
+ * Fetch a specific question from the database.
+ *
+ * @param $sqid
+ *   The security question ID.
+ *
+ * @return
+ *   A question object, or FALSE if no question was found.
+ */
+function security_questions_question_load($sqid) {
+  $question = security_questions_question_load_multiple(array('sqid' => $sqid));
+  return isset($question[$sqid]) ? $question[$sqid] : FALSE;
+}
+
+/**
+ * Fetch multiple questions from the database.
+ *
+ * @param $conditions
+ *   (optional) An array of query conditions as field => value pairs. If
+ *   omitted, all questions in the database will be returned.
+ * @param $any
+ *   (optional) By default, the result set includes only questions that match
+ *   all of the $conditions. If this parameter is set to TRUE, the result set
+ *   will instead include questions that match any of the $conditions.
+ *
+ * @return
+ *   An empty array if no questions match the conditions; otherwise, an array
+ *   of question objects indexed by sqid.
+ */
+function security_questions_question_load_multiple($conditions = array(), $any = FALSE) {
+  $select = db_select('security_questions', 'q');
+  $select->fields('q');
+
+  if (!empty($conditions)) {
+    $clause = $any ? db_or() : db_and();
+    foreach ($conditions as $field => $value) {
+      $clause->condition($field, $value);
+    }
+    $select->condition($clause);
+  }
+
+  return $select->execute()->fetchAllAssoc('sqid');
+}
+
+/**
+ * Fetch a user's available questions from the database.
+ *
+ * @param $account
+ *   (optional) A user object. If omitted, only global questions are fetched.
+ *
+ * @return
+ *   An array suitable for use in a form select element's '#options' of
+ *   questions that the user is permitted to choose.
+ */
+function security_questions_get_question_list($account = NULL) {
+  // Cache the question set for the user, as this may be called repeatedly.
+  $options = &drupal_static(__FUNCTION__, array());
+  $uid = isset($account) ? $account->uid : 0;
+  if (!isset($options[$uid])) {
+    $options[$uid] = array();
+    if ($uid && variable_get('security_questions_user_questions', FALSE)) {
+      $questions = security_questions_question_load_multiple(array('uid' => array(0, $uid)));
+    }
+    else {
+      $questions = security_questions_question_load_multiple(array('uid' => 0));
+    }
+    foreach ($questions as $question) {
+      $options[$uid][$question->sqid] = t($question->question);
+    }
+  }
+  return $options[$uid];
+}
+
+/**
+ * Fetch a user's answer to a question from the database.
+ *
+ * @param $uid
+ *   The user's ID.
+ * @param $sqid
+ *   The security question ID.
+ *
+ * @return
+ *   FALSE if the user has not answered the question.  Otherwise, the answer.
+ */
+function security_questions_get_answer($uid, $sqid) {
+  $list = security_questions_get_answer_list($uid, $sqid);
+  $answer = reset($list);
+  return empty($answer) ? FALSE : $answer->answer;
+}
+
+/**
+ * Fetch a list of the user's answers from the database.
+ *
+ * @param $uid
+ *   The user's ID.
+ * @param $sqid
+ *   (optional) A security question ID by which to filter the list.
+ *
+ * @return
+ *   An empty array if no answers are found for the user.  Otherwise, an array
+ *   of answer objects indexed by sqid.
+ */
+function security_questions_get_answer_list($uid, $sqid = NULL) {
+  $select = db_select('security_questions_answers', 'a');
+  $alias = $select->join('security_questions', 'q', 'a.sqid = q.sqid AND a.uid = :uid', array(':uid' => $uid));
+  $select->fields($alias, array('question'));
+  $select->fields('a');
+  if (isset($sqid)) {
+    $select->condition('a.sqid', $sqid);
+  }
+  return $select->execute()->fetchAllAssoc('sqid');
+}
+
+/**
+ * Delete a question from the database.
+ *
+ * @param $sqid
+ *   The unique security question identifier.
+ */
+function security_questions_question_delete($sqid) {
+  db_delete('security_questions_answers')
+    ->condition('sqid', $sqid)
+    ->execute();
+  db_delete('security_questions')
+    ->condition('sqid', $sqid)
+    ->execute();
+}
+
+/**
+ * Delete a user's answer from the database.
+ *
+ * @param $uid
+ *   The user's ID.
+ * @param $sqid
+ *   The unique security question identifier.
+ */
+function security_questions_answer_delete($uid, $sqid) {
+  db_delete('security_questions_answers')
+    ->condition('uid', $uid)
+    ->condition('sqid', $sqid)
+    ->execute();
+}
+
+/**
+ * Registers an incorrect answer attempt by the current visitor.
+ *
+ * @param $sqid
+ *   The ID of the question that the visitor attempted to answer.
+ * @param $uid
+ *   The ID of the user whom the visitor claims to be.
+ */
+function security_questions_register_incorrect($sqid, $uid) {
+  db_insert('security_questions_incorrect')
+    ->fields(array(
+      'sqid' => $sqid,
+      'uid' => $uid,
+      'ip' => ip_address(),
+      'timestamp' => REQUEST_TIME,
+      'expiration' => REQUEST_TIME + variable_get('security_questions_flood_expire', 3600),
+    ))
+    ->execute();
+  if(module_exists('rules')){
+    $account = user_load($uid);
+    rules_invoke_event('security_questions_incorrect_answer', $account);
+  }
+}
+
+/**
+ * Flush incorrect answer attempts for the current visitor.
+ *
+ * @param $uid
+ *   The ID of the user whom the visitor claims to be.
+ */
+function security_questions_flush_incorrect($uid) {
+  db_delete('security_questions_incorrect')
+    ->condition('uid', $uid)
+    ->condition('ip', ip_address())
+    ->execute();
+}
+
+/**
+ * Implements hook_cron().
+ */
+function security_questions_cron() {
+  // Delete all expired records from the incorrect answer attempt list.
+  db_delete('security_questions_incorrect')
+    ->condition('expiration', REQUEST_TIME, '<')
+    ->execute();
+}

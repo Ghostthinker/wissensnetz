@@ -1,0 +1,99 @@
+<?php
+
+/**
+ * categories migration
+ */
+function salto_knowledgebase_update_24000() {
+
+  $fallback_term = taxonomy_term_load(1781);
+  taxonomy_term_save($fallback_term);
+  $fallback_term_llm = taxonomy_term_load(salto_knowledgebase_taxonomy_get_refereced_tid($fallback_term));
+
+  $bildung_term = (object) [];
+  $bildung_term->name = "Bildung";
+  $bildung_term->description = "";
+  $bildung_term->vid = SALTO_KNOWLEDGEBASE_KB_VID;
+  taxonomy_term_save($bildung_term);
+  $bildung_term_llm = taxonomy_term_load(salto_knowledgebase_taxonomy_get_refereced_tid($bildung_term));
+
+  $schule_term = (object) [];
+  $schule_term->name = "Schule";
+  $schule_term->vid = SALTO_KNOWLEDGEBASE_KB_VID;
+  $schule_term->description = "";
+  taxonomy_term_save($schule_term);
+  $schule_term_llm = taxonomy_term_load(salto_knowledgebase_taxonomy_get_refereced_tid($schule_term));
+
+  //reorder all taxonomy terms
+  //first level terms get assigned "Bildung"
+  $tax_tree_kb = taxonomy_get_tree(SALTO_KNOWLEDGEBASE_KB_VID, 0, 1);
+  foreach ($tax_tree_kb as $ti) {
+    if ($ti->tid == $fallback_term->tid || $ti->tid == $bildung_term->tid || $ti->tid == $schule_term->tid) {
+      continue;
+    }
+    $ti->parent = $bildung_term->tid;
+    unset($ti->parents);
+    taxonomy_term_save($ti);
+  }
+
+  $tax_tree_llm = taxonomy_get_tree(SALTO_KNOWLEDGEBASE_LLM_VID, 0, 1);
+  foreach ($tax_tree_llm as $ti) {
+    if ($ti->tid == $fallback_term_llm->tid || $ti->tid == $bildung_term_llm->tid || $ti->tid == $schule_term_llm->tid) {
+      continue;
+    }
+    $ti->parent = $bildung_term_llm->tid;
+    taxonomy_term_save($ti);
+  }
+
+}
+
+function salto_knowledgebase_update_31000() {
+
+  $bildungTid = NULL;
+  $leistungTid = NULL;
+  $tree = taxonomy_get_tree(SALTO_KNOWLEDGEBASE_KB_VID, 0, 1);
+  foreach ($tree as $ti) {
+    if ($ti->name == 'Bildung' && in_array('0', $ti->parents) !== FALSE) {
+      $bildungTid = $ti->tid;
+    }
+    if ($ti->name == 'Leistungssport' && in_array('0', $ti->parents) !== FALSE) {
+      $leistungTid = $ti->tid;
+    }
+  }
+
+  if ($leistungTid == NULL) {
+    $leistung_term = (object) [];
+    $leistung_term->name = "Leistungssport";
+    $leistung_term->description = "";
+    $leistung_term->vid = SALTO_KNOWLEDGEBASE_KB_VID;
+
+    taxonomy_term_save($leistung_term);
+    $leistungTid = $leistung_term->tid;
+  }
+
+  $trainer_term = (object) [];
+  $trainer_term->name = "Trainer-im-Leistungssport.de";
+  $trainer_term->description = "";
+  $trainer_term->vid = SALTO_KNOWLEDGEBASE_KB_VID;
+  $trainer_term->parent = $bildungTid;
+  taxonomy_term_save($trainer_term);
+
+  $trainer_term = (object) [];
+  $trainer_term->name = "Trainer-im-Leistungssport.de";
+  $trainer_term->description = "";
+  $trainer_term->vid = SALTO_KNOWLEDGEBASE_KB_VID;
+  $trainer_term->parent = $leistungTid;
+  taxonomy_term_save($trainer_term);
+
+}
+
+/**
+ * copy links from menu-knowledgebase & menu-knowledgebase-files-cats (level
+ * one) to main-menu
+ */
+function salto_knowledgebase_update_34000() {
+  _salto_knowledgebase_menu_links_copy_to_main();
+}
+
+function salto_knowledgebase_update_38000() {
+  variable_set('salto_knowledgebase_comment_default_sorting', 1);
+}

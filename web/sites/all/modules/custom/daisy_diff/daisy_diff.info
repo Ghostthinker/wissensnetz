@@ -1,0 +1,3 @@
+name = Daisy Diff
+description = Provides Daisy Diff Lib and a simple function needed to patch diff module
+core = 7.x

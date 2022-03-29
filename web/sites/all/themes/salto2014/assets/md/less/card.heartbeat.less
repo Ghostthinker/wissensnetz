@@ -1,0 +1,34 @@
+@import "../components/card.less";
+
+.card.heartbeat-activity {
+  .heartbeat-group-header {
+    display: flex;
+  }
+
+  .user-picture .salto-user-online-status {
+    padding: 0;
+  }
+
+  .group-content {
+    padding: 1em 0;
+  }
+  .group-footer {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+
+  .hover-delete {
+    margin-right: 2em;
+  }
+
+  .field-item a:before {content: '';}
+
+  img {
+    border-radius: 8em;
+    width: @card-user-image-width;
+    height: inherit;
+    max-width: 100%;
+  }
+}
+

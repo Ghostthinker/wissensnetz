@@ -1,0 +1,159 @@
+
+#user-profile-form .image-widget-data {
+  position: relative;
+  overflow: hidden;
+  margin: 10px;
+}
+
+
+#user-profile-form .image-widget-data {
+  min-height: 200px;
+  min-width: 220px;
+}
+
+#user-profile-form .image-widget-data .user-picture {
+  text-align: center;
+}
+
+#user-profile-form .image-widget-data img {
+  max-width: none !important;
+}
+
+#user-profile-form .image-widget-data input.form-file {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0;
+  filter: alpha(opacity=0);
+  height: 100%;
+  width: 100%;
+}
+
+
+#user-profile-form .image-preview {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  min-width: 220px;
+  min-height: 220px;
+}
+
+#user-profile-form .image-widget-data:hover .choose-profile-picture, #user-profile-form .image-preview:hover .change-profile-picture {
+  opacity: 1;
+  filter: alpha(opacity=1);
+}
+
+
+#user-profile-form .image-widget-data {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.image-widget img {
+  float: left;
+}
+
+#user-profile-form .image-widget-data .choose-profile-picture, #user-profile-form .change-profile-picture {
+  position: absolute;
+  background-color: #ee334e;
+  color: #fff;
+  font-size: 14px;
+  padding: 0;
+  text-align: center;
+  width: 100%;
+  opacity: 0.80;
+  filter: alpha(opacity=0.80);
+  bottom: 0px;
+  z-index: 1;
+}
+
+#user-profile-form .choose-profile-picture span, #user-profile-form .change-profile-picture span {
+  padding: 10px 5px;
+  float: left;
+  text-align: center;
+  width: 100%;
+}
+
+#user-profile-form [id^=edit-profile-main-field-user-picture-und-0-upload-button],
+#user-profile-form .image-widget-data div.ajax-progress,
+#user-profile-form span.file, #user-profile-form span.file-size {
+  display: none !important;
+  overflow: hidden !important;
+}
+
+#user-profile-form #modal-throbber {
+  position: absolute;
+  top: 30%;
+  left: 43%;
+}
+
+.image-widget-data .form-item.form-type-textfield {
+  display: none;
+}
+
+#user-profile-form .image-widget-data .imagefield-focus {
+  visibility: hidden;
+}
+
+#user-profile-form .image-widget-data input#edit-profile-main-field-user-picture-und-0-remove-button,
+#user-profile-form .image-widget-data button#edit-profile-main-field-user-picture-und-0-remove-button {
+  display: none;
+}
+
+#user-profile-form .image-widget-data input#edit-profile-main-field-user-picture-und-0-remove-button,
+#user-profile-form .image-widget-data button#edit-profile-main-field-user-picture-und-0-remove-button {
+  position: absolute;
+  z-index: 10;
+  bottom: 1px;
+  right: 70px;
+  cursor: pointer;
+  padding-top: 7px;
+  padding-bottom: 7px;
+
+}
+
+#user-profile-form .image-widget-data input#edit-profile-main-field-user-picture-und-0-remove-button:hover,
+#user-profile-form .image-widget-data button#edit-profile-main-field-user-picture-und-0-remove-button:hover {
+  background-color: #bb1028 !important;
+}
+
+#user-profile-form .image-preview {
+  height: auto;
+}
+
+
+#user-profile-form .hide-crop-widget-button {
+  z-index: 10;
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  display: block;
+  min-height: 30px;
+  min-width: 30px;
+  cursor: pointer;
+  margin: 0;
+  border: 0;
+}
+
+
+#user-profile-form .image-widget-data .imagefield-focus {
+  z-index: 5;
+  position: relative;
+  display: block;
+  background-color: #000;
+  border: 1px solid #eee;
+}
+
+#user-profile-form .imagefield-focus.focus-box {
+  min-width: 500px;
+}
+
+#user-profile-form .image-widget .salto-user-profile-preview {
+  overflow: hidden;
+}

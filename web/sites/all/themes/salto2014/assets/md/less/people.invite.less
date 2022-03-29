@@ -1,0 +1,240 @@
+@import "../../../less/variables";
+
+@media only screen and (max-width: 1024px) {
+
+  #og_invite_page {
+
+    #invite-by-name-button {
+      font-size: 1.8em;
+    }
+
+    .btn-submit#edit-submit {
+      display: none !important;
+    }
+
+    #all-invites-panel {
+
+      .name {
+        color: #fcb131;
+        font-weight: bold;
+        padding-bottom: 5px !important;
+      }
+
+    }
+
+  }
+
+}
+
+@media only screen and (max-width: 768px) {
+
+  #og_invite_page {
+
+    // INVITE PEOPLE BY NAME
+
+    #invite-by-name-panel .control-group {
+      padding-top: 5px;
+      padding-bottom: 5px;
+    }
+
+    .icon-only {
+      font-size: 1.5em;
+    }
+
+  }
+
+}
+
+#og_invite_page {
+
+  // INVITE PEOPLE BY NAME
+
+  #invite-by-name-panel {
+
+    #invite-by-name-button {
+      float: right;
+      font-size: 2.8em;
+    }
+
+    .accordion-panel {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+  }
+
+  // INVITE PEOPLE BY ACCOUNT SEARCH
+
+  #invite-search-panel {
+
+    li {
+      border-spacing: 0;
+      display: flex !important;
+    }
+
+    .user-info-item {
+      padding-left: 0;
+    }
+
+    #invite-by-account-button {
+      margin-top: 0;
+    }
+
+    .searchlist {
+      color: black;
+    }
+
+    .searchlist > li:nth-of-type(odd) {
+      background-color: #eee;
+    }
+
+    .searchlist > li > div,
+    .searchlist > li > div *
+    {
+      background: transparent;
+    }
+
+    .searchlist .user-info-list > .user-info-item {
+      padding-top: 5px;
+      padding-bottom: 5px;
+    }
+  }
+
+  // INVITATIONS
+
+  #all-invites-panel {
+
+    .invitelist-item .row {
+      margin: 0 !important;
+    }
+
+    .user-picture {
+      padding-top: 5px;
+    }
+
+    .user-info-item {
+      padding: 0;
+    }
+
+    .name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 25px !important;
+    }
+
+    .name, .invite-list-heading {
+      padding: 0;
+    }
+
+    .remove {
+      padding: 0 !important;
+      background: transparent;
+    }
+
+    .img-responsive {
+      display: inherit;
+    }
+
+    .item-label {
+      min-height: 4em;
+    }
+  }
+
+  // CHECKBOX MARK
+
+  .checkbox-mark.form-item-invite {
+    margin: 1.2em 0 0;
+    box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    height: 45px;
+    padding: 12px 0.5em 0;
+  }
+
+  #invite-message-wrap {
+    margin-left: -1px;
+    margin-right: -1px;
+  }
+
+  #invite-message-wrap #edit-invite-message-wrapper {
+    border-top: none;
+    margin-top: -5px;
+    border-radius: 0 0 5px 5px;
+  }
+
+  // BOTTOM BORDER
+
+  .btn-submit#edit-submit {
+    margin-top: 1.2em;
+  }
+
+  // OVERALL RULES
+
+  .accordion-container {
+    border-radius: 5px;
+  }
+
+  .invite-panel {
+    padding: 5px 0 !important;
+  }
+
+  .invite-panel .img-responsive {
+    border-radius: 50%;
+  }
+
+  .salto_og_users_selector {
+    margin-bottom: 0 !important;
+  }
+
+  .accordion-panel {
+    background: none;
+    //overflow: visible;
+  }
+
+  .accordion-button {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .salto_og_users_selector {
+    > div {
+      display: block;
+      width: 100%;
+      background: none;
+    }
+
+    > div:first-child {
+      border-right: unset;
+    }
+
+    > div:last-child {
+      border-left: unset;
+    }
+  }
+
+  .icon-only {
+    background: transparent;
+    padding: 0 !important;
+    font-size: 1.8em;
+  }
+
+  .primary {
+    color: @dosb-orange;
+  }
+
+  .grey {
+    color: #52504b;
+  }
+
+  .btn:focus {
+    outline: none !important;
+  }
+
+  .btn:active {
+    box-shadow: none !important;
+  }
+
+  .accordion-container .accordion-button:after {
+    padding-right: 0.5em;
+  }
+}

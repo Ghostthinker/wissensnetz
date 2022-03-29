@@ -1,0 +1,256 @@
+<?php
+/**
+ * @file
+ * Install file for security_questions.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function security_questions_schema() {
+  $schema = array();
+
+  $schema['security_questions_answers'] = array(
+    'description' => 'Contains users security question answers.',
+    'fields' => array(
+      'uid' => array(
+        'description' => 'The user ID.',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'sqid' => array(
+        'description' => 'The security question ID',
+        'type' => 'int',
+      ),
+      'answer' => array(
+        'description' => 'The answer to the users question',
+        'type' => 'varchar',
+        'length' => '100',
+      ),
+    ),
+    'primary key' => array('uid', 'sqid'),
+  );
+
+  $schema['security_questions'] = array(
+    'description' => 'Contains possible security questions',
+    'fields' => array(
+      'sqid' => array(
+        'description' => 'The security question ID',
+        'type' => 'serial',
+      ),
+      'question' => array(
+        'description' => 'The text of the question',
+        'type' => 'varchar',
+        'length' => '500',
+      ),
+      'uid' => array(
+        'description' => '0 for questions available system-wide, or the owning uid for custom per-user questions.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'machine_name' => array(
+        'description' => 'An optional machine-readable name for this question, to support exportable configuration.',
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+    ),
+    'primary key' => array('sqid'),
+    'indexes' => array('uid' => array('uid')),
+  );
+
+  $schema['security_questions_incorrect'] = array(
+    'description' => 'Tracks incorrect answer attempts by IP.',
+    'fields' => array(
+      'aid' => array(
+        'description' => 'Unique attempt ID.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'sqid' => array(
+        'description' => 'The security question ID.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'description' => 'The user ID.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'ip' => array(
+        'description' => 'The IP address of the visitor that attempted to answer the question as the user.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'timestamp' => array(
+        'description' => 'Timestamp of the failed attempt.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'expiration' => array(
+        'description' => 'Expiration timestamp. Expired attempts are purged on cron run.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('aid'),
+    'indexes' => array(
+      'uid_ip' => array('uid', 'ip'),
+      'expire' => array('expiration'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function security_questions_install() {
+  // Add default questions.
+  $questions = array(
+    t("What is your mother's maiden name?"),
+    t("What was your high school mascot?"),
+    t("What is your favorite hobby?"),
+    t("What was your childhood nickname?"),
+    t("What is the name of your favorite childhood friend?"),
+    t("What is your oldest sibling's middle name?"),
+    t("What is the middle name of your oldest child?"),
+    t("What was the last name of your third grade teacher?"),
+    t("In what city does your nearest sibling live?"),
+  );
+  foreach ($questions as $question) {
+    security_questions_add_question($question, TRUE, 1);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function security_questions_uninstall() {
+  variable_del('security_questions_cookie');
+  variable_del('security_questions_cookie_expire');
+  variable_del('security_questions_flood_expire');
+  variable_del('security_questions_number_required');
+  variable_del('security_questions_password_reset');
+  variable_del('security_questions_protection_mode');
+  variable_del('security_questions_user_login');
+  variable_del('security_questions_user_questions');
+}
+
+/**
+ * Rebuild the menu to detect form function moves.
+ */
+function security_questions_update_7200() {
+  menu_rebuild();
+}
+
+/**
+ * Add the security_questions_incorrect table.
+ */
+function security_questions_update_7201() {
+  $schema['security_questions_incorrect'] = array(
+    'description' => 'Tracks incorrect answer attempts by IP.',
+    'fields' => array(
+      'aid' => array(
+        'description' => 'Unique attempt ID.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'security_question_id' => array(
+        'description' => 'The security question ID.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'description' => 'The user ID.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'ip' => array(
+        'description' => 'The IP address of the visitor that attempted to answer the question as the user.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'timestamp' => array(
+        'description' => 'Timestamp of the failed attempt.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'expiration' => array(
+        'description' => 'Expiration timestamp. Expired attempts are purged on cron run.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('aid'),
+    'indexes' => array(
+      'uid_ip' => array('uid', 'ip'),
+      'expire' => array('expiration'),
+    ),
+  );
+  db_create_table('security_questions_incorrect', $schema['security_questions_incorrect']);
+}
+
+/**
+ * Convert the schema to support the new API.
+ */
+function security_questions_update_7202() {
+  // Serial fields must be keys in MySQL, so need to add a temporary index on
+  // {security_questions}.security_question_id before we can change it.
+  db_add_index('security_questions', 'temp', array('security_question_id'));
+
+  // Convert the questions table.
+  db_drop_primary_key('security_questions');
+  db_change_field('security_questions', 'security_question_id', 'sqid',
+    array('description' => 'The security question ID', 'type' => 'serial'),
+    array('primary key' => array('sqid')));
+  db_change_field('security_questions', 'security_question', 'question',
+    array('description' => 'The text of the question', 'type' => 'varchar', 'length' => '500'));
+  db_change_field('security_questions', 'uid', 'uid',
+    array('description' => '0 for questions available system-wide, or the owning uid for custom per-user questions.', 'type' => 'int', 'not null' => TRUE, 'default' => 0));
+  db_update('security_questions')
+    ->fields(array('uid' => 0))
+    ->condition('admin', 1)
+    ->execute();
+  db_drop_field('security_questions', 'admin');
+  db_add_field('security_questions', 'machine_name',
+    array('description' => 'An optional machine-readable name for this question, to support exportable configuration.', 'type' => 'varchar', 'length' => 255));
+  db_add_index('security_questions', 'uid', array('uid'));
+
+  // Drop our temporary index.
+  db_drop_index('security_questions', 'temp');
+
+  // Rename security_question_id to sqid in related tables.
+  db_drop_primary_key('security_questions_answers');
+  db_change_field('security_questions_answers', 'security_question_id', 'sqid',
+    array('description' => 'The security question ID', 'type' => 'int'),
+    array('primary key' => array('uid', 'sqid')));
+  db_change_field('security_questions_answers', 'user_answer', 'answer',
+    array('description' => 'The answer to the users question', 'type' => 'varchar', 'length' => '100'));
+  db_change_field('security_questions_incorrect', 'security_question_id', 'sqid',
+    array('description' => 'The security question ID.', 'type' => 'int', 'not null' => TRUE, 'default' => 0));
+}
+
+/**
+ * Convert the cookie expiration variable to a UNIX time value.
+ */
+function security_questions_update_7203() {
+  $expire = variable_get('security_questions_cookie_expire', '+1 week');
+  if (!empty($expire) && !is_numeric($expire)) {
+    $expire = strtotime($expire) - time();
+    variable_set('security_questions_cookie_expire', $expire);
+  }
+}

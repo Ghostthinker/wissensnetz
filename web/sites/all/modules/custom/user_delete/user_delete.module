@@ -1,0 +1,367 @@
+<?php
+
+define('USER_DELETED_UID', 2);
+define('USER_DELETED_DEFAULT_CONFIRMATION_MSG', 'Are you sure? Do you really want to delete your Bildungsnetz Account?');
+
+/**
+ * Implements hook_menu().
+ */
+function user_delete_menu() {
+  $items['user/%user/delete'] = [
+    'title' => 'Content',
+    'description' => 'Delete user account',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['user_delete_own_account', 1],
+    'access callback' => 'user_delete_cancel_account_access',
+    'access arguments' => [1],
+    'weight' => -10,
+  ];
+
+  return $items;
+}
+
+/**
+ * [user_delete_permission description]
+ *
+ * @return [type] [description]
+ */
+function user_delete_permission() {
+  return [
+    'salto cancel own account' => [
+      'title' => t('Salto: Cancel own account'),
+      'description' => t('Cancel own user account'),
+    ],
+    'salto cancel other account' => [
+      'title' => t('Salto: Cancel other account'),
+      'description' => t('Cancel other user account'),
+    ],
+  ];
+}
+
+/**
+ * Menu access callback; limit access to account cancellation pages.
+ * Limit access to users with the 'salto cancel own account' permission or
+ * administrative users, and prevent the anonymous user from cancelling the
+ * account.
+ *
+ * @param $account
+ *
+ * @return bool
+ */
+function user_delete_cancel_account_access($account) {
+  if ($account->uid < 1) {
+    return FALSE;
+  }
+  if (($GLOBALS['user']->uid == $account->uid) && user_access('salto cancel own account')) {
+    return TRUE;
+  }
+  if (user_access('administer users')) {
+    return TRUE;
+  }
+  if (user_access('salto cancel other account')) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * CommentController in comment.module is joining over user table
+ * build query joins over user table, which prevents us to see comments of
+ * deleted users
+ *
+ * @param QueryAlterableInterface $query [description]
+ *
+ * @return [type]                         [description]
+ */
+function user_delete_query_alter(QueryAlterableInterface $query) {
+  $tables =& $query->getTables();
+
+  if ($tables['base']['table'] == 'comment') {
+    $fields =& $query->getFields();
+    unset($tables['u']);
+    unset($fields['signature']);
+    unset($fields['signature_format']);
+    unset($fields['registered_name']);
+    unset($fields['u_uid']);
+    unset($fields['picture']);
+  }
+}
+
+/**
+ *
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ * @param  [type] $node       [description]
+ *
+ * @return [type]             [description]
+ */
+function user_delete_own_account($form, &$form_state, $account) {
+
+  drupal_add_css(drupal_get_path('module', 'user_delete') . '/less/user_delete.less');
+
+  $form = [];
+  if (empty($account)) {
+    drupal_access_denied();
+  }
+
+  $form['_account'] = ['#type' => 'value', '#value' => $account];
+  $form['info'] = [
+    '#prefix' => '<div class="confirmation-message>',
+    '#type' => 'item',
+    '#markup' => '<h2>' . t('Submit account deletion') . '</h2>' . variable_get('user_delete_confirmation_message', t(USER_DELETED_DEFAULT_CONFIRMATION_MSG)),
+    '#suffix' => '</div>' . '<div class="confirmation-warning">' . t('This action cannot be undone. Bildungsnetz warnings.') . '</div>',
+  ];
+
+  return confirm_form($form,
+    t('Are you sure you want to delete your Bildungsnetz Account?'),
+    'user',
+    '',
+    t('Cancel account'),
+    t('Cancel')
+  );
+
+}
+
+function user_delete_own_account_submit($form, &$form_state) {
+  $account = $form_state['values']['_account'];
+
+  if (!$account) {
+    drupal_set_message(t('The user account  does not exist.'), 'error');
+    watchdog('user', 'Attempted to cancel non-existing user account', NULL, WATCHDOG_ERROR);
+    return;
+  }
+
+  $original_session_saving = drupal_save_session();
+  drupal_save_session(FALSE);
+
+  $original_user = $GLOBALS['user'];
+  $GLOBALS['user'] = $account;
+
+  user_delete_reassign($account->uid);
+
+
+  if (!empty($edit['user_cancel_notify'])) {
+    _user_mail_notify('status_canceled', $account);
+  }
+  user_delete_og_memberships($account->uid);
+
+  user_delete($account->uid);
+
+  $GLOBALS['user'] = $original_user;
+  drupal_save_session($original_session_saving);
+
+  drupal_set_message(t('%name has been deleted.', ['%name' => $account->name]));
+  watchdog('user', 'Deleted user: %name %email.', [
+    '%name' => $account->name,
+    '%email' => '<' . $account->mail . '>',
+  ], WATCHDOG_NOTICE);
+
+  $form_state['redirect'] = '<front>';
+}
+
+function _user_delete_get_nodes_referencing_authors($uid) {
+  $query = db_select('node', 'n')
+    ->fields('n', ['nid']);
+  $query->leftJoin('field_data_field_post_authors', 'fpa', 'fpa.entity_id = n.nid');
+  $query->innerJoin('users', 'u', 'fpa.field_post_authors_target_id = u.uid');
+  $query->condition('u.uid', $uid, '=');
+  $result = $query->execute();
+
+  $result = $result->fetchAll();
+
+  return $result;
+}
+
+function _user_delete_nodes_unlink_post_author($uid) {
+  db_delete('field_data_field_post_authors')
+    ->condition('field_post_authors_target_id', $uid)
+    ->execute();
+}
+
+/**
+ * add additional setting for cancel label
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ *
+ * @return [type]             [description]
+ */
+function user_delete_form_user_admin_settings_alter(&$form, &$form_state) {
+
+  $form['deleted_user_settings'] = [
+    '#type' => 'fieldset',
+    '#title' => t('deleted users'),
+    '#weight' => 0,
+  ];
+  $form['deleted_user_settings']['deleted_user'] = [
+    '#type' => 'textfield',
+    '#title' => t('Name'),
+    '#default_value' => variable_get('deleted_user', t('deleted user')),
+    '#description' => t('The name used to indicate deleted users.'),
+    '#required' => TRUE,
+  ];
+
+  $form['deleted_user_settings']['user_delete_confirmation_message'] = [
+    '#type' => 'textarea',
+    '#title' => t('Confirmation message'),
+    '#default_value' => variable_get('user_delete_confirmation_message', t(USER_DELETED_DEFAULT_CONFIRMATION_MSG)),
+    '#description' => t('The message to display in the confirmation dialogue.'),
+    '#required' => TRUE,
+  ];
+
+}
+
+/**
+ * alter name of deleted user
+ *
+ * @param  [type] $name    [description]
+ * @param  [type] $account [description]
+ *
+ * @return [type]          [description]
+ */
+function user_delete_username_alter(&$name, $account) {
+  if ($account->uid == USER_DELETED_UID) {
+    $name = variable_get('deleted-user', t('deleted user'));
+  }
+}
+
+/**
+ * remove link in user name
+ *
+ * @param  [type] $variables [description]
+ *
+ * @return [type]            [description]
+ */
+function user_delete_preprocess_username(&$variables) {
+  if ($variables['uid'] == USER_DELETED_UID) {
+    unset($variables['link_path']);
+  }
+}
+
+/**
+ * [user_delete_form_alter description]
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ *
+ * @return [type]             [description]
+ */
+function user_delete_form_alter(&$form, &$form_state, $form_id) {
+
+  if ($form_id == 'user_profile_form') {
+    drupal_add_css(drupal_get_path('module', 'user_delete') . '/less/user_delete.less');
+    $form['actions']['user_delete'] = [
+      '#type' => 'submit',
+      '#value' => t('Cancel my account'),
+      '#access' => user_access('salto cancel own account'),
+      '#submit' => ['user_delete_cancel_redirect_handler'],
+      '#attributes' => [
+        'class' => ['btn-danger', 'cancel-account'],
+      ],
+    ];
+  }
+}
+
+function user_delete_cancel_redirect_handler($form, &$form_state) {
+  unset($_GET['destination']);
+  drupal_static_reset('drupal_get_destination');
+  $form_state['redirect'] = 'user/' . $form['#user']->uid . '/delete';
+}
+
+/**
+ * Reassign content from a user (used before delete through custom form)
+ *
+ * @param  [type] $uids [description]
+ *
+ * @return [type]       [description]
+ */
+function user_delete_reassign($uid) {
+  return user_delete_reassign_multiple([$uid]);
+}
+
+/**
+ * Reassign content from a users (used before delete through custom form)
+ *
+ * @param  [type] $uids [description]
+ *
+ * @return void [type]       [description]
+ * @throws Exception
+ */
+function user_delete_reassign_multiple($uids) {
+
+  foreach ($uids as $uid) {
+
+    module_load_include('inc', 'node', 'node.admin');
+    $nodes = db_select('node', 'n')
+      ->fields('n', ['nid'])
+      ->condition('uid', $uid)
+      ->execute()
+      ->fetchCol();
+
+    foreach ($nodes as $n) {
+      _node_mass_update_helper($n, ['uid' => USER_DELETED_UID]);
+    }
+
+    db_update('node_revision')
+      ->fields(['uid' => USER_DELETED_UID])
+      ->condition('uid', $uid)
+      ->execute();
+
+    db_delete('history')
+      ->condition('uid', $uid)
+      ->execute();
+
+    $cids = db_query('SELECT c.cid FROM {comment} c WHERE uid = :uid', [':uid' => $uid])->fetchCol();
+    $comments = comment_load_multiple($cids);
+    if ($comments) {
+      $transaction = db_transaction();
+      try {
+        db_update('comment')
+          ->fields(['uid' => USER_DELETED_UID])
+          ->condition('cid', array_keys($comments), 'IN')
+          ->execute();
+        foreach ($comments as $comment) {
+          module_invoke_all('comment_update', $comment);
+          module_invoke_all('entity_update', $comment, 'comment');
+        }
+
+      } catch (Exception $e) {
+        $transaction->rollback();
+        watchdog_exception('comment', $e);
+        throw $e;
+      }
+    }
+    _user_delete_nodes_unlink_post_author($uid);
+
+  }
+}
+
+/**
+ * @param $uid
+ *
+ * @return bool
+ */
+function user_delete_og_memberships($uid) {
+  $account = user_load($uid);
+  $organisations = $account->field_user_organisations[LANGUAGE_NONE];
+  $ogCount = !empty($organisations) ? count($organisations) : 0;
+  if ($ogCount < 2) {
+    return FALSE;
+  }
+
+  $organisations = salto_user_get_organisations_and_suborganisations($account);
+
+  foreach ($organisations as $gid => $array) {
+    $og_membership = og_get_membership('node', $gid, 'user', $account->uid);
+    og_og_membership_delete($og_membership);
+    og_membership_delete($og_membership->id);
+
+    watchdog('user_delete_og_membership', 'User <em>%name</em> has been removed from organisation <em>%og</em>.', [
+      '%name' => $account->realname,
+      '%og' => $array['title'],
+    ], WATCHDOG_INFO);
+    return TRUE;
+  }
+  return FALSE;
+}

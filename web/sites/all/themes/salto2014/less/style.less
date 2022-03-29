@@ -1,0 +1,381 @@
+// Bootstrap library.
+@import 'bootstrap.less';
+
+// Base-theme overrides.
+@import 'overrides.less';
+
+// Theme specific.
+@import 'header.less';
+@import 'content.less';
+@import 'forms.less';
+@import 'private_messages.less';
+@import 'footer.less';
+@import 'wysiwyg.less';
+@import 'modals.less';
+@import 'responsive.less';
+@import 'flex.less';
+
+@base-color-1: #f9f9f9;
+
+body {
+  background-color: @base-color-1;
+  font-weight: @font-weight-light;
+}
+
+@media (min-width: @container-sm) {
+  .floater {
+    float: right;
+  }
+}
+
+@media (min-width: @container-md) {
+  .floater {
+    float: left;
+  }
+}
+
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  display: table;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.userbar,
+.navbar.container,
+#skip-link,
+.main-container,
+footer {
+  display: table-row;
+}
+
+.main-container {
+  height: 100%;
+}
+
+.userbar .container,
+.navbar.container > .container,
+.main-container > .row,
+.region-footer {
+  width: auto;
+  max-width: 970px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+}
+
+.main-container > .row {
+  margin-bottom: 30px;
+}
+
+.userbar .container,
+.navbar.container > .container,
+.region-footer {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.userbar {
+  a.open,
+  a:hover,
+  a:active {
+    color: @dosb-red !important;
+  }
+}
+
+.field-name-field-user-picture,
+.user-picture,
+.views-field-field-user-picture {
+  .field-item {
+    position: relative;
+  }
+
+  .salto-user-online-status {
+    width: 10px;
+    height: 10px;
+    background-color: #aaa !important;
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    border-radius: 5px;
+    -moz-border-radius: 5px;
+    border: 1px solid #eee;
+  }
+
+  .salto-user-online-status.away {
+    background-color: #e4e467 !important;
+  }
+
+  .salto-user-online-status.online {
+    background-color: #64c464 !important;
+  }
+}
+
+.views-field-field-user-picture .field-content {
+  display: inline-block;
+  position: relative;
+}
+
+
+.field-name-field-user-picture .field-item, .user-picture .field-item, .views-field-field-user-picture .field-item {
+  display: inline-block;
+}
+
+.block-devel-node-access {
+  background: #ccc;
+  color: #000;
+}
+
+a.infobox-overview {
+  color: white;
+  display: block;
+  font-weight: 700;
+  text-align: right;
+  padding-right: 16px;
+  padding-top: 10px;
+}
+
+a.infobox-overview:before {
+  font-family: "fontello";
+  content: "\e82c";
+  font-style: normal;
+  font-weight: normal;
+  speak: none;
+  display: inline-block;
+  text-decoration: none;
+  margin-right: 9px;
+  font-size: 14px;
+  position: relative;
+  top: 1px;
+}
+
+
+.book-outline-form,
+#edit-description-format {
+  display: none;
+}
+
+.view-invites-mine td {
+  max-width: 100px;
+  word-break: break-all
+}
+
+.view-invites-mine td.views-field-link-salto-resend-invite {
+  max-width: 150px;
+  word-break: break-all
+}
+
+.view-invites-mine td.views-field-field-profile-contact-email-1 {
+  max-width: 150px;
+}
+
+#node-3479 {
+  font-size: 16px;
+}
+
+iframe.license_grid_iframe {
+  width: 100%;
+  border: none;
+}
+
+.notifications-dropdown .notifications-content {
+  width: 320px;
+  max-width: 420px;
+}
+
+.view-licenses-earemotes .wrapea {
+  .linkEA {
+    clear: both;
+    text-align: right;
+    float: right;
+  }
+}
+
+.entity-message .message-content-preview {
+  word-break: break-all !important;
+}
+
+.form-type-password label div.label {
+  display: none !important;
+}
+
+.view-home-tabs .views-field-body .field-content > div {
+  background-color: @dosb-orange !important;
+}
+
+#privatemsg-list-form {
+  .checkbox-mark {
+    .checkmark {
+      display: none;
+    }
+
+    &:hover {
+      color: @dosb-grey;
+    }
+  }
+}
+
+#modal_,
+#modal_Filter,
+#modal_Menü,
+#modal_Themenfelder {
+  padding: 0;
+  min-width: 300px;
+  border: 0;
+  box-shadow: @card-background-shadow;
+  z-index: 1002;
+
+  .modal-content {
+    width: 80vw;
+    border: 0;
+    left: 0;
+    position: absolute;
+    min-height: 100vh;
+
+    .close {
+      display: none;
+    }
+  }
+
+  .menu.nav {
+    padding: 0;
+    margin: 0;
+
+    li {
+      padding: 0;
+      margin: 0;
+    }
+  }
+
+  .panel-heading {
+    padding: 0;
+  }
+}
+
+
+#modal_Filter {
+  .modal-content {
+    right: 0;
+    left: initial;
+  }
+}
+
+
+.view-dosb-license-shipped {
+  .table > tbody > tr > td {
+    vertical-align: middle;
+  }
+
+  .btn {
+    padding: 0.3em;
+
+    &:before {
+      font-family: "fontello";
+      font-style: normal;
+      font-weight: normal;
+      speak: none;
+      display: inline-block;
+      text-decoration: inherit;
+      margin-right: 7px;
+      font-size: 18px;
+      position: relative;
+      top: 1px;
+    }
+  }
+}
+
+.alert.export {
+  display: flex;
+  align-items: center;
+
+  h3 {
+    margin: auto 1em;
+  }
+
+  span {
+    margin: auto 0;
+  }
+}
+
+.node-post {
+  .card-content {
+    .group-footer {
+      .list-inline {
+        display: inline-block;
+        width: auto;
+        margin-right: 5px;
+      }
+    }
+  }
+}
+
+form .field-multiple-table td.field-multiple-drag {
+  width: 40px;
+
+  a.tabledrag-handle .handle {
+    margin: -0.4em 0.25em;
+    padding: 0.42em 0.6em;
+  }
+}
+
+#klaro {
+  .cookie-modal .cm-list-input:checked + .cm-list-label .slider {
+    background-color: @dosb-orange !important;
+  }
+
+  a {
+    color: @dosb-orange !important;
+  }
+
+  button {
+    &.cm-btn-success {
+      background-color: @dosb-orange !important;
+    }
+  }
+}
+
+.arrow-up {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+
+  border-bottom: 5px solid black;
+}
+
+.arrow-down {
+  display: inline-block;
+  width: 0px;
+  height: 0px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+
+  border-top: 5px solid black;
+}
+
+.arrow-right {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+
+  border-left: 5px solid black;
+}
+
+.arrow-left {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+
+  border-right: 5px solid black;
+}

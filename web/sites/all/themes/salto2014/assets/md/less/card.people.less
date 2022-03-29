@@ -1,0 +1,114 @@
+@import "../components/card.less";
+
+.panel-pane.pane-page-title {
+  display: none;
+}
+
+.page-people .panel-panel.main-content {
+  .panel-separator {
+    height: 0;
+    margin: 0;
+  }
+}
+
+[class$="-people-directory"] {
+  .view-header {
+    display: none;
+  }
+
+  .views-row {
+    display: block;
+    flex-direction: column;
+    border-radius: @card-border-radius;
+    box-shadow: @card-background-shadow;
+    transition: 0.1s;
+    padding: 2em;
+    background-color: white;
+    margin: 1em auto;
+    border: 0;
+  }
+
+  .views-row:last-child {
+    border-bottom: 1px solid @dosb-light-grey;
+  }
+
+  img {
+    border-radius: 8em;
+  }
+
+  .user_links {
+    right: 10px;
+  }
+}
+
+#user-profile .main-content {
+  .card-user {
+    display: flex;
+    flex-direction: column;
+    border-radius: @card-border-radius;
+    box-shadow: @card-background-shadow;
+    transition: 0.1s;
+    padding: 2em;
+    background-color: white;
+    margin: 1em auto;
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      img {
+        border-radius: 8em;
+        width: @card-user-image-width;
+        height: auto;
+        max-width: 8em;
+      }
+      .user-picture .salto-user-online-status {
+        padding: 0;
+      }
+      .pane-profile2-field-user-picture {
+        margin-right: 1em;
+      }
+    }
+
+    .responsibility-organisation {
+      margin-top: 0;
+      margin-bottom: 0.2em;
+    }
+
+    .panel-pane {
+      margin-bottom: 1em;
+    }
+    .pane-user-name {
+      //display: none;
+    }
+    .pane-title,
+    .panel-title {
+      font-size: 15px;
+      font-weight: 300;
+      color: inherit;
+      margin-bottom: 0;
+    }
+  }
+}
+
+@media only screen and (min-width: @min-width) {
+  #user-profile .main-content {
+    .card-user {
+      .header {
+        display: none;
+      }
+    }
+  }
+}
+
+@media only screen and (max-width: @max-width) {
+  #user-profile .main-content {
+    .card-user {
+      .pane-user-name {
+        display: none;
+      }
+      .middle .pane-custom {
+        display: none;
+      }
+    }
+  }
+}

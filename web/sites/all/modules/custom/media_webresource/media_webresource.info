@@ -1,0 +1,9 @@
+name = Media Web Resource
+description = Embed generic internet resources
+core = 7.x
+
+dependencies[] = media (2.x)
+dependencies[] = media_internet
+
+files[] = includes/MediaWebresourceStreamWrapper.inc
+files[] = includes/MediaWebresourceHandler.inc

@@ -1,0 +1,74 @@
+<?php
+
+/**
+ * Implements hook_schema()
+ * @return mixed
+ */
+function file_entity_access_schema(){
+  $schema['file_access'] = array(
+    'description' => 'Identifies which realm/grant pairs a user must possess in order to view, update, or delete specific nodes.',
+    'fields' => array(
+      'fid' => array(
+        'description' => 'The {file_managed}.fid this record affects.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'gid' => array(
+        'description' => "The grant ID a user must possess in the specified realm to gain this row's privileges on the node.",
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'realm' => array(
+        'description' => 'The realm in which the user must possess the grant ID. Each node access node can define one or more realms.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'grant_view' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can view this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_update' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can edit this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_delete' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can delete this file.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_download' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can download this file.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+    ),
+    'primary key' => array('fid', 'gid', 'realm'),
+    'foreign keys' => array(
+      'affected_file' => array(
+        'table' => 'file_managed',
+        'columns' => array('fid' => 'fid'),
+      ),
+    ),
+  );
+  return $schema;
+}

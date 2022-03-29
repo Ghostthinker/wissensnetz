@@ -1,0 +1,235 @@
+header#navbar {
+  background-color: @dosb-white;
+  padding-bottom: 0 !important;
+  border-bottom: 1px solid #fefefe
+}
+
+.navbar-nav {
+  margin: (@navbar-padding-vertical / 2) -@navbar-padding-horizontal;
+
+  > li > a {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    line-height: @line-height-computed;
+  }
+
+  &.secondary {
+    float: right;
+    padding: 0;
+    background: @navbar-user-background;
+    width: 100%;
+    margin-right: 8px;
+
+    > li > a {
+      padding: 4px;
+      color: #fff;
+    }
+  }
+
+  @media (min-width: @grid-float-breakpoint) {
+    float: left;
+    margin: 0;
+    > li {
+      float: left;
+
+      > a {
+        padding-top: 50px;
+        padding-bottom: 50px;
+
+        &.active {
+          border-bottom: 4px solid #f00;
+          background-color: @bg-link-main-nav;
+        }
+      }
+    }
+  }
+}
+
+#navbar {
+  margin-top: 0px;
+  margin-bottom: 10px;
+  background: none;
+  border: none;
+}
+
+.navbar-collapse {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.userbar {
+  background-color: @navbar-user-background;
+  color: #ffffff;
+  z-index: 1001;
+  text-align: right;
+}
+
+.navbar .logo {
+  margin-top: 12px;
+}
+
+header#navbar.adh .navbar-header .logo img {
+  height: 75px;
+  margin: 8px 0;
+}
+
+.navbar-default .navbar-nav {
+  float: right;
+  margin-right: 226px;
+}
+
+.navbar-default .navbar-nav > li {
+  position: relative;
+}
+
+.navbar-default .navbar-nav > li > a,
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus {
+  display: table-cell;
+  padding: 0 11px;
+  height: 85px;
+  vertical-align: middle;
+  position: relative;
+  font-size: 18px;
+  color: @dosb-grey;
+
+}
+
+.navbar-default .navbar-nav > li > a.active {
+  border-bottom: 0;
+}
+
+.navbar-default .navbar-nav > li.active:after,
+.navbar-default .navbar-nav > li.active-trail:after,
+.navbar-default .navbar-nav > #licenses-menu .active:after {
+  content: " ";
+  display: block;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 5px;
+  width: 100%;
+  background: @dosb-orange;
+}
+
+
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus,
+.navbar-default .navbar-nav > .active > a:active,
+.navbar-default .navbar-nav > .active-trail > a {
+  background-color: @dosb-grey-fonds;
+  border: none;
+  position: relative;
+}
+
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus {
+  color: @dosb-grey;
+  background-color: lighten(@dosb-grey-fonds, 4%);
+  -webkit-transition: background-color 100ms linear;
+  -moz-transition: background-color 100ms linear;
+  -o-transition: background-color 100ms linear;
+  -ms-transition: background-color 100ms linear;
+  transition: background-color 100ms linear;
+}
+
+.navbar-user {
+  padding: 0;
+}
+
+.navbar-user > .navbar-nav > li {
+  margin-left: 30px;
+}
+
+.navbar-nav.secondary > li > a,
+.navbar-user > li > a:hover,
+.navbar-user > li > a:focus,
+.navbar-user .open > a,
+.navbar-user .open > a:hover,
+.navbar-user .open > a:focus {
+  background-color: rgb(238, 238, 238);
+  border-color: rgb(252, 177, 49);
+  color: rgb(255, 255, 255);
+  font-weight: @font-weight-bold;
+  font-size: 11px;
+  padding: 2px;
+  background: none;
+  border: none;
+
+  &.action_message {
+    font-size: 12px;
+  }
+}
+
+.navbar-user .action_message:before,
+.navbar-user .help-dropdown-link:before,
+.navbar-user .action_account_dropdown:before,
+.navbar-user .notifications-dropdown-link:before {
+  font-family: "fontello";
+  font-style: normal;
+  font-weight: normal;
+  speak: none;
+  display: inline-block;
+  text-decoration: inherit;
+  margin-right: 7px;
+  font-size: 15px;
+  position: relative;
+  top: 1px;
+}
+
+.navbar-default .navbar-nav > li.locked a:after {
+
+  font-family: "fontello";
+  font-style: normal;
+  font-weight: normal;
+  content: @icon-locked;
+  top: -60px;
+  color: @dosb-grey;
+  float: right;
+  left: 4px;
+}
+
+
+.navbar-user .action_message:before {
+  content: '\e807';
+}
+
+.navbar-user .help-dropdown-link:before {
+  content: @icon-question;
+  font-size: 13px;
+}
+
+.navbar-user .notifications-dropdown-link:before {
+  content: '\e82f';
+}
+
+.navbar-user .action_account_dropdown:before {
+  content: '\e806';
+}
+
+.dropdown-menu {
+  border-radius: none;
+  right: 0;
+  font-weight: inherit;
+  left: auto;
+}
+
+.navbar-header {
+  overflow: hidden;
+}
+
+.nhleft {
+  width: 114px;
+}
+
+.nhright {
+  position: absolute;
+  right: 26px;
+  width: 200px;
+}
+
+.nhright img {
+  margin-left: -92px;
+}

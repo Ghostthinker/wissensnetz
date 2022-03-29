@@ -1,0 +1,101 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for the salto_files module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function salto_files_uninstall() {
+
+}
+
+/**
+ * Implements hook_schema().
+ */
+function salto_files_schema() {
+
+  $schema['file_counter'] = array(
+    'description' => 'Access statistics for files.',
+    'fields' => array(
+      'fid' => array(
+        'description' => 'The file.fid for these statistics.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'totalcount' => array(
+        'description' => 'The total number of times the file has been viewed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'big',
+      ),
+      'timestamp' => array(
+        'description' => 'The most recent time the file has been viewed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('fid'),
+  );
+
+  return $schema;
+}
+/**
+ * old files - create comment nodes
+ */
+function salto_files_update_25000() {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'file');
+    $result = $query->execute();
+    if (!empty($result['file'])) {
+        $fids = array_keys($result['file']);
+        $files = file_load_multiple($fids);
+        foreach($files as $file) {
+            if(empty($file->field_file_comments[LANGUAGE_NONE][0]['target_id'])){
+                //save file and create comment node
+                file_save($file);
+            }
+        }
+    }
+}
+
+/**
+ * enable bulk upload edit
+ */
+function salto_files_update_28000() {
+  variable_set('media_bulk_upload_edit', TRUE);
+}
+
+/**
+ * disable bulk upload edit
+ */
+function salto_files_update_28001() {
+  variable_set('media_bulk_upload_edit', FALSE);
+}
+
+/**
+ * old files - create media derivatives document
+ */
+function salto_files_update_28011() {
+   $query = new EntityFieldQuery();
+   $query->entityCondition('entity_type', 'file');
+   $query->propertyCondition('type', 'document');
+   $result = $query->execute();
+   if (!empty($result['file'])) {
+      $fids = array_keys($result['file']);
+      $files = file_load_multiple($fids);
+      foreach($files as $file) {
+        //$derivative = $file->media_derivatives['derivatives_list']['document'];
+        $presets = media_derivatives_get_presets();
+        $derivative = media_derivatives_create_derivative_object($file, $presets['document'], 'file_insert');
+        media_derivatives_start_encode($derivative);
+      }
+   }
+}

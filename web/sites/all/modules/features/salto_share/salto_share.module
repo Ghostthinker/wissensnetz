@@ -1,0 +1,247 @@
+<?php
+/**
+ * @file
+ * Code for the salto_share feature.
+ */
+
+include_once 'salto_share.features.inc';
+
+
+/**
+ * Implements hook_menu().
+ */
+function salto_share_menu() {
+
+  $items = [];
+
+  $items['node/%/share_check/%/%'] = [
+    'page callback' => 'salto_share_share_check_callback',
+    'page arguments' => [1, 3, 4],
+    'access callback' => TRUE, //we manage access in the json callback
+  ];
+
+  return $items;
+}
+
+/**
+ * share check callback
+ * checks, if members of a group (or a specific user - not needed yet) has
+ * access to a certain content
+ *
+ * @param  [type] $nid       node nid
+ * @param  [type] $type      group or user (not implemented yet)
+ * @param  [type] $entity_id gid or uid
+ *
+ * @return json
+ */
+function salto_share_share_check_callback($nid, $type, $entity_id) {
+  //check access for group members
+  if ($type == 'group') {
+    $node = node_load($nid);
+    $group = node_load($entity_id);
+
+    $denied = [];
+    //get all members
+    $active_members = og_get_group_members_properties($group, [], 'members__' . OG_STATE_ACTIVE, 'node');
+    //check access for every single member
+    foreach ($active_members as $uid) {
+      $account = user_load($uid);
+      if (!node_access('view', $node, $account)) {
+        $denied[$uid] = $account->realname;
+      }
+    }
+
+    $labels = salto_knowledgebase_post_access_options('view');
+    $collaboration_read = $node->field_post_collaboration[LANGUAGE_NONE][0]['read'];
+    $read_label = $labels[$collaboration_read];
+
+    if (count($denied) > 0) {
+      $users_string = implode(', ', $denied);
+      $message = t("The node %title has the privacy setting %setting and is not accessable for the following members of the group %group_label: %users", [
+        '%title' => $node->title,
+        '%setting' => $read_label,
+        '%group_label' => $group->title,
+        '%users' => $users_string,
+      ]);
+
+      drupal_json_output($message);
+    }
+    else {
+      //no "errors"
+      drupal_json_output('ok');
+    }
+
+  }
+
+}
+
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function salto_share_preprocess_page(&$variables) {
+
+  global $user;
+  //add the notification on every page for auth users
+  if ($user->uid != 0) {
+    drupal_add_css(drupal_get_path('module', 'salto_share') . '/less/salto_share.less');
+  }
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function salto_share_form_alter(&$form, &$form_state, $form_id) {
+
+  if ($form_id == 'shared_post_node_form') {
+
+    $form['status_message_container'] = [
+      '#markup' => '<div id="salto-share-status-message-container" class="alert alert-block alert-info"></div>',
+      '#weight' => -20,
+    ];
+
+    $form['actions']['submit']['#submit'] = ['salto_share_shared_post_form_submit'];
+    $form['#validate'][] = 'salto_share_shared_post_form_validate';
+
+    //Referenced post review
+    if (!$form['field_sharedpost_reference'][LANGUAGE_NONE]['#default_value'][0]) {
+      return;
+    }
+    $post_nid = $form['field_sharedpost_reference'][LANGUAGE_NONE]['#default_value'][0];
+    $post_node = node_load($post_nid);
+    $post_view = node_view($post_node, 'teaser');
+    $post_view['links']['#access'] = FALSE;
+    $post_preview = drupal_render($post_view);
+    $form['some_text'] = [
+      '#markup' => '<b>' . t("Preview of the shared post") . ':</b><div class="shared_post_preview" data-nid="' . $post_nid . '" >' . $post_preview . '</div>',
+    ];
+    $form['some_text']['#weight'] = -10;
+
+    //attach js
+    if (empty($form['#attached']['js'])) {
+      $form['#attached']['js'] = [];
+    }
+
+    $form['#attached']['js'][] = drupal_get_path('module', 'salto_share') . '/js/salto_share.js';
+
+    $form['actions']['submit']['#submit'][] = 'salto_share_shared_post_form_submitted';
+
+  }
+}
+
+function salto_share_shared_post_form_validate($form, &$form_state) {
+  $group_selected = !empty($form_state['values']['field_og_group'][LANGUAGE_NONE]);
+  $people_selected = !empty($form_state['values']['field_share_with'][LANGUAGE_NONE]);
+
+  if (!$group_selected && !$people_selected) {
+
+    form_set_error('field_og_group', t('Please select a group'));
+    form_set_error('field_share_with', t('or one or more people you would like to share the content with.'));
+  }
+}
+
+/**
+ * own submit logic for new shared_post nodes
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ *
+ * @return [type]             [description]
+ */
+function salto_share_shared_post_form_submit($form, &$form_state) {
+
+  $group_selected = !empty($form_state['values']['field_og_group'][LANGUAGE_NONE]);
+  $people_selected = !empty($form_state['values']['field_share_with'][LANGUAGE_NONE]);
+
+  if ($people_selected) {
+    //pass callback to standard node submit callback
+    //get audience
+    $audience = [];
+    foreach ($form_state['values']['field_share_with'][LANGUAGE_NONE] as $item) {
+      $audience[$item['target_id']] = $item['target_id'];
+    }
+
+    $message_type = 'notification_shared_post';
+    $node = node_load($form_state['values']['field_sharedpost_reference'][LANGUAGE_NONE][0]['target_id']);
+    $node_shared_post = $form_state['values']['body'][LANGUAGE_NONE][0]['value'];
+    $link = url('node/' . $node_shared_post);
+
+    $context = [
+      'node' => $node,
+      'note' => $node_shared_post,
+    ];
+
+    //fire event - skip audience filter (FALSE)
+    module_invoke_all('salto_share_with_people', $message_type, $audience, $link, $context);
+
+    //redirect
+    $form_state['redirect'] = 'node/' . $node->nid;
+
+    //set status message
+    drupal_set_message(t('Your have shared "%node-title".', ['%node-title' => $node->title]), 'status', TRUE);
+  }
+
+  //if group selected, node needs to be saved
+  // otherwise we dont have og group set
+  if ($group_selected) {
+    //notification only, do not create the node
+    $form_state['salto_share_node'] = empty($form_state['#salto_share_node']->nid);
+    node_form_submit($form, $form_state);
+  }
+
+}
+
+/**
+ * Shared-Post form has been submitted and node has been created
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_share_shared_post_form_submitted(&$form, &$form_state) {
+  $node = $form_state['node'];
+
+  module_invoke_all('knowledgebase_post_submitted', $node, $form_state['salto_share_node']);
+}
+
+/**
+ * Implements hook_node_access_records().
+ */
+function salto_share_node_access_records($node) {
+
+  $grants = [];
+  // check node type and only proceed if it's a shared post
+  if ($node->type == 'shared_post' && !empty($node->field_og_group[LANGUAGE_NONE][0]['target_id'])) {
+
+    $gid = $node->field_og_group[LANGUAGE_NONE][0]['target_id'];
+    $grants[] = [
+      'realm' => 'og_access:node',
+      'gid' => $gid,
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+      'priority' => 0,
+    ];
+  }
+
+  return $grants;
+}
+
+
+/**
+ * Content preview for comments
+ *
+ * @param  [type] $entity [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_share_onsite_notification_content_preview($message) {
+
+  if ($message->type == 'notification_shared_post') {
+    if (!empty($message->field_notification_note)) {
+      $note = $message->field_notification_note[LANGUAGE_NONE][0]['value'];
+      $output = $note;
+      return ($output);
+    }
+  }
+}

@@ -1,0 +1,14 @@
+<p>Changes since 7.x-2.0-alpha2:</p>
+<ul>
+  <li>Try to make eat the module with testbot..</li>
+  <li>Remove >=7.x-2.0-unstable6 style dependency from info, added requirment checking because of drupal.org testbot.</li>
+  <li><a href="/node/1805514">#1805514</a> by semei: Fixed File Entity Paths wrong bundle keys handling.</li>
+  <li><a href="/node/1797646">#1797646</a> by paulbeaney: Fixed 'Path' column in config list shows 'machine name' instead.</li>
+  <li><a href="/node/1805148">#1805148</a> by tinker: Fixed Module dependency checks on transliteration and pauthauto not working.</li>
+  <li><a href="/node/1794166">#1794166</a> by tinker | paulbeaney: Fixed File type setting not retained when editing config.</li>
+  <li>Extend tests, create test cases for exisiting issues.</li>
+  <li>Add trailing slash warning based on <a href="/node/1791236">#1791236</a>,</li>
+  <li><a href="/node/1794178">#1794178</a> by paulbeaney: Added Hide node types with no eligible fields.</li>
+  <li><a href="/node/1794160">#1794160</a> by paulbeaney: Fixed Overview of Config shows all fields.</li>
+  <li>Fix token tree theme in admin form.</li>
+</ul>

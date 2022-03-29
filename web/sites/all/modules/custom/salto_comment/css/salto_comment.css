@@ -1,0 +1,31 @@
+.comment-wrapper .salto_comment_toggle_comments {
+  border-bottom: 1px solid #ccc;
+  cursor: pointer;
+}
+
+.comment-wrapper .salto_comment_toggle_comments.expanded > .arrow:after,
+.comment-wrapper .salto_comment_toggle_comments.collapsed > .arrow:after {
+  font-family: "fontello";
+  font-style: normal;
+  font-weight: normal;
+  speak: none;
+  display: inline-block;
+  text-decoration: none;
+  margin-left: 10px;
+  font-size: 16px;
+  position: relative;
+  top: 1px;
+  cursor: pointer;
+}
+
+.comment-wrapper .salto_comment_toggle_comments.expanded > .arrow {
+  margin-left: 10px;
+}
+
+.comment-wrapper .salto_comment_toggle_comments.expanded > .arrow:after {
+  content: '\e804';
+}
+
+.comment-wrapper .salto_comment_toggle_comments.collapsed > .arrow:after {
+  content: '\e801';
+}

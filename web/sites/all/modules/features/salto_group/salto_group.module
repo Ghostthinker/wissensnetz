@@ -1,0 +1,2105 @@
+<?php
+
+define('SALTO_GROUP_MAX_USER_PICS', 4);
+define('SALTO_GROUP_API_USERS_NID', 3185);
+define('SALTO_GROUPS_MENU_NAME', 'menu-groups');
+
+
+/**
+ * @file
+ * Code for the salto_group feature.
+ */
+include_once 'salto_group.features.inc';
+include_once 'inc/salto_group.access.inc';
+
+
+function salto_group_autoload($class_name) {
+
+  $parts = explode("\\", $class_name);
+  if ($parts[0] == 'salto_group') {
+    array_shift($parts);
+    $path = drupal_get_path('module', 'salto_group') . '/inc/' . implode("/", $parts) . '.php';
+
+    include $path;
+  }
+}
+
+spl_autoload_register('salto_group_autoload');
+
+/**
+ * implements hook_menu
+ *
+ * @return array
+ */
+function salto_group_menu() {
+  $items = [];
+
+  //ajax callback for various validating and stuff
+  $items['groups/join/%'] = [
+    'title' => "Salto Group Join",
+    'access callback' => 'user_is_logged_in',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'salto_group_join_callback',
+    'page arguments' => [2],
+  ];
+
+  //ajax callback for various validating and stuff
+  $items['groups/%/%/%'] = [
+    'title' => "Salto Group Join",
+    'access callback' => 'salto_group_access_callback',
+    'access arguments' => [1, 2, 3],
+    'type' => MENU_CALLBACK,
+    'page callback' => 'salto_group_group_actions_callback',
+    'page arguments' => [1, 2, 3],
+  ];
+
+  //Invite user form
+  $items['groups/%/people/invite'] = [
+    'title' => 'Invite user',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_og_invite_form', 1, TRUE, FALSE],
+    'access callback' => 'salto_og_user_access_group',
+    'access arguments' => [1, 'manage all members'],
+  ];
+
+  //Invite user form
+  $items['groups/%/people/remove/%'] = [
+    'title' => 'Cancel membership',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_og_unsubscribe_form', 1, 4],
+    'access callback' => 'salto_og_user_cancel_access',
+    'access arguments' => [1, 4],
+  ];
+
+  //manage categories
+  $items['groups/%/category'] = [
+    'title' => 'Manage Group Category',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'salto_group_category_manage_callback',
+    'page arguments' => [1],
+    'access callback' => 'og_user_access',
+    'access arguments' => ['node', 1, 'manage group category'],
+  ];
+
+  //add category
+  $items['groups/%/category/%/add'] = [
+    'title' => 'Add category term',
+    'description' => 'Add category taxonomy term.',
+    'access callback' => 'salto_group_category_access',
+    'access arguments' => ['add', NULL, NULL, 1],
+    'page callback' => 'salto_group_category_add_term_callback',
+    'page arguments' => [1, 3],
+    'type' => MENU_CALLBACK,
+  ];
+
+  //add category
+  $items['groups/%/category/%/view'] = [
+    'title' => 'Manage category',
+    'description' => 'Manage category.',
+    'access callback' => 'salto_group_category_access',
+    'access arguments' => ['add', NULL, NULL, 1],
+    'page callback' => 'salto_group_category_manage_view',
+    'page arguments' => [1, 3],
+    'type' => MENU_CALLBACK,
+  ];
+
+  //edit category
+  $items['groups/%/category/%taxonomy_term/edit'] = [
+    'title' => 'Edit category term',
+    'description' => 'Edit category taxonomy term.',
+    'access callback' => 'salto_group_category_access',
+    'access arguments' => ['edit', NULL, NULL, 1],
+    'page callback' => 'salto_group_category_edit_term_callback',
+    'page arguments' => [1, 3],
+    'type' => MENU_CALLBACK,
+  ];
+
+  //delete category
+  $items['groups/%/category/%taxonomy_term/delete'] = [
+    'title' => 'Delete category term',
+    'description' => 'Delete category taxonomy term.',
+    'access callback' => 'salto_group_category_access',
+    'access arguments' => ['delete', 3, NULL, 1],
+    'page callback' => 'salto_group_category_delete_term_callback',
+    'page arguments' => [1, 3],
+    'type' => MENU_CALLBACK,
+  ];
+
+  return $items;
+}
+
+/**
+ *
+ * @param type $gid
+ * @param type $op
+ * @param type $uid
+ *
+ * @return boolean
+ * @global type $user
+ */
+function salto_group_access_callback($gid, $op, $uid) {
+
+  global $user;
+  $account = $user;
+  $access = FALSE;
+
+  if (in_array('Admin', $account->roles)) {
+    $access = TRUE;
+  }
+  else {
+    if (salto_group_user_is_manager($user->uid, $gid)) {
+      $access = TRUE;
+    }
+  }
+
+  return $access;
+}
+
+/**
+ * ajax callbacks for og management
+ *
+ * @param type $gid
+ * @param type $op
+ * @param type $uid
+ *
+ * @return type
+ * @global type $user
+ */
+function salto_group_group_actions_callback($gid, $op, $uid) {
+  global $user;
+  $account = $user;
+
+
+  //check token
+  if (!drupal_valid_token($_GET['token'], 'group_manage')) {
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  $result = [];
+
+  $membership = og_get_membership('node', $gid, 'user', $uid);
+
+  if (empty($membership)) {
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  switch ($op) {
+    case 'block':
+      $membership->state = OG_STATE_BLOCKED;
+      og_membership_save($membership);
+      break;
+    case 'unblock':
+      $membership->state = OG_STATE_PENDING;
+      og_membership_save($membership);
+      break;
+    case 'accept':
+      $membership->state = OG_STATE_ACTIVE;
+      og_membership_save($membership);
+      break;
+    case 'og_manager_raise':
+      og_role_grant('node', $gid, $uid, salto_og_get_admin_rid($gid));
+      break;
+    case 'og_manager_degrade':
+      if (!salto_group_user_is_founder($uid, $gid) && $account->uid != $uid) {
+        og_role_revoke('node', $gid, $uid, salto_og_get_admin_rid($gid));
+      }
+      break;
+    case 'remove':
+      if (in_array('Admin', $account->roles)) {
+        $access = TRUE;
+      }
+
+      if ($access || $account->uid != $uid) {
+        og_ungroup('node', $gid, 'user', $uid);
+      }
+      break;
+  }
+
+  $result['data'] = salto_group_render_og_manager_member_action($gid, $uid);
+  $result['state'] = salto_group_render_og_manager_member_state($uid, $gid);
+
+  return drupal_json_output($result);
+}
+
+/**
+ * alter groups navigation items block
+ *
+ * @param type $tree
+ * @param type $config
+ */
+function salto_group_menu_block_tree_alter(&$tree, &$config) {
+  global $user;
+  if ($config['menu_name'] != 'menu-groups') {
+    return;
+  }
+
+  $context = og_context();
+  if (!empty($context)) {
+    $group = node_load($context['gid']);
+
+    //check access permission
+    $membership = og_get_membership('node', $group->nid, 'user', $user->uid);
+    $user_is_member = FALSE;
+    if (!empty($membership) && $membership->state == OG_STATE_ACTIVE) {
+      $user_is_member = TRUE;
+    }
+
+    $access = FALSE;
+    if (user_access("bypass node access") || $user_is_member) {
+      $access = TRUE;
+    }
+
+    $show_only_posts = FALSE;
+    if (!empty($group->field_group_posts_only[LANGUAGE_NONE][0]['value'])) {
+      $show_only_posts = TRUE;
+    }
+
+    foreach ($tree as $k => &$ti) {
+      switch ($ti['link']['link_title']) {
+        case 'Beiträge':
+          $ti['link']['href'] = substr(url('node/' . $context['gid']), 1);
+
+          //do not render subtree if user has no access permission
+          if (!$access) {
+            break;
+          }
+
+          //get group vocabulary and render subtree
+          $vocabularies = salto_group_get_group_vocabularies($context['gid']);
+          $vocab_posts = $vocabularies["posts"];
+          $vid = intval($vocab_posts->vid);
+
+          //get nested taxonomy terms
+          $nested_tax_tree = taxonomy_get_nested_tree($vid);
+
+          $ti['below'] = _salto_group_build_taxonomy_menu($nested_tax_tree, $context['gid'], "posts");
+          if (!empty($ti['below'])) {
+            //set children flag
+            $ti['link']['has_children'] = 1;
+          }
+
+          break;
+        case 'Dateien':
+          $ti['link']['href'] = substr(url('groups/' . $context['gid'] . '/files/term'), 1);
+
+          //do not render subtree if user has no access permission
+          if (!$access) {
+            break;
+          }
+
+          //get group vocabulary and render subtree
+          $vocabularies = salto_group_get_group_vocabularies($context['gid']);
+          $vocab_materials = $vocabularies["materials"];
+          $vid = intval($vocab_materials->vid);
+
+          //get nested taxonomy terms
+          $nested_tax_tree = taxonomy_get_nested_tree($vid);
+
+          $ti['below'] = _salto_group_build_taxonomy_menu($nested_tax_tree, $context['gid'], "files");
+          if (!empty($ti['below'])) {
+            //set children flag
+            $ti['link']['has_children'] = 1;
+          }
+
+
+          if ($show_only_posts) {
+            unset($tree[$k]);
+          }
+          break;
+        case 'Mitglieder':
+          $ti['link']['href'] = substr(url('groups/' . $context['gid'] . '/people'), 1);
+          break;
+      }
+    }
+  }
+
+}
+
+/**
+ * build menu structur from nested taxonomy array
+ *
+ * @param $nested_tax_tree
+ *
+ * @return array
+ */
+function _salto_group_build_taxonomy_menu($nested_tax_tree, $group_gid, $entities_type) {
+  if (empty($nested_tax_tree)) {
+    return [];
+  }
+  static $i_counter = 1;
+
+  $below = [];
+
+  foreach ($nested_tax_tree as $term) {
+
+    $generic_item = [];
+    $generic_item['link']['href'] = 'groups/' . $group_gid . '/' . $entities_type;
+    if ($entities_type == "files") {
+      $generic_item['link']['href'] .= "/term";
+    }
+    $generic_item['link']['href'] .= '/' . $term->tid;
+
+    $generic_item['link']['title'] = $term->name;
+    $generic_item['link']['link_title'] = $term->name;
+    $generic_item['link']['access'] = TRUE;
+    $generic_item['link']['mlid'] = 'salto_' . $i_counter++;
+
+    $below['Group category ' . $term->tid] = $generic_item;
+    $below['Group category ' . $term->tid]['below'] = [];
+    if (!empty($term->children)) {
+      $below['Group category ' . $term->tid]['link']['has_children'] = 1;
+      $below['Group category ' . $term->tid]['below'] = _salto_group_build_taxonomy_menu($term->children, $group_gid, $entities_type);
+    }
+  }
+
+
+  return $below;
+}
+
+/**
+ * Implements hook_og_role_revoke().
+ */
+function salto_group_og_role_revoke($group_type, $gid, $uid, $rid) {
+  og_invalidate_cache();
+}
+
+/**
+ * Group Join Ajax callbacks
+ *
+ * @param type $gid
+ *
+ * @return type
+ * @global type $user
+ */
+function salto_group_join_callback($gid) {
+
+  global $user;
+  $account = $user;
+
+  //check token
+  if (!drupal_valid_token($_GET['token'], 'group_join')) {
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  //check if user is already member of this group
+  if (og_is_member('node', $gid, 'user', $account)) {
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  if (!is_numeric($gid)) {
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  $result = [];
+
+  $group = node_load($gid);
+  $join_mode = $group->field_group_join_mode[LANGUAGE_NONE][0]['value'];
+
+  switch ($join_mode) {
+    case SALTO_GROUP_JOIN_OPEN:
+
+      //join group and respond with new action link
+      og_group('node', $gid, [
+        'entity_type' => 'user',
+        'entity' => $account,
+        'membership type' => 'group_membership',
+      ]);
+
+      $result['data'] = salto_group_render_join_action($gid);
+
+      break;
+    case SALTO_GROUP_JOIN_SELECTED_ORGANISATIONS:
+      $may_join = salto_group_user_is_in_one_of_organisations($group);
+      if ($may_join) {
+        og_group('node', $gid, [
+          'entity_type' => 'user',
+          'entity' => $account,
+          'membership type' => 'group_membership',
+        ]);
+
+        $result['data'] = salto_group_render_join_action($gid);
+      }
+      break;
+    case SALTO_GROUP_JOIN_REQUIRE_APPROVAL:
+      og_group('node', $gid, [
+        'entity_type' => 'user',
+        'entity' => $account,
+        'membership type' => 'group_membership',
+        'state' => OG_STATE_PENDING,
+      ]);
+      module_invoke_all("salto_group_membership_requested", $group, $account);
+
+      $result['data'] = salto_group_render_join_action($gid);
+
+      break;
+
+    case SALTO_GROUP_JOIN_ON_INVITATION:
+
+      drupal_access_denied();
+      drupal_exit();
+      break;
+  }
+
+
+  return drupal_json_output($result);
+}
+
+/**
+ * render group join links/actions
+ *
+ * @param type $group
+ * @param type $account
+ *
+ * @return string
+ * @global type $user
+ */
+function salto_group_render_join_action($group_nid, $show_group_link = TRUE, $account_nid = NULL) {
+
+  drupal_add_js(drupal_get_path('module', 'salto_group') . "/js/salto_group.js");
+
+  $output = "";
+
+  $account = NULL;
+  $group = NULL;
+
+  if (!$group_nid) {
+    return $output;
+  }
+
+  $group = node_load($group_nid);
+
+
+  if (!$account_nid) {
+    global $user;
+    $account = $user;
+  }
+  else {
+    $account = user_load($account_nid);
+  }
+
+  //check if user is already member of this group
+  if (og_is_member('node', $group->nid, 'user', $account, [OG_STATE_ACTIVE])) {
+
+    if ($show_group_link) {
+      $output = '<div class="goto-group" rel="tooltip" title="' . t('Go to group.') . '">' . l(t('View group'), 'node/' . $group->nid) . '</div>';
+    }
+    else {
+      //don't show anything. This is used on the group page itself
+      if (salto_og_user_cancel_access($group->nid, $account->uid)) {
+        $output = '<div class="group-remove" rel="tooltip" title="' . t('Cancel your membership in this group.') . '">' . l(t('Cancel membership'), 'groups/' . $group->nid . '/people/remove/' . $account->uid, [
+            'attributes' => [
+              'class' => [
+                'btn',
+                'btn-user',
+              ],
+            ],
+          ]) . '</div>';
+      }
+      return $output;
+    }
+  }
+
+  if (og_is_member('node', $group->nid, 'user', $account, [OG_STATE_BLOCKED])) {
+    $output = '<div class="group-closed" rel="tooltip" title="' . t('You were blocked in this group.') . '">' . t('Blocked') . '</div>';
+  }
+
+  //has an invite and is not in group
+  if (!og_is_member('node', $group->nid, 'user', $account, [
+      OG_STATE_ACTIVE,
+      OG_STATE_BLOCKED,
+      OG_STATE_PENDING,
+    ]) && salto_og_has_invite($group->nid, $account->uid)) {
+    $output = '<div class="goto-group" rel="tooltip" title="' . t('Go to group to accept or decline invite.') . '">' . l(t('Invited'), 'node/' . $group->nid) . '</div>';
+  }
+
+  //if user is not member of the group
+  //choose the proper option
+  if (empty($output)) {
+    //switch selected join mode
+    $join_mode = $group->field_group_join_mode[LANGUAGE_NONE][0]['value'];
+    //crsf token
+    $crsf_token = drupal_get_token('group_join');
+
+    switch ($join_mode) {
+      case SALTO_GROUP_JOIN_OPEN:
+
+
+        $output = '<div class="group-request" rel="tooltip" title="' . t('Join Group.') . '">' . l(t('Join Group'), 'groups/join/' . $group_nid, ['query' => ['token' => $crsf_token]]) . '</div>';
+        break;
+      case SALTO_GROUP_JOIN_SELECTED_ORGANISATIONS:
+
+        //check if user is member of required organisation
+        $may_join = salto_group_user_is_in_one_of_organisations($group);
+        if ($may_join) {
+          $output = '<div class="group-request" rel="tooltip" title="' . t('Join Group.') . '">' . l(t('Join Group'), 'groups/join/' . $group_nid, ['query' => ['token' => $crsf_token]]) . '</div>';
+        }
+        else {
+          $output = '<div class="group-closed" rel="tooltip" title="' . t('This group is open for selected organisations only.') . '">' . t('Selected Organisations') . '</div>';
+        }
+
+        break;
+      case SALTO_GROUP_JOIN_REQUIRE_APPROVAL:
+        if (og_is_member('node', $group->nid, 'user', $account, [OG_STATE_PENDING])) {
+          $output = '<div class="group-closed" rel="tooltip" title="' . t('Your membership is in pending state.') . '">' . t('Pending') . '</div>';
+        }
+        else {
+          $output = '<div class="group-request" rel="tooltip" title="' . t('Request group membership.') . '">' . l(t('Request'), 'groups/join/' . $group_nid, ['query' => ['token' => $crsf_token]]) . '</div>';
+        }
+        break;
+      case SALTO_GROUP_JOIN_ON_INVITATION:
+        $output = '<div class="group-closed" rel="tooltip" title="' . t('This is a private group. Membership is managed by group manager.') . '">' . t('Closed') . '</div>';
+        break;
+    }
+  }
+
+  return $output;
+}
+
+/**
+ * check for join mode - selected organisations only
+ * if user is in one of the selected groups
+ *
+ * @param type $group
+ *
+ * @return string
+ */
+function salto_group_user_is_in_one_of_organisations($group) {
+  $open_for_groups = $group->field_group_join_org_refs[LANGUAGE_NONE]; // 'target_id'
+
+  $result = FALSE;
+  if (empty($open_for_groups)) {
+    return $result;
+  }
+
+  foreach ($open_for_groups as $gi) {
+    if (og_is_member('node', $gi['target_id'])) {
+      $result = TRUE;
+      break;
+    }
+  }
+
+  return $result;
+}
+
+function salto_group_render_group_members_user_pictures($gid) {
+
+  $output = "";
+
+  $members = og_membership_load_multiple(FALSE, [
+    'gid' => $gid,
+    'entity_type' => 'user',
+    'state' => OG_STATE_ACTIVE,
+  ]);
+
+  $counter = 0;
+  foreach ($members as $member) {
+    //render the first x pictures
+    if ($counter >= SALTO_GROUP_MAX_USER_PICS) {
+      break;
+    }
+
+    $u_item = user_load($member->etid);
+    if ($profile = profile2_load_by_user($u_item, 'main')) {
+
+      $field_view = field_view_field('profile2', $profile, 'field_user_picture', ['settings' => ['image_style' => 'user_30x30']]);
+      $field_view['#label_display'] = 'hidden';
+
+      $output .= l(render($field_view), 'user/' . $member->etid, [
+        'html' => TRUE,
+        'attributes' => ['title' => $u_item->realname],
+      ]);
+    }
+
+    $counter++;
+
+  }
+
+  return $output;
+}
+
+/**
+ * implementing hook_form_alter
+ *
+ * @param type $form
+ * @param type $form_state
+ * @param type $form_id
+ */
+function salto_group_form_alter(&$form, &$form_state, $form_id) {
+
+  if ($form_id == 'group_node_form') {
+
+    $form['#after_build'][] = 'salto_group_group_form_after_build';
+    $themenfelder = salto_knowledgebase_get_themenfelder();
+    $options = [];
+    foreach ($themenfelder as $ti) {
+      $options[$ti->tid] = $ti->name;
+    }
+
+    $form["field_group_categories"][LANGUAGE_NONE]["#options"] = $options;
+  }
+
+  if ($form_id == "node_delete_confirm") {
+    if ($form['#node']->type == 'group') {
+      $form['description']['#markup'] = t('<b>Confirm deletion of the group</b><br><br>Are you sure you want to delete this group?<br><br>Please note that the operation cannot be undone!<br><br>All content, i.e. posts and files in this group that are only shared with this group (read and write access) will also be deleted. Content that is shared with the knowledge network or guests will remain. All online meetings of this group will be deleted.');
+      $form_state['redirect'] = 'groups';
+      $form['#submit'][] = 'salto_group_node_delete_form_submit';
+    }
+  }
+
+  if (strstr($form['#id'], 'views-exposed-form') && (strstr($form['#id'], 'groups') || strstr($form['#id'], '-og-'))) {
+    //include chosen and js logik
+    $form['#after_build'][] = 'salto_group_group_form_after_build';
+
+    //populate role in organisation options
+    $form['field_group_target_audience_role_value']['#options'] = salto_og_organisation_get_roles();
+    $form['field_group_target_audience_role_value']['#attributes'] = ['data-placeholder' => ' '];
+  }
+
+
+  if ((!empty($form['#node']) || !empty($form['#entity'])) && isset($form['field_post_collaboration'])) {
+    //alter the default settings if there is og context
+    $context = og_context();
+
+    if (!empty($context)) {
+      $referer = $_SERVER["HTTP_REFERER"];
+      $referer_is_file_add_in_group = strstr($referer, "file/add_anything?field_og_group") != FALSE;
+
+      if ((isset($form['#node']) && !empty($form['#node']->nid)) || (isset($form['fid']) && !$referer_is_file_add_in_group)) {
+        return;
+      }
+
+      $group = node_load($context['gid']);
+
+      $read_value = $group->field_default_access_post[LANGUAGE_NONE][0]['read'];
+      $edit_value = $group->field_default_access_post[LANGUAGE_NONE][0]['edit'];
+
+      $form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#default_value'] = $read_value;
+      $form['field_post_collaboration'][LANGUAGE_NONE][0]['edit']['#default_value'] = $edit_value;
+    }
+  }
+}
+
+function salto_group_node_delete_form_submit(&$form, &$form_state) {
+  if (isset($_GET['destination'])) {
+    unset($_GET['destination']);
+  }
+
+  $form_state['redirect'] = url('groups');
+}
+
+function salto_group_form_node_form_alter(&$form, &$form_state) {
+  $node = $form['#node'];
+
+  //group og vocabulary POSTS
+  if ($node->type == 'shared_post') {
+    $form['actions']['submit']['#submit'][] = 'salto_group_shared_post_form_submitted';
+  }
+
+}
+
+
+/**
+ * Shared-Post form has been submitted and node has been created
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_group_shared_post_form_submitted(&$form, &$form_state) {
+  $node = $form_state['node'];
+
+  module_invoke_all('knowledgebase_post_submitted', $node, empty($form['#node']->nid));
+}
+
+
+/**
+ * include all css and js needed - also on validation errors!
+ */
+function salto_group_group_form_after_build($form, &$form_state) {
+  drupal_add_js('jQuery(document).ready(function () {
+      if(jQuery("#edit-field-group-join-mode .form-radio:checked").val()!=' . SALTO_GROUP_JOIN_SELECTED_ORGANISATIONS . '){
+        jQuery("#edit-field-group-join-org-refs").hide();
+      }
+      jQuery("#edit-field-group-join-mode .form-radio").change(function(){
+      if(jQuery(this).val()==' . SALTO_GROUP_JOIN_SELECTED_ORGANISATIONS . '){
+          jQuery("#edit-field-group-join-org-refs").show();
+        }
+        else{
+          jQuery("#edit-field-group-join-org-refs").hide();
+        }
+        });});', ['type' => 'inline', 'scope' => 'footer']
+  );
+
+  //load chosen library
+  $lib_path = libraries_get_path('chosen');
+  drupal_add_js($lib_path . '/chosen.jquery.min.js');
+  drupal_add_css($lib_path . '/chosen.min.css');
+  drupal_add_js(drupal_get_path('module', 'salto_group') . "/js/salto_group.js");
+
+  //filter
+  drupal_add_js(drupal_get_path('module', 'salto_group') . '/js/salto_group_filter.js', ['scope' => 'footer']);
+
+  return $form;
+}
+
+/**
+ * render member action links for group managers
+ *
+ * @param type $group
+ * @param type $account
+ *
+ * @return string
+ * @global type $user
+ */
+function salto_group_render_og_manager_member_action($group_nid, $member_uid = NULL) {
+
+  drupal_add_js(drupal_get_path('module', 'salto_group') . "/js/salto_group.js");
+
+  global $user;
+  $account = $user;
+
+  $group = NULL;
+
+  if (!$group_nid || !$member_uid) {
+    return;
+  }
+
+  $group = node_load($group_nid);
+
+  $member = user_load($member_uid);
+
+  //check if active user is group manager
+  $access = FALSE;
+
+  //admin bypass
+  if (in_array('Admin', $user->roles)) {
+    $access = TRUE;
+  }
+  else {
+    if (salto_group_user_is_manager($account->uid, $group->nid)) {
+      //check if user is group manager
+      $access = TRUE;
+    }
+  }
+
+  if (!$access) {
+
+    return _salto_group_render_action_links([]);
+    //alternativ
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  //prepare action links
+  $action_links = [];
+
+  //crsf token
+  $crsf_token = drupal_get_token('group_manage');
+
+  if (og_is_member('node', $group->nid, 'user', $member, [OG_STATE_PENDING])) {
+    $action_links['accept'] = l(t('Accept'), 'groups/' . $group->nid . '/accept/' . $member->uid, ['query' => ['token' => $crsf_token]]);
+  }
+
+  if (og_is_member('node', $group->nid, 'user', $member, [OG_STATE_ACTIVE])) {
+    if (!salto_group_user_is_manager($member->uid, $group->nid)) {
+      $action_links['role'] = l(t('Raise Admin'), 'groups/' . $group->nid . '/og_manager_raise/' . $member->uid, ['query' => ['token' => $crsf_token]]);
+    }
+    else {
+      //not possible to degrade founder!
+      //managers must not degrade or remove themselves
+      if (!salto_group_user_is_founder($member->uid, $group->nid) && $account->uid != $member->uid) {
+        $action_links['role'] = l(t('Degrade Manager'), 'groups/' . $group->nid . '/og_manager_degrade/' . $member->uid, ['query' => ['token' => $crsf_token]]);
+      }
+    }
+  }
+  //check if user is already member of this group
+  if (og_is_member('node', $group->nid, 'user', $member, [
+    OG_STATE_ACTIVE,
+    OG_STATE_BLOCKED,
+    OG_STATE_PENDING,
+  ])) {
+
+    //not possible to remove founder!
+    if (!salto_group_user_is_founder($member->uid, $group->nid)) {
+      $action_links['remove'] = l(t('Cancel membership'), 'groups/' . $group->nid . '/people/remove/' . $member->uid, ['query' => ['token' => $crsf_token]]);
+    }
+  }
+
+  if (og_is_member('node', $group->nid, 'user', $member, [OG_STATE_BLOCKED])) {
+
+    $action_links['unblock'] = l(t('Unblock'), 'groups/' . $group->nid . '/unblock/' . $member->uid, ['query' => ['token' => $crsf_token]]);
+  }
+
+  if (og_is_member('node', $group->nid, 'user', $member, [
+    OG_STATE_ACTIVE,
+    OG_STATE_PENDING,
+  ])) {
+    //not possible to block founder!
+    if (!salto_group_user_is_founder($member->uid, $group->nid)) {
+      $action_links['block'] = l(t('Block'), 'groups/' . $group->nid . '/block/' . $member->uid, ['query' => ['token' => $crsf_token]]);
+    }
+  }
+
+  return _salto_group_render_action_links($action_links);
+}
+
+/**
+ * render action links dropdown
+ *
+ * @param type $action_links
+ *
+ * @return string
+ */
+function _salto_group_render_action_links($action_links) {
+
+  drupal_add_js(drupal_get_path('module', 'salto_group') . "/js/salto_group.js");
+
+  if ($action_links) {
+    $output = '<div class="dropdown salto-og-action-links">
+   <a class="btn btn-primary" data-toggle="dropdown" href="#">' . t('Actions') . '</a>
+    <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">';
+
+    foreach ($action_links as $al) {
+      $output .= '<li role = "presentation"><a role = "menuitem" tabindex = "-1" href = "#">' . $al . '</a></li>';
+    }
+
+    $output .= '</ul>
+    </div>';
+  }
+
+  return $output;
+}
+
+/**
+ * check if user is group manager
+ *
+ * @param type $uid
+ * @param type $gid
+ *
+ * @return boolean
+ */
+function salto_group_user_is_manager($uid, $gid) {
+  $user_roles = og_get_user_roles('node', $gid, $uid);
+  //check if user is group manager
+  $access = FALSE;
+  foreach ($user_roles as $ur) {
+    if ($ur == 'administrator member') {
+      $access = TRUE;
+      break;
+    }
+  }
+
+  return $access;
+}
+
+/**
+ *
+ * @param type $uid
+ * @param type $gid
+ *
+ * @return string
+ */
+function salto_group_render_og_manager_member_state($uid, $gid) {
+
+  $state = '';
+  if (salto_group_user_is_manager($uid, $gid)) {
+    $state .= salto_group_user_manager_render($uid, $gid);
+  }
+
+  return $state;
+}
+
+/**
+ * check if user is group founder
+ *
+ * @param type $uid
+ * @param type $gid
+ *
+ * @return boolean
+ */
+function salto_group_user_is_founder($uid, $gid) {
+  $group = node_load($gid);
+
+  if ($uid == $group->uid) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+function salto_group_init() {
+
+  salto_group_set_invite_message_for_account();
+
+  //group pages
+  if (arg(0) == 'groups' && is_numeric(arg(1))) {
+    $node = node_load(arg(1));
+  }
+
+  //single and edit-multiple files
+  if ((arg(0) == 'file' || arg(0) == 'media') && is_numeric(arg(1)) || (arg(2) == 'file' && is_numeric(arg(4)))) {
+    if (is_numeric(arg(1))) {
+      $file = file_load(arg(1));
+    }
+    else {
+      if (is_numeric(arg(4))) {
+        $file = file_load(arg(4));
+      }
+    }
+
+    if (!empty($file->field_og_group[LANGUAGE_NONE][0]['target_id'])) {
+      $node = node_load($file->field_og_group[LANGUAGE_NONE][0]['target_id']);
+    }
+
+    if (empty($node)) {
+      $params = drupal_get_query_parameters();
+      if (is_numeric($params['field_og_group'])) {
+        $node = node_load($params['field_og_group']);
+      }
+    }
+  }
+
+  if (arg(2) == 'file' && arg(3) == "edit-multiple") {
+    $fids = explode(" ", arg(4));
+    $file = file_load($fids[0]);
+    if (!empty($file->field_og_group[LANGUAGE_NONE][0]['target_id'])) {
+      $node = node_load($file->field_og_group[LANGUAGE_NONE][0]['target_id']);
+    }
+
+    if (empty($node)) {
+      $params = drupal_get_query_parameters();
+      if (is_numeric($params['field_og_group'])) {
+        $node = node_load($params['field_og_group']);
+      }
+    }
+  }
+
+  //content types
+  $menu_item = menu_get_object();
+
+  if ($menu_item && isset($menu_item->nid)) {
+    if (isset($menu_item->field_og_group[LANGUAGE_NONE][0]['target_id'])) {
+      $node = node_load($menu_item->field_og_group[LANGUAGE_NONE][0]['target_id']);
+    }
+  }
+
+  //set og context if a group node is present
+  if (isset($node)) {
+    og_context('node', $node);
+  }
+
+
+  //get the og_context
+  if (isset($node) || $context = og_context('node')) {
+
+    global $user;
+    $gid = !empty($node->nid) ? $node->nid : $context['gid'];
+
+    if (og_is_member('node', $gid, 'user', $user, [OG_STATE_BLOCKED])) {
+      drupal_set_message(t("You were blocked in this group."), 'error', FALSE);
+      drupal_access_denied();
+      drupal_exit();
+    }
+  }
+}
+
+/**
+ * show info message on home about user invites for groups
+ */
+function salto_group_set_invite_message_for_account() {
+  if (arg(0) == 'home') {
+    global $user;
+    $account = clone $user;
+
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'salto_invite')
+      ->propertyCondition('type', 'accept_invite')
+      ->propertyCondition('used', 0)
+      ->fieldCondition('field_salto_invite_account', 'target_id', $account->uid);
+
+    $result = $query->execute();
+
+    //check if there are any invites
+    if (empty($result['salto_invite'])) {
+      return;
+    }
+
+    $all = salto_invite_load_multiple(array_keys($result['salto_invite']));
+
+    $groupInvites = [];
+    foreach ($all as $key => $invite) {
+      $gid = $invite->field_salto_invite_og[LANGUAGE_NONE][0]['target_id'];
+      $groupInvites[$gid] = node_load($gid);
+    }
+
+    $message = '';
+    $count = count($groupInvites);
+    if ($count > 1) {
+      $message = t('You have been invited to the groups ');
+      foreach ($groupInvites as $group) {
+        $link = '<a href="/node/' . $group->nid . '">' . $group->title . '</a>';
+        if ($count > 2) {
+          $message .= $link . ', ';
+        }
+        else {
+          if ($count > 1) {
+            $message .= $link . ' ' . t('and ');
+          }
+          else {
+            $message .= $link . ' ' . t('invited.');
+          }
+        }
+        $count--;
+      }
+    }
+    else {
+      if ($count > 0) {
+        $group = array_values($groupInvites);
+        $message = t('You have been to the group ');
+        $message .= '<a href="/node/' . $group[0]->nid . '">' . $group[0]->title . '</a>';
+        $message .= ' ' . t('invited.');
+      }
+    }
+
+    if ($message !== '') {
+      drupal_set_message($message, 'alert-info info invite-group', TRUE);
+      drupal_set_message(t('You can accept or reject the invitation by clicking on the group name.'), 'alert-info info invite-group', TRUE);
+    }
+  }
+}
+
+
+/**
+ * Implements hook_views_query_alter().
+ */
+function salto_group_views_query_alter(&$view, &$query) {
+
+  if ($view->name == 'groups' && $view->current_display == 'panel_groups_directory') {
+
+    $add_uid = FALSE;
+    //check all conditions. if the condition is membership state, add a uid filter
+    foreach ($query->where[1]['conditions'] as $value) {
+      if ($value['field'] == 'og_membership_node.state') {
+        $add_uid = TRUE;
+      }
+    }
+    if ($add_uid) {
+      global $user;
+      $query->add_where(1, 'og_membership_node.etid', $user->uid, '=');
+    }
+  }
+}
+
+
+/**
+ * Implements hook_requirements().
+ */
+function salto_group_requirements($phase) {
+
+  //check if admin role is a default role in groups
+  $default_rids = variable_get('og_group_manager_default_rids_node_group', NULL);
+
+  $is_admin_role_in_group_default_roles_check = FALSE;
+
+  foreach ($default_rids as $rid) {
+    $role = og_role_load($rid);
+
+    if ($role->group_bundle == 'group' && $role->name == 'administrator member') {
+      $is_admin_role_in_group_default_roles_check = TRUE;
+    }
+  }
+
+  $t = get_t();
+
+  $requirements['salto_group'] = [
+    'title' => $t('Group default roles'),
+    'value' => $is_admin_role_in_group_default_roles_check ? 'ok' : 'failed',
+  ];
+
+  if (!$is_admin_role_in_group_default_roles_check) {
+    $requirements['salto_group']['description'] = $t('Group default role has not set administrator member (see admin/config/group/settings) ');
+    $requirements['salto_group']['severity'] = REQUIREMENT_ERROR;
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_action_links_info
+ */
+function salto_group_action_links_info() {
+  $items['groups'] = t('Group links');
+  return $items;
+}
+
+/**
+ * Implements hook_salto_action_links
+ *
+ * @param $category
+ *
+ * @return array
+ */
+function salto_group_salto_action_links($category, $context) {
+  $links = [];
+
+  switch ($category) {
+    case 'groups':
+      $node = $context['node_context'];
+      if (node_access('create', 'group') && arg(0) == 'groups' && arg(1) == NULL) {
+
+        $path = 'node/add/group';
+        $text = t('Create Group');
+
+
+        $link = [
+          '#theme' => 'link',
+          '#text' => $text,
+          '#path' => $path,
+          '#options' => [
+            'query' => drupal_get_destination(),
+            'attributes' => [
+              'title' => t('Create Group'),
+              'class' => 'action_link group_create',
+            ],
+            'html' => TRUE,
+          ],
+        ];
+
+        $links['add_group'] = $link;
+      }
+
+
+      //check teh query to add - if it ahs a referecne field, always add a reference
+      $field_references = [];
+      if ($node->type == 'group') {
+        $group_nid = $node->nid;
+      }
+      else {
+        if (!empty($node->field_og_group)) {
+          $group_nid = $node->field_og_group[LANGUAGE_NONE][0]['target_id'];
+          $field_references = ['field_references' => $node->nid];
+        }
+      }
+
+      $base_query = ['field_og_group' => $group_nid];
+      $base_query += $field_references;
+
+      //set group category, if category term id is set
+      //og_vocabulary
+      $regex = '#^groups/([0-9]+)/posts/([0-9]+)$#s';
+      $matches = [];
+      preg_match($regex, current_path(), $matches);
+
+      $active_category_tid = NULL;
+      if (!empty($matches)) {
+        $active_category_tid = $matches[2];
+        //set the reference field for url prepoulation
+        $base_query += ['og_vocabulary' => $active_category_tid];
+      }
+
+
+      //Content
+      if (!empty($node)) {
+        if (node_access("update", $node)) {
+          $path = 'node/' . $node->nid . '/edit';
+          $text = t('Edit shared post');
+          if ($node->type != 'shared_post') {
+            $text = t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]);
+          }
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => drupal_get_destination(),
+              'attributes' => [
+                'title' => t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]),
+                'class' => 'action_link edit_node edit_article',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["edit_node"] = $link;
+        }
+
+        //Invite users
+        if (salto_og_user_access_group($node->nid, 'manage all members')) {
+          $path = 'groups/' . $node->nid . '/people/invite';
+          $text = t('Invite people');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => drupal_get_destination(),
+              'attributes' => [
+                'title' => t('Invite new or existing users'),
+                'class' => 'action_link membership membership_invite',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["invite_people"] = $link;
+        }
+
+        //add article link
+        if (og_user_access('node', $group_nid, "create post content")) {
+
+          $text = t('Create post');
+          $title = t('Add a new post');
+
+
+          $path = 'node/add/post';
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => $base_query,
+              'attributes' => [
+                'title' => $title,
+                'class' => 'action_link add_node add_post',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["add_post"] = $link;
+        }
+
+
+        //files
+        if (og_user_access('node', $group_nid, "create file")) {
+          $path = 'file/add_anything';
+          $text = t('Upload file');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => $base_query, // $base_query, //$query,
+              'attributes' => [
+                'title' => t('Upload a new file'),
+                'class' => 'action_link add_node add_file',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["add_file"] = $link;
+        }
+
+        //manage categories
+        if (og_user_access('node', $group_nid, "manage group category")) {
+          $path = 'groups/' . $group_nid . '/category';
+          $text = t('Manage categories');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => [], //$dest, // $base_query, //$query,
+              'attributes' => [
+                'title' => t('Manage categories'),
+                'class' => 'action_link  manage_categories',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["manage_categories"] = $link;
+        }
+
+        //revisions
+        if (!empty($node) && $node->type == 'post' && _node_revision_access($node)) {
+          $path = 'node/' . $node->nid . '/revisions';
+          $text = t('Manage revisions');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => $base_query,
+              'attributes' => [
+                'title' => t('See all versions of this article'),
+                'class' => 'action_link manage_revisions',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["manage_revisions"] = $link;
+        }
+      }
+      break;
+  }
+  return $links;
+}
+
+
+/**
+ * Create Taxonomy vocabulary for a group
+ * The vocabulary is used for the group menu
+ *
+ * @param $group
+ *
+ * @throws \OgVocabException
+ */
+function salto_group_create_og_vocabulary($group, $options) {
+
+  //check if 2 vocabularies (post and material) are assigned to the group already
+  $relations = og_vocab_relation_get_by_group('node', $group->nid);
+  if (count($relations) >= 2) {
+    //og vocabulary already assigned to this group
+    //nothing to do
+    return;
+  }
+
+  //create og vocabulary for this group "Kategorie (Gruppe)"
+  $voc_machine_name = $options['voc_prefix'] . $group->nid;
+  $group_vocab = (object) [
+    'name' => $options['voc_name'],
+    'description' => $options['voc_desc'] . $group->nid,
+    'machine_name' => $voc_machine_name,
+  ];
+
+  //create vocabulary
+  taxonomy_vocabulary_save($group_vocab);
+
+  //load newly created vocabulary
+  $voc = taxonomy_vocabulary_machine_name_load($voc_machine_name);
+
+  //make the vocabulary a og voc - create relation
+  og_vocab_relation_save($voc->vid, 'node', $group->nid);
+
+  if ($options['voc_entity_type'] == "node") {
+    $og_vocab = og_vocab_load_og_vocab($voc->vid, $options['voc_entity_type'], 'post', NULL, TRUE);
+
+    $og_vocab->settings['required'] = 0;
+    $og_vocab->settings['widget_type'] = 'options_select';
+    $og_vocab->settings['cardinality'] = 1;
+
+    $og_vocab->save();
+
+  }
+  else {
+    if ($options['voc_entity_type'] == "file") {
+      $file_bundles = [
+        "audio",
+        "document",
+        "image",
+        "webresource",
+        "swf",
+        "video",
+      ];
+      foreach ($file_bundles as $bundle) {
+        $og_vocab = og_vocab_load_og_vocab($voc->vid, $options['voc_entity_type'], $bundle, NULL, TRUE);
+
+        $og_vocab->settings['required'] = 0;
+        $og_vocab->settings['widget_type'] = 'options_select';
+        $og_vocab->settings['cardinality'] = 1;
+
+        $og_vocab->save();
+      }
+
+    }
+  }
+
+  //add author instance field
+  $instance = [
+    'field_name' => 'field_taxonomy_author',
+    'entity_type' => 'taxonomy_term',
+    'bundle' => $voc_machine_name,
+  ];
+  field_create_instance($instance);
+
+}
+
+
+/**
+ * Implementing hook_node_insert
+ *
+ * @param $node
+ */
+function salto_group_node_insert($node) {
+  global $user;
+  $account = clone $user;
+
+  if ($node->type == 'group') {
+
+    //create posts vocabulary
+    $options_posts = [
+      "voc_prefix" => "group_category_",
+      "voc_name" => "Struktur (Gruppe)",
+      "voc_desc" => "OG Vocabulary for group ",//last whitespace is purpose
+      "voc_entity_type" => "node",
+    ];
+    salto_group_create_og_vocabulary($node, $options_posts);
+
+    //create materials vocabulary
+    $options_materials = [
+      "voc_prefix" => "group_category_materials_",
+      "voc_name" => "Struktur (Gruppe)",
+      "voc_desc" => "OG Vocabulary (Materials) for group ",
+      //last whitespace is purpose
+      "voc_entity_type" => "file",
+    ];
+    salto_group_create_og_vocabulary($node, $options_materials);
+
+
+    $values = [
+      'entity_type' => 'user',
+      'entity' => $account,
+      'membership type' => 'group_membership',
+      'state' => OG_STATE_ACTIVE,
+    ];
+
+    //add acting user as manager
+    og_group('node', $node->nid, $values);
+
+    og_role_grant('node', $node->nid, $account->uid, salto_og_get_admin_rid($node->nid));
+
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function salto_group_node_presave($node) {
+  if ($node->type == 'group') {
+    //check if manager has been moved
+    if ($node->uid != 0 && !empty($node->nid)) {
+      $old_manager = user_load($node->uid);
+
+      $values = [
+        'entity_type' => 'user',
+        'entity' => $old_manager,
+        'membership type' => 'group_membership',
+        'state' => OG_STATE_ACTIVE,
+      ];
+
+      //add acting user as manager
+      og_group('node', $node->nid, $values);
+      og_role_grant('node', $node->nid, $old_manager->uid, salto_og_get_admin_rid($node->nid));
+
+    }
+
+    $node->uid = 0;
+  }
+}
+
+
+/**
+ * Implements hook_og_permission().
+ */
+function salto_group_og_permission() {
+  $perms['manage group category'] = [
+    'title' => t('Manage group category'),
+    'description' => t('Manage group category used for the menue.'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+
+  $perms['delete group'] = [
+    'title' => t('Delete group'),
+    'description' => t('Delete group'),
+    'default role' => [OG_ADMINISTRATOR_ROLE],
+    'restrict access' => TRUE,
+  ];
+
+  return $perms;
+}
+
+/**
+ * Alter the permissions of a user in a group.
+ *
+ * @param $perm
+ *   The permissions of a user, passed by reference.
+ * @param $context
+ *   Array with:
+ *   - string: The permission asked for the user.
+ *   - group_type: The entity type of the group.
+ *   - group: The group object.
+ *   - account: The user account.
+ */
+function salto_group_og_user_access_alter(&$perm, $context) {
+
+  $account = $context['account'];
+
+  if (!empty($context['group'])) {
+    $group = $context['group'];
+
+    if ($group->type !== 'group') {
+      return;
+    }
+
+    if (!empty($context['account']->roles[ROLE_GLOBAL_DOSB_RID]) && og_is_member('node', $group->nid, 'user', $account)) {
+      $perm['invite new users'] = TRUE;
+    }
+  }
+
+}
+
+
+/**
+ * manage group category form page callback
+ *
+ * @param  [type] $group_gid node id of this group
+ *
+ * @return [type]        rendered form
+ */
+function salto_group_category_manage_callback($group_gid) {
+
+
+  drupal_set_title(t("Manage categories"));
+
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+
+  $vocabularies = salto_group_get_group_vocabularies($group_gid);
+  $vocab_posts = $vocabularies["posts"];
+  $vocab_materials = $vocabularies["materials"];
+
+  $current_path = current_path();
+
+  $output_form_posts = '<iframe name="group-structure-posts" src="/groups/' . $group_gid . '/category/' . $vocab_posts->vid . '/view?destination=' . $current_path . '"></iframe>';
+  $output_form_materials = '<iframe name="group-structure-materials" src="/groups/' . $group_gid . '/category/' . $vocab_materials->vid . '/view?destination=' . $current_path . '"></iframe>';
+
+
+  $output = '<div class="salto-group-manage-categories row">';
+  $output .= '<div class="col-md-6">';
+  $output .= "<h3>" . t('Posts') . "</h3>";
+  $output .= $output_form_posts;
+  $output .= '</div>';
+  $output .= '<div class="col-md-6">';
+  $output .= "<h3>" . t('Materials') . "</h3>";
+  $output .= $output_form_materials;
+  $output .= '</div>';
+
+  $output .= '<div class="col-md-12 form-actions">';
+  $output .= '<button type="submit" id="edit-submit" name="op" value="Speichern" class="btn btn-success form-submit icon-before salto-group-double-submit"><span class="icon glyphicon glyphicon-ok" aria-hidden="true"></span> Speichern</button>';
+  $output .= '</div>';
+
+  $output .= '</div>';
+
+
+  drupal_add_css(drupal_get_path('module', 'salto_group') . '/less/salto_group.less');
+  drupal_add_js(drupal_get_path('module', 'salto_group') . "/js/salto_group.js");
+  drupal_add_tabledrag('taxonomy', 'order', 'sibling', 'vocabulary-weight');
+
+  return $output;
+}
+
+
+/*
+ *
+ */
+function salto_group_get_group_vocabularies($group_gid) {
+  $rel = og_vocab_relation_get_by_group('node', $group_gid);
+
+  foreach ($rel as $voc) {
+    $vid = intval($voc->vid);
+    $vocabulary = taxonomy_vocabulary_load($vid);
+
+    if ($vocabulary->machine_name == "group_category_" . $group_gid) {
+      $vocab_posts = $vocabulary;
+    }
+    if ($vocabulary->machine_name == "group_category_materials_" . $group_gid) {
+      $vocab_materials = $vocabulary;
+    }
+  }
+
+  return ["posts" => $vocab_posts, "materials" => $vocab_materials];
+}
+
+/**
+ * @param $vid
+ *
+ * @return string
+ */
+function salto_group_category_manage_view($group_gid, $vid) {
+  global $use_minimal_theme;
+
+  $use_minimal_theme = TRUE;
+
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  //get group vocabularies
+
+  $vocabulary = taxonomy_vocabulary_load($vid);
+  if ($vocabulary->machine_name == "group_category_" . $group_gid) {
+    $form = _salto_knowlegebase_category_manage_form($vocabulary, 'groups/' . $group_gid, FALSE);
+  }
+  if ($vocabulary->machine_name == "group_category_materials_" . $group_gid) {
+    $form = _salto_knowlegebase_category_manage_form($vocabulary, 'groups/' . $group_gid, FALSE);
+  }
+
+  drupal_add_js(drupal_get_path('module', 'salto_group') . "/js/salto_group_categories_iframe.js");
+  drupal_add_css(drupal_get_path('module', 'salto_group') . "/less/salto_group.less");
+
+  return drupal_render($form);
+
+}
+
+
+/**
+ * Category access function for group categories (og_vocab)
+ *
+ * @param  $op      view edit add delete
+ * @param  $term    taxonomy term
+ * @param  $account user account
+ *
+ * @return $access  permission or prohibition
+ */
+function salto_group_category_access($op, $term = NULL, $account = NULL, $group_gid = NULL) {
+  //group needed to check access
+  if (empty($group_gid)) {
+    return FALSE;
+  }
+
+  if (empty($account)) {
+    global $user;
+    $account = clone $user;
+  }
+
+  $access = FALSE;
+  switch ($op) {
+    case 'view':
+      $access = TRUE;
+      break;
+    case 'add':
+    case 'edit':
+      $access = og_user_access('node', $group_gid, "manage group category");
+      break;
+    case 'delete':
+      //standard behavior especially author may delete own terms
+      $access = salto_knowledgebase_posts_category_access($op, $term, $account);
+      $access = $access || salto_group_user_is_manager($user->uid, $group_gid) && og_user_access('node', $group_gid, "manage group category");
+      break;
+  }
+
+  return $access;
+}
+
+
+/**
+ * add form content category taxonomy term  - callback
+ *
+ * @return type
+ */
+function salto_group_category_add_term_callback($group_gid, $vid) {
+
+  drupal_set_title(t('Add category'));
+  salto_group_set_breadcrumb('posts', $group_gid, [l(t('Manage categories'), 'groups/' . $group_gid . '/category')]);
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  $vocabulary = taxonomy_vocabulary_load($vid);
+  $form = drupal_get_form('taxonomy_form_term', [], $vocabulary);
+
+  return drupal_render($form);
+
+}
+
+
+/**
+ * edit form category taxonomy term  - callback
+ *
+ * @param type $term
+ *
+ * @return type
+ */
+function salto_group_category_edit_term_callback($group_gid, $term) {
+
+  drupal_set_title(t('Edit !term_name', ['!term_name' => $term->name]));
+  salto_group_set_breadcrumb('posts', $group_gid, [l(t('Manage categories'), 'groups/' . $group_gid . '/category')]);
+  $vocabulary = taxonomy_vocabulary_load($term->vid);
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  $form = drupal_get_form('taxonomy_form_term', $term, $vocabulary);
+
+  return drupal_render($form);
+}
+
+
+function salto_group_category_delete_term_callback($group_gid, $term) {
+
+  $confirmation_message = t('Please consider that this action cannot be undone. All nodes assigned to this term and its subcategories will be reassigned to the topmost level');
+
+  $confirmation_form = drupal_get_form('salto_knowledgebase_content_category_delete_term_form', $term, 0, $confirmation_message);
+  drupal_set_title(t('Delete !term_name', ['!term_name' => $term->name]));
+  salto_group_set_breadcrumb('posts', $group_gid, [l(t('Manage categories'), 'groups/' . $group_gid . '/category')]);
+
+  return drupal_render($confirmation_form);
+}
+
+
+/**
+ * get breadcrumb paretns hierarchy for og vocabulary terms
+ *
+ * @param $type
+ * @param $group
+ * @param $term
+ *
+ * @return array
+ */
+function _salto_group_breadcrumbs_get_category_hierarchy($type, $group, $term) {
+
+  $basepath = 'term';
+  if ($type == 'posts') {
+    $basepath = 'posts';
+  }
+  elseif ($type == 'materials') {
+    $basepath = 'materials';
+  }
+
+  $basepath = 'groups/' . $group->nid . '/' . $basepath;
+
+  $parents = taxonomy_get_parents_all($term->tid);
+
+  $breadcrumb = [];
+  while ($parent = array_pop($parents)) {
+    $breadcrumb[] = l($parent->name, $basepath . '/' . $parent->tid);
+  }
+  return $breadcrumb;
+}
+
+/**
+ * get the Breadcrumb term hirarchie by post node
+ *
+ * @param $node
+ *
+ * @return array
+ */
+function _salto_group_post_category_breadcrumb($node) {
+  $breadcrumb = [];
+  $group_context = og_context();
+  $group = ['nid' => $group_context['gid']];
+
+  $wrapper = entity_metadata_wrapper('node', $node);
+  if ($term = $wrapper->og_vocabulary->value()) {
+    $term = current($term);
+    $breadcrumb = _salto_group_breadcrumbs_get_category_hierarchy('posts', (object) $group, $term);
+  }
+  return $breadcrumb;
+}
+
+/**
+ *
+ * Breadcrumb helper for materials and posts
+ *
+ * @param $type
+ * @param array $additional_path
+ */
+function salto_group_set_breadcrumb($type, $group_gid, $additional_path = []) {
+  $breadcrumb = [];
+  $breadcrumb[] = l(t('Home'), '<front>');
+
+  switch ($type) {
+    case 'materials':
+      $breadcrumb[] = l(t('Materials'), 'materials');
+      break;
+    case 'posts':
+      $breadcrumb[] = l(t('Groups'), 'groups');
+      $group = node_load($group_gid);
+      $breadcrumb[] = l($group->title, 'node/' . $group_gid);
+      break;
+  }
+  $breadcrumb = array_merge($breadcrumb, $additional_path);
+
+  drupal_set_breadcrumb($breadcrumb);
+}
+
+/**
+ * @param $element
+ * @param $form_state
+ * @param $context
+ */
+function salto_group_field_widget_form_alter(&$element, &$form_state, $context) {
+
+  if ($context['instance']['field_name'] == 'field_group_target_audience_role') {
+
+    $element['#options'] = salto_og_organisation_get_roles();
+    $element['#multiple'] = TRUE;
+    $element['#attributes'] = ['data-placeholder' => ' '];
+    $group_setting = $element['#entity']->field_group_target_audience_role[LANGUAGE_NONE];
+    $default = [];
+    foreach ($group_setting as $setting) {
+      $default[] = $setting['value'];
+    }
+    $element['#default_value'] = $default;
+  }
+
+}
+
+function salto_group_user_manager_render($uid, $gid) {
+  $out = "";
+  if (salto_group_user_is_manager($uid, $gid)) {
+    $out .= '<span class="manager-staricon" title="' . t("Group-Admin") . '"><i class="icon glyphicon glyphicon-star">&nbsp;</i></span>';
+  }
+
+  return $out;
+}
+
+
+/**
+ * Return an array of all vocabulary objects exept wn group vocab.
+ *
+ * @return
+ *   An array of all vocabulary objects, indexed by vid.
+ */
+function salto_group_taxonomy_get_vocabularies($ignore_og_vocabularies = TRUE) {
+  if ($ignore_og_vocabularies) {
+    $all_vocabularies = taxonomy_vocabulary_load_multiple(FALSE, []);
+    $result = [];
+    foreach ($all_vocabularies as $key => $voc) {
+      if (trim($voc->name) != trim("Struktur (Gruppe)")) {
+        $result[$key] = $voc;
+      }
+    }
+
+    return $result;
+  }
+  else {
+    return taxonomy_vocabulary_load_multiple(FALSE, []);
+  }
+}
+
+/**
+ * page /groups
+ *
+ * @param $variables
+ */
+function salto_group_preprocess_salto_363_toolbar_alter(&$variables) {
+
+  $isGroups = stripos(current_path(), 'groups') !== FALSE;
+  $isFileTerm = stripos(current_path(), '/files/term') !== FALSE;
+  if ($isGroups && $isFileTerm) {
+    $node_nid = $variables['display']->args[0];
+    $node = node_load($node_nid);
+    if ($node->type !== 'group') {
+      return;
+    }
+
+    $variables['node'] = $node;
+    $variables['toolbar']['back'] = '/node/' . $node->nid;
+
+    if (arg(2) == 'files' && arg(3) == 'term') {
+      $variables['toolbar']['title'] = t('Files');
+    }
+
+    return;
+  }
+
+  if (arg(0) == 'node' && is_numeric(arg(1)) && empty(arg(3))) {
+    $node_nid = arg(1);
+    $node = node_load($node_nid);
+    $variables['node'] = $node;
+  }
+
+  if ($node->type == 'group') {
+    $variables = salto_group_preprocess_salto_363_toolbar($variables);
+  }
+
+  if (current_path() !== 'groups') {
+    return;
+  }
+
+  $title = $variables['node'] ? $variables['node']->title : t('Groups');
+  $variables['toolbar']['title'] = $title;
+  $variables['toolbar']['context_menu'] = [];
+
+}
+
+
+/**
+ * @param $variables
+ *
+ * @return mixed
+ */
+function salto_group_preprocess_salto_363_toolbar($variables) {
+  if (empty($variables['node']) && empty($variables['file'])) {
+    return $variables;
+  }
+
+  $variables['toolbar']['title'] = $variables['node']->title;
+
+  $variables['toolbar']['context_links'] = salto_group_salto_action_links('groups', ['node_context' => $variables['node']]);
+
+  salto_online_meeting_salto_action_links_alter($variables['toolbar']['context_links'], 'groups', ['node_context' => $variables['node']]);
+
+  if ($variables['toolbar']['context_links']['edit_node']) {
+    $edit = $variables['toolbar']['context_links']['edit_node'];
+    $variables['toolbar']['action_links'][] = [
+      'icon' => 'pen',
+      'target' => '/' . $edit['#path'] . '?destination=' . $edit['#options']['query']['destination'],
+      'text' => $edit['#text'],
+      'title' => $edit['#options']['attributes']['title'],
+      'class' => $edit['#options']['attributes']['class'],
+    ];
+    unset($variables['toolbar']['context_links']['edit_node']);
+  }
+  unset($variables['toolbar']['context_links']['add_group']);
+  unset($variables['toolbar']['context_links']['add_post']);
+
+  unset($variables['toolbar']['context_links']['add_file']);
+  unset($variables['toolbar']['context_links']['online_meeting']);
+
+  return $variables;
+}
+
+/**
+ * Implements hook_preprocess_salto_363_modal_alter().
+ *
+ * @param $variables
+ */
+function salto_group_preprocess_salto_363_modal_alter(&$variables) {
+  $node = NULL;
+  if (arg(0) == 'node' && is_numeric(arg(1)) && empty(arg(2))) {
+    $node = node_load(arg(1));
+  }
+
+  if (!empty($node) && $node->type != 'group') {
+    return;
+  }
+
+  salto_group_preprocess_salto_363_modal_toc($variables);
+
+  if (current_path() !== 'groups') {
+    return;
+  }
+  $panelId = $variables['display']->panels['left'][0];
+  salto_core_preprocess_salto_363_modal_filter($panelId, $variables);
+}
+
+function salto_group_preprocess_salto_363_modal_toc(&$variables) {
+  $panelId = $variables['display']->panels['left'][0];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+
+  if (stripos($variables['display']->content[$panelId]->subtype, SALTO_GROUPS_MENU_NAME) === FALSE) {
+    return;
+  }
+
+  $variables['modals']['toc']['title'] = t('Menu');
+  $variables['modals']['toc']['html'] = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+}
+
+function salto_group_preprocess_page_floating_button_alter(&$variables) {
+  if (!empty($variables['node']) && $variables['node']->type === 'group') {
+    __salto_group_preprocess_page_floating_button_node($variables);
+    return;
+  }
+  if (!empty($variables['node']) && $variables['node']->type === 'post') {
+    return;
+  }
+  if (!empty($variables['node']) && $variables['node']->type === 'online_meeting') {
+    return;
+  }
+
+  $cats = implode(';', $variables['theme_hook_suggestions']);
+  $isCategory = stripos($cats, 'category') !== FALSE;
+  $isFile = stripos($cats, 'file') !== FALSE;
+  if (current_path() !== 'groups' || $isCategory || $isFile) {
+    return;
+  }
+  if ($variables['page']['content']['system_main']['#form_id'] === 'salto_og_invite_form') {
+    return;
+  }
+
+  $variables['floating_button']['links'] = [];
+  $variables['floating_button']['links'][] = [
+    'icon' => 'users',
+    'target' => '/node/add/group?destination=groups',
+    'title' => 'Gruppe gründen',
+  ];
+}
+
+function __salto_group_preprocess_page_floating_button_node(&$variables) {
+  $variables['floating_button']['links'] = [];
+
+  $context = og_context();
+  $field_og_group_gid = $context['gid'] ?? '';
+  if (salto_online_meeting_enabled()){
+    $variables['floating_button']['links'][] = [
+      'icon' => 'calendar',
+      'target' => '/node/add/online-meeting?destination=online-meeting&field_og_group=' . $field_og_group_gid,
+      'title' => t('Create online meeting'),
+    ];
+  }
+
+  $variables['floating_button']['links'][] = [
+    'icon' => 'align-left',
+    'target' => '/node/add/post?field_og_group=' . $variables['node']->nid,
+    'title' => t('Create post'),
+  ];
+  $variables['floating_button']['links'][] = [
+    'icon' => 'upload',
+    'target' => '/file/add_anything?field_og_group=' . $variables['node']->nid,
+    'title' => t('File upload'),
+  ];
+
+
+  $dest = drupal_get_destination();
+  $args = explode('/', $dest['destination']);
+  if (in_array('online-meetings', $args)) {
+    unset($variables['floating_button']['links'][1]);
+    unset($variables['floating_button']['links'][2]);
+  }
+}
+
+function salto_group_preprocess_salto_363_panel_alter(&$variables) {
+  if (current_path() !== 'groups') {
+    return;
+  }
+
+  salto_group_preprocess_salto_363_panel_own_groups($variables);
+}
+
+function salto_group_preprocess_salto_363_panel_own_groups(&$variables) {
+  $panelId = $variables['display']->panels['right'][1];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, 'groups_user_groups') === FALSE) {
+    return;
+  }
+
+  $panel = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+
+  $variables['owngroups']['title'] = t('My groups');
+  $variables['owngroups']['content'] = $panel;
+}
+
+/**
+ * returns group node id
+ *
+ * @param $node
+ *
+ * @return mixed|null
+ */
+function salto_group_get_group_id_from_node($node) {
+  return $node->field_og_group[LANGUAGE_NONE][0]['target_id'] ?? NULL;
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function salto_group_node_delete($node) {
+  if ($node->type == 'group') {
+    $groupController = new \salto_group\GroupService($node);
+    $groupController->deleteGroupContent();
+  }
+}
+
+

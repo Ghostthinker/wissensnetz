@@ -1,0 +1,23 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_node_info().
+ */
+function fe_paths_test_node_info() {
+  return array(
+    'fe_paths_test_1' => array(
+      'name' => t('File Entity Paths 1'),
+      'base' => 'fe_paths_test_1',
+      'description' => t('File Entity Paths 1 node type.'),
+    ),
+    'fe_paths_test_2' => array(
+      'name' => t('File Entity Paths 2'),
+      'base' => 'fe_paths_test_2',
+      'description' => t('File Entity Paths 2 page node type.'),
+    )
+  );
+}

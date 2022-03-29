@@ -1,0 +1,157 @@
+<!DOCTYPE HTML>
+<html lang="de">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>modal demo</title>
+    <link rel="stylesheet" href="../dist/public.css">
+    <script src="../src/modal.action.js"></script>
+</head>
+<body>
+
+<h2>Modal Example</h2>
+
+<!-- Trigger/Open The Modal -->
+<button id="myBtn">Open Modal with Accordion</button>
+
+<!-- The Modal -->
+<div id="myModal" class="modal">
+    <!-- Modal content -->
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="wrapper">
+            <h2>Accordion with symbols</h2>
+            <p>In this example we have added a "plus" sign to each button. When the user clicks on the button, the "plus" sign is replaced with a "minus" sign.</p>
+            <div class="accordion-container">
+                <button class="accordion-button">Section 1</button>
+                <div class="accordion-panel">
+                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                </div>
+            </div>
+
+            <div class="accordion-container">
+                <button class="accordion-button">Section 2</button>
+                <div class="accordion-panel">
+                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                </div>
+            </div>
+
+            <div class="accordion-container">
+                <button class="accordion-button">Section 3</button>
+                <div class="accordion-panel">
+                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                </div>
+            </div>
+
+            <script>
+                var acc = document.getElementsByClassName("accordion-button");
+
+                for (var k = 0; k < acc.length; k++) {
+                    acc[k].addEventListener("click", function() {
+                        this.classList.toggle("active");
+                        var panel = this.nextElementSibling;
+                        if (panel.style.maxHeight){
+                            panel.style.maxHeight = null;
+                        } else {
+                            panel.style.maxHeight = panel.scrollHeight + "px";
+                        }
+                    });
+                }
+            </script>
+        </div>
+    </div>
+</div>
+
+<script>
+    var modalAction = new ModalAction("myModal", "myBtn");
+</script>
+
+<!-- Trigger/Open The Modal -->
+<button id="myBtnDD">Open Modal with DropDown</button>
+
+<!-- The Modal -->
+<div id="myModalDD" class="modal full">
+    <!-- Modal content -->
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="wrapper">
+            <h2>Themenfelder</h2>
+            <div class="dropdown">
+                <button class="dropdown-btn">Leistungssport
+                    <i class="fa fa-caret-down"></i>
+                </button>
+                <div class="dropdown-container">
+                    <a href="#">Trainer-im-Leistungssport.de</a>
+                </div>
+                <button class="dropdown-btn">Bildung
+                    <i class="fa fa-caret-down"></i>
+                </button>
+                <div class="dropdown-container">
+                    <a href="#">Trainer-im-Leistungssport.de</a>
+                    <button class="dropdown-btn">Aus- und Fortbildung im DOSB Lizenzsystem
+                        <i class="fa fa-caret-down"></i>
+                    </button>
+                    <div class="dropdown-container">
+                        <a href="#">Ausbildung</a>
+                        <a href="#">Fortbildung</a>
+                    </div>
+                    <a href="#">Weiterbildung außerhalb</a>
+                </div>
+                <a href="#clients">DOSB-Lizenzmanagment</a>
+                <a href="#contact">Digitale Bildung</a>
+                <a href="#contact">Webinare</a>
+            </div>
+            <script>new ModalAction("myModalDD", "myBtnDD");</script>
+            <script>
+                /* Loop through all dropdown buttons to toggle between hiding and showing its dropdown content - This allows the user to have multiple dropdowns without any conflict */
+                var dropdown = document.getElementsByClassName("dropdown-btn");
+
+                for (var k = 0; k < dropdown.length; k++) {
+                    dropdown[k].addEventListener("click", function() {
+                        this.classList.toggle("active");
+                        var dropdownContent = this.nextElementSibling;
+                        if (dropdownContent.style.display === "block") {
+                            dropdownContent.style.display = "none";
+                        } else {
+                            dropdownContent.style.display = "block";
+                        }
+                    });
+                }
+            </script>
+        </div>
+    </div>
+</div>
+
+<!-- Trigger/Open The Modal -->
+<button id="myBtn#SE">Open Modal with Select</button>
+
+<!-- The Modal -->
+<div id="myModal#SE" class="modal full">
+    <!-- Modal content -->
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="wrapper">
+            <h2>Custom Select</h2>
+            <div class="container">
+                <label for="title">Titel</label>
+                <input type="text" id="title">
+            </div>
+            <!--surround the select box with a "custom-select" DIV element. Remember to set the width:-->
+            <div class="container custom-select">
+                    <label for="select">Themenfelder</label>
+                    <select class="select-selected" id="select">
+                       <option value="0">- Meine -</option>
+                       <option value="1">Bildung</option>
+                       <option value="2">Leistungssport</option>
+                    </select>
+            </div>
+            <div class="container v-center">
+                <button class="modal-button">Anwenden</button>
+            </div>
+        </div>
+    </div>
+    <script>new ModalAction("myModal#SE", "myBtn#SE");</script>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+name = Salto Comment
+description = Comment modification for salto
+package = Salto-Bip
+core = 7.x
+dependencies[] = salto_core
+dependencies[] = comment
+tags[] = salto

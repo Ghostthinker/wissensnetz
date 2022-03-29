@@ -1,0 +1,199 @@
+<?php
+
+/**
+ * profile standard categories
+ * 230.05
+ * => salto_debug_salto_user_update_25001
+ */
+/*
+function salto_user_update_25001() {
+}*/
+
+function salto_user_update_29000() {
+  db_change_field('field_data_field_profile_name_first',
+    'field_profile_name_first_value', 'field_profile_name_first_value',
+    ['type' => 'varchar', 'length' => 64]
+  );
+
+  $result = db_query("SELECT CAST(data AS CHAR(10000) CHARACTER SET utf8) FROM field_config WHERE field_name = 'field_profile_name_first'");
+  $config = $result->fetchField();
+  $config_array = unserialize($config);
+  $config_array['settings']['max_length'] = 64;
+  $config = serialize($config_array);
+  db_update('field_config')
+    ->fields(['data' => $config])
+    ->condition('field_name', 'field_profile_name_first')
+    ->execute();
+}
+
+function salto_user_update_29001() {
+  db_change_field('field_data_field_profile_name_last',
+    'field_profile_name_last_value', 'field_profile_name_last_value',
+    ['type' => 'varchar', 'length' => 64]
+  );
+
+  $result = db_query("SELECT CAST(data AS CHAR(10000) CHARACTER SET utf8) FROM field_config WHERE field_name = 'field_profile_name_last'");
+  $config = $result->fetchField();
+  $config_array = unserialize($config);
+  $config_array['settings']['max_length'] = 64;
+  $config = serialize($config_array);
+  db_update('field_config')
+    ->fields(['data' => $config])
+    ->condition('field_name', 'field_profile_name_last')
+    ->execute();
+}
+
+function salto_user_update_29004() {
+  db_change_field('field_revision_field_profile_name_last',
+    'field_profile_name_last_value', 'field_profile_name_last_value',
+    ['type' => 'varchar', 'length' => 64]
+  );
+}
+
+function salto_user_update_29005() {
+  db_change_field('field_revision_field_profile_name_first',
+    'field_profile_name_first_value', 'field_profile_name_first_value',
+    ['type' => 'varchar', 'length' => 64]
+  );
+}
+
+function salto_user_update_29006() {
+  $item = [
+    'link_path' => 'licenses/ea',
+    'link_title' => 'Ausbildungsgänge',
+    'menu_name' => 'main-menu',
+    'weight' => 0,
+    'language' => 'de',
+    'plid' => 0, // Parent menu item, 0 if menu item is on top level
+    'module' => 'menu',
+  ];
+  $mlid = menu_link_save($item);
+  $item = menu_link_load($mlid);
+  $item['options']['item_attributes']['id'] = 'dosb-ea-menu';
+  $item['options']['item_attributes']['class'] = 'dosb-ea';
+  menu_link_save($item);
+
+  $item = menu_link_load(1062);
+  $item['options']['item_attributes']['id'] = 'licenses-menu';
+  menu_link_save($item);
+}
+
+function salto_user_update_31010() {
+  $options = [
+    'firstname' => '',
+    'lastname' => USER_TRAINER_IM_LEISTUNGSSPORT_DE,
+    'mail' => USER_TRAINER_IM_LEISTUNGSSPORT_DE_MAIL,
+    'role_ghost' => TRUE,
+  ];
+  $user = bildungsnetz_api_create_user($options);
+  legal_save_accept(10, 1, 'de', $user->uid);
+
+  $userPicDir = 'private://user_pictures';
+  file_prepare_directory($userPicDir, FILE_CREATE_DIRECTORY);
+
+  $filename = 'assets/userls.jpg';
+  $filepath = realpath(dirname(__FILE__) . '/../../features/salto_user/' . $filename);
+
+  $file = new stdClass();
+  $file->fid = NULL;
+  $file->uri = file_unmanaged_copy($filepath, 'private://user_pictures/userls.jpg');
+  $file->filename = drupal_basename($filepath);
+  $file->filemime = file_get_mimetype($file->uri);
+  $file->uid = $user->uid;
+  $file->status = FILE_STATUS_PERMANENT;
+  $file = file_save($file);
+
+  $file_contents_object = file_load($file->fid);
+  $file_contents_array['fid'] = $file_contents_object->fid;
+  $file_contents_array['uid'] = $file_contents_object->uid;
+  $file_contents_array['filename'] = $file_contents_object->filename;
+  $file_contents_array['uri'] = $file_contents_object->uri;
+  $file_contents_array['filemime'] = $file_contents_object->filemime;
+  $file_contents_array['filesize'] = $file_contents_object->filesize;
+  $file_contents_array['status'] = $file_contents_object->status;
+  $file_contents_array['timestamp'] = $file_contents_object->timestamp;
+  $file_contents_array['rdf_mapping'] = $file_contents_object->rdf_mapping;
+
+  $profile = profile2_load_by_user($user);
+  $profile['main']->field_user_picture['und'][0] = $file_contents_array;
+  $profile['main']->save();
+}
+
+function salto_user_update_33001() {
+  $ips = [
+    '24.134.128.0/18',
+    '83.169.184.0/22',
+    '88.134.224.0/20',
+    '87.185.235.25',
+    '109.91.0.0/16',
+    '83.171.168.0/18',
+    '46.244.200.0/17',
+  ];
+  $ipString = implode(';', $ips);
+  variable_set('restrict_role_login_by_ip_header_roles', ['Admin']);
+  variable_set('restrict_role_login_by_ip_header_restriction', $ipString);
+
+}
+
+/**
+ * update user menu (add new element for mobile header)
+ */
+function salto_user_update_34000() {
+  $menu = menu_tree('user-menu');
+  $mlid = 0;
+  foreach ($menu as $key => $link) {
+    if ($link['#href'] === 'user') {
+      $mlid = $key;
+      break;
+    }
+  }
+
+  $item = [
+    'link_path' => 'user',
+    'link_title' => '_name_',
+    'menu_name' => 'user-menu',
+    'weight' => -50,
+    'language' => 'de',
+    'plid' => $mlid, // Parent menu item, 0 if menu item is on top level
+    'module' => 'menu',
+  ];
+  $mlid = menu_link_save($item);
+}
+
+function salto_user_update_37001() {
+  $permissions = ['name' => 'salto cancel other account'];
+  user_role_grant_permissions(ROLE_GLOBAL_ADMIN_RID, $permissions);
+  user_role_grant_permissions(ROLE_GLOBAL_DOSB_RID, $permissions);
+}
+
+function salto_user_update_38000() {
+
+  $body = "Hallo @name,
+
+vielen Dank für Ihre Anfrage zur Nutzung des Wissensnetzes. Leider wurde Ihre Beitrittsanfrage abgelehnt.
+
+@additional
+
+Viele Grüße
+Ihr Wissensnetz-Team";
+
+  variable_set('salto_user_membership_request_mail_body_decline', $body);
+
+  $body = "Hallo und herzlich willkommen @name,
+
+vielen Dank für Ihre Anfrage zur Nutzung des Wissensnetzes. Ihre Mitgliedschaft wurde beim Verband @organisation_name eingerichtet.
+
+Bitte melden Sie sich mit dem folgendem Anmeldelink auf unserem System an und vergeben Sie ein neues Passwort. @reset_url
+
+Nachdem Sie Ihr Passwort festgelegt haben, können Sie sich zukünftig mit folgenden Zugangsdaten anmelden:
+
+Benutzername: Ihre E-Mail-Adresse
+Passwort: Ihr Passwort
+
+@additional
+
+Viele Grüße
+Ihr Wissensnetz-Team";
+
+  variable_set('salto_user_membership_request_mail_body_accept', $body);
+}

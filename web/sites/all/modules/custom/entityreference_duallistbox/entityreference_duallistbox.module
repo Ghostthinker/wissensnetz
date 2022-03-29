@@ -1,0 +1,122 @@
+<?php
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function entityreference_duallistbox_field_widget_info() {
+
+  $widgets['entityreference_duallistbox_widget'] = [
+    'label' => t('Dual List Box'),
+    'description' => t('An advanced, jquery based view.'),
+    'field types' => ['entityreference'],
+    'settings' => [
+      'view' => '',
+      'pass_argument' => FALSE,
+    ],
+    'behaviors' => [
+      'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+      'default value' => FIELD_BEHAVIOR_NONE,
+    ],
+  ];
+  return $widgets;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function entityreference_duallistbox_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+
+  $instance['widget']['type'] = 'options_buttons';
+  // Abstract over the actual field columns, to allow different field types to
+  // reuse those widgets.
+  $value_key = key($field['columns']);
+
+  $type = str_replace('options_', '', $instance['widget']['type']);
+  $multiple = $field['cardinality'] > 1 || $field['cardinality'] == FIELD_CARDINALITY_UNLIMITED;
+  $required = $element['#required'];
+  $has_value = isset($items[0][$value_key]);
+  $properties = _options_properties($type, $multiple, $required, $has_value);
+
+  $entity_type = $element['#entity_type'];
+  $entity = $element['#entity'];
+
+  // Prepare the list of options.
+  $options = _options_get_options($field, $instance, $properties, $entity_type, $entity);
+  $default_value = _options_storage_to_form($items, $options, $value_key, $properties);
+
+  switch ($type) {
+    case 'select':
+      $element += [
+        '#type' => 'select',
+        '#default_value' => $default_value,
+        '#multiple' => $multiple && count($options) > 1,
+        '#options' => $options,
+      ];
+      break;
+
+    case 'buttons':
+      if ($required && count($options) == 1) {
+        reset($options);
+        $default_value = [key($options)];
+      }
+
+      if (!$multiple) {
+        $default_value = $default_value ? reset($default_value) : NULL;
+      }
+
+      $element += [
+        '#type' => $multiple ? 'checkboxes' : 'radios',
+        '#default_value' => $default_value,
+        '#options' => $options,
+      ];
+      break;
+
+    case 'onoff':
+      $keys = array_keys($options);
+      $off_value = array_shift($keys);
+      $on_value = array_shift($keys);
+      $element += [
+        '#type' => 'checkbox',
+        '#default_value' => (isset($default_value[0]) && $default_value[0] == $on_value) ? 1 : 0,
+        '#on_value' => $on_value,
+        '#off_value' => $off_value,
+      ];
+      $element['#title'] = isset($options[$on_value]) ? $options[$on_value] : '';
+
+      if ($instance['widget']['settings']['display_label']) {
+        $element['#title'] = $instance['label'];
+      }
+      break;
+  }
+
+  $element += [
+    '#value_key' => $value_key,
+    '#element_validate' => ['options_field_widget_validate'],
+    '#properties' => $properties,
+  ];
+  $element += ["#item_order" => $items];
+
+  $element['#theme'] = 'entityreference_duallistbox_widget';
+  return $element;
+}
+
+
+/**
+ * Implements hook_theme().
+ */
+function entityreference_duallistbox_theme() {
+  return [
+    'entityreference_duallistbox_widget' => [
+      'render element' => 'form',
+      'template' => 'entityreference-duallistbox-widget',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function entityreference_duallistbox_preprocess_entityreference_duallistbox_widget(&$variables) {
+  drupal_add_js(drupal_get_path('module', 'entityreference_duallistbox') . '/entityreference_duallistbox.js', 'file');
+  drupal_add_css(drupal_get_path('module', 'entityreference_duallistbox') . '/entityreference_duallistbox.css');
+}

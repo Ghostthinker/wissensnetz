@@ -1,0 +1,57 @@
+<?php
+
+/**
+ * @file
+ * Provides an option to hide CER fields on inline entity forms. Spun off
+ * from Issue #2240371.
+ */
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function cer_ief_form_field_ui_field_edit_form_alter(array &$form, array &$form_state) {
+  // Add option to hide corresponding entity reference fields on inline entity
+  // forms, even if the field instance isn't part of any CER preset.
+  $instance = $form['#instance'];
+
+  if (in_array($instance['widget']['type'], array('inline_entity_form', 'inline_entity_form_single'))) {
+    $settings = &$form['instance']['widget']['settings']['type_settings'];
+
+    $settings['hide_cer_fields'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Hide corresponding entity reference field(s) on form.'),
+      '#default_value' => !empty($instance['widget']['settings']['type_settings']['hide_cer_fields']),
+    );
+  }
+}
+
+/**
+ * Implements hook_field_widget_form_alter().
+ *
+ * @todo This could be cached into an array and only rebuilt when a contextual
+ * field instance is updated or CER pattern added/removed.
+ */
+function cer_ief_field_widget_form_alter(array &$element, array &$form_state, array $context) {
+  // If this widget form isn't in an IEF, bail out.
+  if (! isset($context['form']['#ief_id'])) {
+    return;
+  }
+
+  // Get the form ID.
+  $ief_id = $context['form']['#ief_id'];
+
+  // Get instance information for the IEF field.
+  $ief_field_instance = $form_state['inline_entity_form'][$ief_id]['instance'];
+
+  // The left chain is the field that *has* the IEF, and the right chain is the
+  // field *in* the IEF.
+  $left_chain = $ief_field_instance['entity_type'] . ':' . $ief_field_instance['bundle'] . ':' . $ief_field_instance['field_name'];
+  $right_chain = $context['instance']['entity_type'] . ':' . $context['instance']['bundle'] . ':' . $context['instance']['field_name'];
+
+  // Check if "hide" is enabled on the IEF that is holding this field.
+  $hide_cer_fields = !empty($ief_field_instance['widget']['settings']['type_settings']['hide_cer_fields']);
+  if ($hide_cer_fields) {
+    $finder = new CerPresetFinder();
+    $element['#access'] = !($finder->find($left_chain, $right_chain)->count()->execute() || $finder->find($right_chain, $left_chain, TRUE)->count()->execute());
+  }
+}

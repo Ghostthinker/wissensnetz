@@ -1,0 +1,16 @@
+diff --git a/web/modules/taxonomy/taxonomy.module b/web/modules/taxonomy/taxonomy.module
+index e3ee48e..b33cfae 100644
+--- a/web/modules/taxonomy/taxonomy.module
++++ b/web/modules/taxonomy/taxonomy.module
+@@ -70,7 +70,10 @@ function taxonomy_permission() {
+       'title' => t('Administer vocabularies and terms'),
+     ),
+   );
+-  foreach (taxonomy_get_vocabularies() as $vocabulary) {
++  // GT HACK
++  // 28.10.2019 - 20:25 - SN
++  // get only non og vocab, to avoid unneeded permission options
++  foreach (salto_group_taxonomy_get_vocabularies(TRUE) as $vocabulary) {
+     $permissions += array(
+       'edit terms in ' . $vocabulary->vid => array(
+         'title' => t('Edit terms in %vocabulary', array('%vocabulary' => $vocabulary->name)),

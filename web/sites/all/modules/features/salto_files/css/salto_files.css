@@ -1,0 +1,114 @@
+
+.form-textarea-wrapper {
+  margin-top: 20px;
+}
+
+.main-container ul, .main-container ol {
+  overflow: hidden;
+}
+
+#edit-field-post-attachment button.attach {
+  visibility: hidden;
+}
+
+table[id^="edit-field-post-attachment-und"] {
+  background-color: #eee;
+}
+
+table[id^="edit-field-post-attachment-und"] div.media-widget .form-group {
+  margin-left: 160px;
+}
+
+table[id^="edit-field-post-attachment-und"] div.media-widget input[type=text] {
+  width: 350px;
+}
+
+table[id^="edit-field-post-attachment-und"] .form-type-checkbox {
+  margin-left: 12em;
+}
+
+#mediaBrowser {
+  max-width: 100% !important;
+}
+
+
+/*
+  MEDIA BROWSER
+*/
+
+#tabs-wrapper {
+  border: none;
+}
+
+#tabs-wrapper #branding {
+  overflow: hidden;
+  position: relative;
+  padding: 10px 10px 0 10px;
+  background-color: #e0e0d8;
+}
+
+#tabs-wrapper .ui-widget-header {
+  background: none;
+}
+
+#tabs-wrapper .plupload_filelist_footer {
+  height: auto;
+  line-height: normal;
+}
+
+#tabs-wrapper ul.tabs {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background-color: #e0e0d8 !important;
+}
+
+#tabs-wrapper ul.tabs.primary li a:link {
+  cursor: pointer;
+  display: block;
+  float: left;
+  height: 2.20em;
+  line-height: 2.20em;
+  padding: 0 18px 8px;
+  background-color: #a6a7a2;
+  color: #000;
+  font-weight: bold;
+  border-width: 1px 1px 0 1px;
+  border-style: solid;
+  border-color: #a6a7a2;
+  -moz-border-radius: 8px 8px 0 0;
+  -webkit-border-top-left-radius: 8px;
+  -webkit-border-top-right-radius: 8px;
+  border-radius: 8px 8px 0 0;
+}
+
+#tabs-wrapper ul.tabs.primary li a:link:hover, #tabs-wrapper ul.tabs.primary li a:link:active {
+  color: #ffffff;
+}
+
+#tabs-wrapper .ui-tabs-panel {
+  display: block;
+  border-width: 0;
+  padding: 1em 0;
+  background: 0;
+}
+
+#tabs-wrapper .ui-widget-content {
+  border: none;
+}
+
+.media-bulk-upload-multiedit-form [id^="edit-field-file-lizenzstufe"],
+.media-bulk-upload-multiedit-form [id^="edit-field-file-attachment-status"],
+.media-bulk-upload-multiedit-form [id^="edit-field-file-attachment-post-ref"],
+.media-bulk-upload-multiedit-form [id^="edit-field-og-group"],
+.media-bulk-upload-multiedit-form fieldset[id^="bootstrap-pane"] {
+  display: none;
+}
+
+#file-entity-edit [id^="edit-field-file-lizenzstufe"],
+#file-entity-edit [id^="edit-field-file-attachment-status"],
+#file-entity-edit [id^="edit-field-file-attachment-post-ref"],
+#file-entity-edit [id^="edit-field-og-group"],
+#file-entity-edit fieldset[id^="bootstrap-pane"] {
+  display: none;
+}

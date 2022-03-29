@@ -1,0 +1,90 @@
+<?php
+/**
+ * @file
+ * (Un)install and update functions.
+ */
+
+/**
+ * Implements hook_requirements().
+ */
+function imagecache_external_requirements($phase) {
+  $requirements = array();
+
+  // Ensure translations don't break at install time.
+  $t = get_t();
+
+  // Check the Imagecache External configuration.
+  if ($phase == 'runtime') {
+    $hosts = variable_get('imagecache_external_hosts', '');
+    $use_whitelist = variable_get('imagecache_external_use_whitelist', TRUE);
+    if ($use_whitelist && empty($hosts)) {
+      $requirements['imagecache_external'] = array(
+        'title' => $t('Imagecache External'),
+        'value' => $t('Not properly configured'),
+        'description' => $t('The configuration is set to use a whitelist but no hostname(s) are configured. <a href="@link">Add one or more trusted hostnames</a> or <a href="@link">disable the whitelist functionality</a>.', array('@link' => url('admin/config/media/imagecache_external'))),
+        'severity' => REQUIREMENT_WARNING,
+      );
+    }
+    else {
+      $requirements['imagecache_external'] = array(
+        'title' => $t('Imagecache External'),
+        'value' => $t('Properly configured'),
+        'severity' => REQUIREMENT_OK,
+      );
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function imagecache_external_uninstall() {
+  variable_del('imagecache_directory');
+  variable_del('imagecache_external_hosts');
+  variable_del('imagecache_external_option');
+  variable_del('imagecache_external_management');
+  variable_del('imagecache_external_allowed_mimetypes');
+}
+
+/**
+ * Set the File Mode to 'managed' as the new default is 'unmanaged'.
+ */
+function imagecache_external_update_7100() {
+  variable_set('imagecache_external_management', 'managed');
+}
+
+/**
+ * Set the Imagecache Externals directory to 'imagecache/external'.
+ */
+function imagecache_external_update_7101() {
+  variable_set('imagecache_directory', 'imagecache/external');
+}
+
+/**
+ * Change the white-/blacklist functionality to whitelist-only.
+ */
+function imagecache_external_update_7102() {
+  $use_whitelist = variable_get('imagecache_external_option', 'white') == 'white';
+  variable_set('imagecache_external_use_whitelist', $use_whitelist);
+  variable_del('imagecache_external_option');
+}
+
+/**
+ * Fix permission naming when upgrading from older versions and
+ * clean up old permissions.
+ */
+function imagecache_external_update_7103() {
+  db_update('role_permission')
+    ->fields(array(
+      'permission' => 'administer imagecache external'
+    ))
+    ->condition('permission', 'Administer imagecache external', '=')
+    ->execute();
+
+  db_delete('role_permission')
+    ->condition('module', 'imagecache_external', '=')
+    ->condition('permission', 'administer imagecache external', 'NOT LIKE')
+    ->execute();
+}

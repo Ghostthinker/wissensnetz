@@ -1,0 +1,11 @@
+name = Security questions
+description = Allow users to select and answer security questions for additional login security.
+core = 7.x
+configure = admin/config/people/security_questions
+
+; Information added by drupal.org packaging script on 2013-06-30
+version = "7.x-2.0"
+core = "7.x"
+project = "security_questions"
+datestamp = "1372627251"
+

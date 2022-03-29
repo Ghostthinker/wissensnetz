@@ -1,0 +1,13 @@
+name = Book helper
+description = Improves Drupal's core book module's functionality.
+core = 7.x
+package = Other
+dependencies[] = book
+configure = admin/content/book/settings
+
+; Information added by Drupal.org packaging script on 2014-10-27
+version = "7.x-1.0-beta3"
+core = "7.x"
+project = "book_helper"
+datestamp = "1414404155"
+

@@ -1,0 +1,7 @@
+name = File Entity Access
+description = "Provides access realms for files"
+core = 7.x
+version = "7.x-1.0"
+
+files[] = file_entity_access.module
+files[] = file_entity_access.install

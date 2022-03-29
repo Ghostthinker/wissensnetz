@@ -1,0 +1,47 @@
+@import "../components/card.less";
+
+.page-people  {
+  [class*="-salto-organisations"] {
+    .pane-title {
+      display: none;
+    }
+    .view-header {
+      display: none;
+    }
+    .views-row {
+      display: block;
+      border: 1px solid @dosb-light-grey;
+      border-radius: 0.8em;
+      box-shadow: 0 2px 5px 1px rgba(0,0,0,0.03);
+      transition: 0.3s;
+      padding: 1em 2em;
+      margin: 1em auto;
+    }
+  }
+  .accordion-container .pane-title {
+    display: none;
+  }
+
+  .modal-content {
+    [id*="-salto-organisations"] {
+      .views-exposed-widget.views-submit-button {
+        text-align: center;
+        width: 100%;
+      }
+      .views-exposed-widget.views-reset-button {
+        display: none;
+      }
+    }
+  }
+}
+
+@media only screen and (max-width: @max-width) {
+  .page-organisations {
+    .view-salto-organisations-overview {
+      .view-header {
+        padding: 2em 1em 0;
+        margin-bottom: -1em;
+      }
+    }
+  }
+}

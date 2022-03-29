@@ -1,0 +1,7 @@
+.token-input-dropdown-minimal {
+  z-index: 10;
+}
+
+.token-input-selected-token-minimal .token-input-delete-token-minimal {
+  background-color: #999;
+}

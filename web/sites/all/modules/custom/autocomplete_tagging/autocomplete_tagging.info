@@ -1,0 +1,5 @@
+name = Autocomplete tagging
+description = Google plus like tagging
+core = 7.x
+configure = admin/config/development/autocomplete_tagging
+

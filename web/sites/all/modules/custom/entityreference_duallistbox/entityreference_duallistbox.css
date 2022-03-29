@@ -1,0 +1,38 @@
+.entityreference_duallistbox .selected {
+  float: left;
+  width: 45%;
+}
+
+.entityreference_duallistbox .pool-items,
+.entityreference_duallistbox .selected-items {
+  float: left;
+  max-height: 300px;
+  min-height: 200px;
+  overflow-y: auto;
+  width: 100%
+}
+
+.entityreference_duallistbox .selected-items .form-type-checkbox,
+.entityreference_duallistbox .pool-items .form-type-checkbox {
+  border: 1px solid #CDCDCD;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  min-height: 32px;
+  -webkit-box-shadow: 0 4px 6px -6px black;
+  -moz-box-shadow: 0 4px 6px -6px black;
+  box-shadow: 0 4px 6px -6px black;
+  padding: 4px;
+}
+
+.entityreference_duallistbox .selected-items input[type="checkbox"],
+.entityreference_duallistbox .pool-items input[type="checkbox"] {
+  margin-left: 0px;
+  margin-right: 4px;
+}
+
+.entityreference_duallistbox .pool {
+  float: right;
+  width: 54%;
+}
+
+

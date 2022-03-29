@@ -1,0 +1,4 @@
+name = Wissensnetz Blanko
+description = Wissensnetz ohne LiMS
+package = Salto-Bip
+core = 7.x

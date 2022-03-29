@@ -1,0 +1,6 @@
+name = Organic groups Invites
+description = "Organic groups tools for regcode invites."
+package = "og"
+dependencies[] = og_regcode
+core = 7.x
+

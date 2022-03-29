@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * @file
+ * Module file for Restricting role Login by IP.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function restrict_role_login_by_ip_menu() {
+  $items['admin/config/people/restrict-role-login-by-ip'] = array(
+    'title' => 'Restrict Role Login by IP Configuration',
+    'description' => 'Restrict Logins from IP Addresses by Roles',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('restrict_role_login_by_ip_form'),
+    'access arguments' => array('administer restrict role login by ip'),
+    'file' => 'restrict_role_login_by_ip.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * 05.11.2019 - 10:00 - LK: fix admin can set permission for configurable
+ * Implementation of hook_permission().
+ */
+function restrict_role_login_by_ip_permission() {
+  return array(
+    'administer restrict role login by ip' => array(
+      'title' => t('Administer restrict role login by ip'),
+      'description' => t('Create, edit and delete rules for restricted IP login.'),
+      //'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function restrict_role_login_by_ip_user_login($edit, $account) {
+  $roles_to_restrict = variable_get('restrict_role_login_by_ip_header_roles', array());
+  $restriction_applies = count(array_intersect($account->roles, $roles_to_restrict));
+
+  if ($restriction_applies) {
+    $header = variable_get('restrict_role_login_by_ip_header', 'REMOTE_ADDR');
+    $ip2check = $_SERVER[$header];
+
+    $ipaddresses = explode(";", variable_get('restrict_role_login_by_ip_header_restriction', ''));
+
+    //Assume all ips are blacklisted. Change this to 0 if the current ip falls in whitelist.
+    $should_restrict = 1;
+    // Check each ip address individually
+    foreach ($ipaddresses as $ipaddress) {
+      if (_restrict_role_login_by_ip_cidrcheck($ip2check, $ipaddress)) {
+        //ip found to be from whitelist
+        $should_restrict = 0;
+        break;
+      }
+    }
+
+    // 17.02.2020 - LK: check ipv6
+    if (salto_user_check_whitelist_ipv6($ip2check)) { return; }
+/*
+    if ($should_restrict) {
+      global $user;
+      session_destroy();
+      module_invoke_all('user', 'logout', NULL, $user);
+      // Load the anonymous user
+      $user = drupal_anonymous_user();
+      // unset destination required to force them to the ip page during drupal_goto()
+      if (isset($_GET['destination'])) {
+        unset($_GET['destination']);
+      }
+      drupal_set_message(t("You are not allowed to login from this IP address. Contact Site Administrator."), "error");
+      drupal_goto('user');
+    }*/
+  }
+}
+
+/**
+ * Check ip address against a network in cidr notation. E.g:
+ * _restrict_by_ip_cidrcheck('192.168.10.100','192.168.10.0/24'); returns 1
+ * _restrict_by_ip_cidrcheck('192.168.10.100','192.168.12.0/24'); returns 0
+ * Borrowed directly from restrict_by_ip module
+ */
+function _restrict_role_login_by_ip_cidrcheck($iptocheck, $ipslashcidr) {
+  // Seperate ip address and cidr mask
+  $netmask = explode("/", $ipslashcidr);
+  // Get valid network as long
+  $ip_net = ip2long($netmask[0]);
+  // Get valid network mask as long
+  $ip_mask = ~((1 << (32 - $netmask[1])) - 1);
+  // Get ip address to check as long
+  $ip_ip = ip2long($iptocheck);
+  // Mask ip address to check to get subnet
+  $ip_ip_net = $ip_ip & $ip_mask;
+  // Only returns 1 if the valid network
+  //and the subnet of the ip address
+  //to check are the same
+  return ($ip_ip_net == $ip_net);
+}

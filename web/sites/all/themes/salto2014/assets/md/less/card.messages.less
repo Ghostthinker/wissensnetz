@@ -1,0 +1,177 @@
+@import "../components/card.less";
+
+@margin-message-top: 1em;
+
+.card {
+  &.privatemsg-message-1 .privatemsg-message-actions {
+    display: none;
+  }
+  img {
+    width: inherit;
+    height: inherit;
+    min-width: 40px;
+  }
+  .user-picture .salto-user-online-status {
+    padding: 0;
+  }
+  .privatemsg-message-body {
+    margin-left: 0;
+  }
+  .privatemsg-message-actions {
+    margin: @margin-message-top 0 0;
+  }
+  .privatemsg-message-information {
+    border-bottom: none;
+    margin-top: @margin-message-top;
+    .privatemsg-message-date {
+      font-size: 100%;
+    }
+  }
+  .participants {
+    margin: 0;
+    font-size: 1.5rem;
+    color: @dosb-grey;
+    a.username {
+      color: @dosb-grey;
+    }
+    &:before {
+      .fa-icon;
+      .fas;
+      content: @fa-var-envelope;
+      margin-right: 1em;
+    }
+  }
+}
+
+#privatemsg-new {
+  .card;
+  //margin: 1em;
+  width: 100%;
+  .privatemsg-reply { font-size: 2rem; }
+  a#edit-cancel,
+  .control-label { display: none; }
+  // custom button floating style but in "container"
+  button.form-submit {
+    width: 60px;
+    height: 60px;
+    bottom: 40px;
+    right: 40px;
+    background-color: @dosb-orange;
+    border-radius: 50px;
+    text-align: center;
+    box-shadow: 2px 2px 3px #999;
+    z-index: 1;
+    // on right side
+    float: right;
+    // disable inner text
+    color: transparent;
+    border: none;
+    &:before {
+      .fa-icon;
+      .fas;
+      content: @fa-var-reply;
+      font-family: 'Font Awesome 5 Free';
+      font-weight: 900;
+      color: #FFF;
+      text-align: center;
+      margin: 0 auto;
+      width: 100%;
+      font-size: 2em;
+    }
+  }
+}
+
+#privatemsg-list {
+  .container-inline { display: none; }
+  .table-responsive {
+    border: none;
+    overflow: hidden;
+    margin: 0;
+    z-index: 1;
+
+    tbody,
+    table.privatemsg-list {
+      display: block;
+    }
+    thead { display: none; }
+  }
+  tbody tr {
+    .card;
+    position: relative;
+    padding: 1em;
+    margin: 1em 0.5em;
+    td {
+      //margin: 0.5em 0;
+      border: none;
+      background-color: #ffffff;
+      white-space: pre-wrap;
+    }
+    td .form-type-checkbox {
+      input.privatemsg-list.form-checkbox { display: none; }
+      label {
+        font-weight: 400;
+        font-size: 2em;
+        &:before {
+          .fa-icon;
+          .fas;
+          content: @fa-var-envelope;
+        }
+        &:after {
+          content: none;
+        }
+      }
+      margin: 0;
+      padding: 0;
+      position: absolute;
+      //right: 3em;
+      bottom: 6rem;
+      right: 0;
+      width: fit-content;
+      height: 0;
+      z-index: 1;
+    }
+    &.privatemsg-unread {
+      td:last-child .form-item label:before { font-weight: 900; }
+    }
+    .privatemsg-list-participants {
+      font-weight: 400;
+      &:before {
+        .fa-icon;
+        .fas;
+        content: @fa-var-envelope;
+        margin-right: 1em;
+      }
+    }
+    .privatemsg-list-subject {
+      font-weight: 600;
+      a {
+        margin: -3em -3em -1.5em;
+        padding: 3em 3em 1.5em;
+        display: block;
+      }
+    }
+    .privatemsg-list-date {
+      font-weight: 200!important;
+      color: @dosb-grey;
+    }
+  }
+}
+
+.page-messages {
+  section ul.action-links {
+    display: none;
+  }
+}
+
+@media only screen and (min-width: @min-width) {
+  .card {
+    &.privatemsg-message-1 .privatemsg-message-actions {
+      display: block !important;
+    }
+  }
+  #privatemsg-list {
+    tbody tr td:last-child {
+      left: 90% !important;
+    }
+  }
+}

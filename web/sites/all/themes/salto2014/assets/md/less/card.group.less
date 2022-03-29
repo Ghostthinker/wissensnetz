@@ -1,0 +1,172 @@
+@import "../components/card.less";
+
+@media screen and (max-width: @screen-sm) {
+  .page-groups {
+
+    .panel-panel.main-content {
+
+      .group-footer {
+        padding: 5px;
+      }
+
+      .members.more {
+        overflow: hidden;
+        text-align: center;
+        width: @group-profile-img-size !important;
+        height: @group-profile-img-size !important;
+      }
+
+    }
+
+  }
+
+}
+
+@media screen and (max-width: 360px) {
+
+  // Push button to full width on very small devices
+
+  .page-groups {
+
+    .panel-panel.main-content {
+
+      .group-actions.action-links {
+        width: 100%;
+        padding-top: 0.5em;
+      }
+
+      .group-footer {
+        display: flow-root;
+      }
+
+    }
+
+  }
+
+}
+
+.page-groups {
+
+  font-family: @font-family-base;
+
+  .panel-panel.main-content {
+    .pane-custom.pane-1,
+    .pane-groups-members-panel-og-pending-memberships {
+
+      &:not(.title-explicit) {
+        display: none;
+      }
+    }
+
+    .panel-separator {
+      height: 0;
+      margin: 0;
+    }
+
+    img, .members.more {
+      border-radius: 8em;
+      min-width: auto;
+      min-height: auto;
+
+      + div {
+        padding: unset;
+      }
+    }
+    .file-icon {
+      border-radius: unset;
+    }
+
+    .members.more {
+      width: auto;
+      height: @group-profile-img-size;
+    }
+
+    .members.more:empty {
+      display: none;
+    }
+
+    .group-footer {
+      padding: 5px;
+    }
+
+    .group-closed {
+      text-align: center;
+    }
+
+    .img-responsive {
+      overflow: hidden;
+    }
+
+  }
+
+  .pane-groups-files-files-directory {
+    .pane-title {
+      display: none;
+    }
+
+    .card.row {
+      margin: 1em auto;
+    }
+  }
+
+  .group-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    > div.flex {
+      display: flex;
+      align-items: center;
+    }
+
+    .members.more {
+      border: 1px solid @dosb-light-grey;
+      padding: 0.4em;
+    }
+  }
+
+  .group-view-row {
+
+    display: block;
+
+    .group-num-nodes {
+      text-align: unset;
+    }
+
+    .action-links {
+      position: unset;
+      justify-content: flex-end;
+    }
+  }
+
+  .accordion-container {
+    .accordion-panel div {
+      margin-bottom: 0.5em;
+      border: none;
+    }
+
+    .views-field-title {
+      font-size: 1.2em;
+    }
+  }
+}
+
+.pane-group-content-base {
+  .pane-title {
+    display: none;
+  }
+
+  .view-group-content .views-row {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border: none;
+  }
+
+  img {
+    border-radius: 8em;
+  }
+
+  .user_links {
+    right: 10px;
+  }
+}

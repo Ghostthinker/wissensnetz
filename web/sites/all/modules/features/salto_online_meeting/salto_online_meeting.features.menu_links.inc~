@@ -1,0 +1,43 @@
+<?php
+
+/**
+ * @file
+ * salto_online_meeting.features.menu_links.inc
+ */
+
+/**
+ * Implements hook_menu_default_menu_links().
+ */
+function salto_online_meeting_menu_default_menu_links() {
+  $menu_links = array();
+
+  // Exported menu link: menu-groups_online-meetings:http://online-meetings.
+  $menu_links['menu-groups_online-meetings:http://online-meetings'] = array(
+    'menu_name' => 'menu-groups',
+    'link_path' => 'http://online-meetings',
+    'router_path' => '',
+    'link_title' => 'Online Meetings',
+    'options' => array(
+      'attributes' => array(),
+      'item_attributes' => array(
+        'id' => '',
+        'class' => '',
+        'style' => '',
+      ),
+      'identifier' => 'menu-groups_online-meetings:http://online-meetings',
+    ),
+    'module' => 'menu',
+    'hidden' => 0,
+    'external' => 1,
+    'has_children' => 0,
+    'expanded' => 0,
+    'weight' => 0,
+    'customized' => 1,
+  );
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Online Meetings');
+
+  return $menu_links;
+}

@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * @param $form
+ * @param $form_state
+ * @param $form_id
+ */
+function wn_blanko_form_user_profile_form_alter(&$form, &$form_state) {
+
+  if (!module_exists('dosb_license')) {
+    unset($form['account']['roles']['#options'][SALTO_ROLE_LICENSE_MANAGER_RID]);
+  }
+}
+
+
+/**
+ * @param $types
+ */
+function wn_blanko_notification_types_alter(&$types) {
+  if (!module_exists('dosb_license')) {
+    foreach ($types as $key => $notification_type) {
+      if (strstr($notification_type->name, 'license')) {
+        unset($types[$key]);
+      }
+    }
+  }
+}
+
+/**
+ * @return array
+ */
+function wn_blanko_less_variables_alter(array &$less_variables, $system_name) {
+  global $conf;
+  if (!empty($conf['wn_blanko']['less_variables_overrides'])) {
+    foreach ($conf['wn_blanko']['less_variables_overrides'] as $var_name => $color) {
+      $less_variables[$var_name] = $color;
+    }
+  }
+}

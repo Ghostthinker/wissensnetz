@@ -1,0 +1,32 @@
+diff --git a/web/sites/all/modules/patched/image_resize_filter/image_resize_filter.module b/web/sites/all/modules/patched/image_resize_filter/image_resize_filter.module
+index 110776d..626bea0 100644
+--- a/web/sites/all/modules/patched/image_resize_filter/image_resize_filter.module
++++ b/web/sites/all/modules/patched/image_resize_filter/image_resize_filter.module
+@@ -565,6 +565,10 @@ function image_resize_filter_image_tag($image = NULL, $settings = NULL) {
+ 
+   $image['attributes']['src'] = $src;
+ 
++  //GT HACK
++  $image['attributes']['data-org'] = $image['original'];
++
++
+   // Set the link properties if necessary.
+   $image['link'] = FALSE;
+   if ($image['resize'] && $settings['link'] && !$image['has_link']) {
+@@ -584,7 +588,6 @@ function image_resize_filter_image_tag($image = NULL, $settings = NULL) {
+   // Theme the output and return.
+   return theme('image_resize_filter_image', array('image' => $image, 'settings' => $settings));
+ }
+-
+ /**
+  * Generate a themed image tag based on an image array.
+  *
+@@ -597,7 +600,7 @@ function theme_image_resize_filter_image($variables) {
+   $image = $variables['image'];
+   $settings = $variables['settings'];
+ 
+-  $output = '<img' . drupal_attributes($image['attributes']) . ' />';
++  $output = '<img' . drupal_attributes($image['attributes']) . ' data-org="'.$image['attributes']['data-org'].'" />';
+   if ($image['link']) {
+     $output = '<a'. drupal_attributes($image['link']['attributes']) . '>' . $output . '</a>';
+   }

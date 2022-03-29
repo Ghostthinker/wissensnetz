@@ -1,0 +1,53 @@
+<?php
+
+/**
+ * @file
+ * Module install logic.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function phpexcel_uninstall() {
+  foreach (array(
+    'phpexcel_cache_mechanism',
+    'phpexcel_phptemp_limit',
+    'phpexcel_apc_cachetime',
+    'phpexcel_memcache_host',
+    'phpexcel_memcache_port',
+    'phpexcel_memcache_cachetime',
+  ) as $variable) {
+    variable_del($variable);
+  }
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function phpexcel_requirements($phase) {
+  if ($phase == 'runtime') {
+    $library = libraries_load('PHPExcel');
+    $t = get_t();
+
+    if (empty($library['loaded'])) {
+      return array(
+        'phpexcel' => array(
+          'title' => $t("PHPExcel"),
+          'value' => '>1.7.8',
+          'description' => $t("In order to use PHPExcel, you must first download the entire library (1.8.*) at !link and put it under sites/*/libraries/PHPExcel/ (so you should have sites/*/libraries/PHPExcel/Classes/PHPExcel.php). Make sure to include the changelog.txt file as well (sites/*/libraries/PHPExcel/changelog.txt), as Library API requires this file for loading the classes.", array('!link' => '<a href="https://github.com/PHPOffice/PHPExcel">Github</a>')),
+          'severity' => REQUIREMENT_ERROR,
+        ),
+      );
+    }
+    else {
+      return array(
+        'phpexcel' => array(
+          'title' => $t("PHPExcel"),
+          'value' => $t("PHPExcel @version", array('@version' => $library['version'])),
+          'severity' => REQUIREMENT_OK,
+        ),
+      );
+    }
+  }
+  return array();
+}

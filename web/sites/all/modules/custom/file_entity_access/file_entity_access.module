@@ -1,0 +1,536 @@
+<?php
+
+/**
+ * Gets the list of file access grants and writes them to the database.
+ *
+ * This function is called when a file is saved, and can also be called by
+ * modules if something other than a file save causes file access permissions to
+ * change. It collects all file access grants for the file from
+ * hook_file_access_records() implementations, allows these grants to be altered
+ * via hook_file_access_records_alter() implementations, and saves the collected
+ * and altered grants to the database.
+ *
+ * @param $file
+ *   The $file to acquire grants for.
+ *
+ * @param $delete
+ *   Whether to delete existing file access records before inserting new ones.
+ *   Defaults to TRUE.
+ */
+function file_entity_access_acquire_grants($file, $delete = TRUE) {
+  $grants = module_invoke_all('file_access_records', $file);
+  drupal_alter('file_access_records', $grants, $file);
+  // If no grants are set and the file is published, then use the default grant.
+  if (empty($grants) && !empty($file->status)) {
+    $grants[] = [
+      'realm' => 'all',
+      'gid' => 0,
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+      'grant_download' => 1,
+    ];
+  }
+  else {
+    $grant_by_priority = [];
+    foreach ($grants as $g) {
+      $grant_by_priority[intval($g['priority'])][] = $g;
+    }
+    krsort($grant_by_priority);
+    $grants = array_shift($grant_by_priority);
+  }
+
+  file_entity_access_write_grants($file, $grants, NULL, $delete);
+}
+
+/**
+ * Writes a list of grants to the database, deleting any previously saved ones.
+ *
+ * If a realm is provided, it will only delete grants from that realm, but it
+ * will always delete a grant from the 'all' realm. Modules that utilize
+ * file_entity_access() can use this function when doing mass updates due to
+ * widespread permission changes.
+ *
+ * Note: Don't call this function directly from a contributed module. Call
+ * file_access_acquire_grants() instead.
+ *
+ * @param $file
+ *   The file whose grants are being written.
+ * @param $grants
+ *   A list of grants to write. Each grant is an array that must contain the
+ *   following keys: realm, gid, grant_view, grant_update, grant_delete.
+ *   The realm is specified by a particular module; the gid is as well, and
+ *   is a module-defined id to define grant privileges. each grant_* field
+ *   is a boolean value.
+ * @param $realm
+ *   (optional) If provided, read/write grants for that realm only. Defaults to
+ *   NULL.
+ * @param $delete
+ *   (optional) If false, does not delete records. This is only for
+ *   optimization
+ *   purposes, and assumes the caller has already performed a mass delete of
+ *   some form. Defaults to TRUE.
+ *
+ * @see file_access_acquire_grants()
+ */
+function file_entity_access_write_grants($file, $grants, $realm = NULL, $delete = TRUE) {
+  if ($delete) {
+    $query = db_delete('file_access')->condition('fid', $file->fid);
+    if ($realm) {
+      $query->condition('realm', [$realm, 'all'], 'IN');
+    }
+    $query->execute();
+  }
+
+  if (!empty($grants) && count(module_implements('file_grants'))) {
+    $query = db_insert('file_access')->fields([
+      'fid',
+      'realm',
+      'gid',
+      'grant_view',
+      'grant_update',
+      'grant_delete',
+      'grant_download',
+    ]);
+    foreach ($grants as $grant) {
+      if ($realm && $realm != $grant['realm']) {
+        continue;
+      }
+      if ($grant['grant_view'] || $grant['grant_update'] || $grant['grant_delete'] || $grant['grant_download']) {
+        $grant['fid'] = $file->fid;
+        $query->values($grant);
+      }
+    }
+    $query->execute();
+  }
+}
+
+
+/**
+ * Implements hook_file_insert().
+ */
+function file_entity_access_file_insert($file) {
+  file_entity_access_acquire_grants($file);
+}
+
+/**
+ *  Implements hook_file_update().
+ */
+function file_entity_access_file_update($file) {
+  file_entity_access_acquire_grants($file);
+}
+
+/**
+ * Fetches an array of permission IDs granted to the given user ID.
+ *
+ * The implementation here provides only the universal "all" grant. A file
+ * access module should implement hook_file_grants() to provide a grant list for
+ * the user.
+ *
+ * After the default grants have been loaded, we allow modules to alter the
+ * grants array by reference. This hook allows for complex business logic to be
+ * applied when integrating multiple file access modules.
+ *
+ * @param $op
+ *   The operation that the user is trying to perform.
+ * @param $account
+ *   The user object for the user performing the operation. If omitted, the
+ *   current user is used.
+ *
+ * @return
+ *   An associative array in which the keys are realms, and the values are
+ *   arrays of grants for those realms.
+ */
+function file_access_grants($op, $account = NULL) {
+
+  if (!isset($account)) {
+    $account = $GLOBALS['user'];
+  }
+
+  $grants = module_invoke_all('file_grants', $account, $op);
+  drupal_alter('file_grants', $grants, $account, $op);
+
+  return array_merge(['all' => [0]], $grants);
+}
+
+/**
+ * Implements hook_file_grants().
+ */
+function file_entity_access_file_grants($account, $op) {
+
+  $grants = [];
+  if ($groups = og_get_entity_groups('user', $account)) {
+    foreach ($groups as $group_type => $gids) {
+      foreach ($gids as $gid) {
+        if ($account->uid != 0) {
+          $realm = 'og_access:' . $group_type;
+          $grants[$realm][] = $gid;
+        }
+      }
+    }
+  }
+  return $grants;
+}
+
+/**
+ * Implements hook_query_TAG_alter().
+ *
+ * This is the hook_query_alter() for queries tagged with 'file_access'. It adds
+ * file access checks for the user account given by the 'account' meta-data (or
+ * global $user if not provided), for an operation given by the 'op' meta-data
+ * (or 'view' if not provided; other possible values are 'update' and 'delete').
+ */
+function file_entity_access_query_file_access_alter(QueryAlterableInterface $query) {
+  _file_query_file_access_alter($query, 'file');
+}
+
+/**
+ * Helper for file access functions.
+ *
+ * Queries tagged with 'file_access' that are not against the {file_managed}
+ * table should add the base table as metadata. For example:
+ *
+ * @code
+ *   $query
+ *     ->addTag('file_access')
+ *     ->addMetaData('base_table', 'taxonomy_index');
+ * @endcode
+ * If the query is not against the {file_managed} table, an attempt is made to
+ *   guess the table, but is not recommended to rely on this as it is
+ *   deprecated and not allowed in Drupal 8. It is always safer to provide the
+ *   table.
+ *
+ * @param $query
+ *   The query to add conditions to.
+ * @param $type
+ *   Either 'file' or 'entity' depending on what sort of query it is. See
+ *   file_query_file_access_alter() and file_query_entity_field_access_alter()
+ *   for more.
+ */
+function _file_query_file_access_alter($query, $type) {
+  global $user;
+
+  // Read meta-data from query, if provided.
+  if (!$account = $query->getMetaData('account')) {
+    $account = $user;
+  }
+  if (!$op = $query->getMetaData('op')) {
+    $op = 'view';
+  }
+
+
+  // If $account can bypass file access, or there are no file access modules,
+  // or the operation is 'view' and the $account has a global view grant
+  // (such as a view grant for file ID 0), we don't need to alter the query.
+  if (user_access('bypass file access', $account)) {
+    return;
+  }
+
+  if (!count(module_implements('file_grants'))) {
+    return;
+  }
+
+  $tables = $query->getTables();
+  $base_table = $query->getMetaData('base_table');
+  // If no base table is specified explicitly, search for one.
+  if (!$base_table) {
+    $fallback = '';
+    foreach ($tables as $alias => $table_info) {
+      if (!($table_info instanceof SelectQueryInterface)) {
+        $table = $table_info['table'];
+        // If the file table is in the query, it wins immediately.
+        if ($table == 'file_managed') {
+          $base_table = $table;
+          break;
+        }
+        // Check whether the table has a foreign key to file.nid. If it does,
+        // do not run this check again as we found a base table and only file
+        // can triumph that.
+        if (!$base_table) {
+          // The schema is cached.
+          $schema = drupal_get_schema($table);
+          if (isset($schema['fields']['fid'])) {
+            if (isset($schema['foreign keys'])) {
+              foreach ($schema['foreign keys'] as $relation) {
+                if ($relation['table'] === 'file_managed' && $relation['columns'] === ['fid' => 'fid']) {
+                  $base_table = $table;
+                }
+              }
+            }
+            else {
+              $fallback = $table;
+            }
+          }
+        }
+      }
+    }
+    // If there is nothing else, use the fallback.
+    if (!$base_table) {
+      if ($fallback) {
+        watchdog('security', 'Your file listing query is using @fallback as a base table in a query tagged for file access. This might not be secure and might not even work. Specify foreign keys in your schema to file.fid ', ['@fallback' => $fallback], WATCHDOG_WARNING);
+        $base_table = $fallback;
+      }
+      else {
+        throw new Exception(t('Query tagged for file access but there is no nid. Add foreign keys to file.fid in schema to fix.'));
+      }
+    }
+  }
+
+  // Find all instances of the base table being joined -- could appear
+  // more than once in the query, and could be aliased. Join each one to
+  // the file_access table.
+
+  $grants = file_access_grants($op, $account);
+  if ($type == 'entity') {
+    $file_conditions = db_and();
+  }
+  foreach ($tables as $nalias => $tableinfo) {
+    $table = $tableinfo['table'];
+    if (!($table instanceof SelectQueryInterface) && $table == $base_table) {
+      // Set the subquery.
+      $subquery = db_select('file_access', 'fa')
+        ->fields('fa', ['fid']);
+
+      $grant_conditions = db_or();
+      // If any grant exists for the specified user, then user has access
+      // to the file for the specified operation.
+      foreach ($grants as $realm => $gids) {
+        foreach ($gids as $gid) {
+          $grant_conditions->condition(db_and()
+            ->condition('fa.gid', $gid)
+            ->condition('fa.realm', $realm)
+          );
+        }
+      }
+
+      if (count($grant_conditions->conditions())) {
+        $subquery->condition($grant_conditions);
+      }
+      $subquery->condition('fa.grant_' . $op, 1, '>=');
+      $field = 'fid';
+      if ($type == 'entity') {
+        $base_alias = $nalias;
+        $field = 'entity_id';
+      }
+      $subquery->where("$nalias.$field = fa.fid");
+
+      if ($type == 'entity') {
+        $file_conditions->exists($subquery);
+      }
+      else {
+        $query->exists($subquery);
+      }
+    }
+  }
+
+  if ($type == 'entity' && count($subquery->conditions())) {
+    $file_conditions->condition("$base_alias.entity_type", 'file');
+    $or = db_or();
+    $or->condition($file_conditions);
+    $or->condition("$base_alias.entity_type", 'file', '<>');
+    $query->condition($or);
+  }
+}
+
+/**
+ * Rebuilds the file access database.
+ *
+ * This is occasionally needed by modules that make system-wide changes to
+ * access levels. When the rebuild is required by an admin-triggered action (e.g
+ * module settings form), calling file_access_needs_rebuild(TRUE) instead of
+ * file_access_rebuild() lets the user perform his changes and actually
+ * rebuild only once he is done.
+ *
+ * Note: As of Drupal 6, file access modules are not required to (and actually
+ * should not) call file_access_rebuild() in hook_enable/disable anymore.
+ *
+ * @param $batch_mode
+ *   Set to TRUE to process in 'batch' mode, spawning processing over several
+ *   HTTP requests (thus avoiding the risk of PHP timeout if the site has a
+ *   large number of files).
+ *   hook_update_N and any form submit handler are safe contexts to use the
+ *   'batch mode'. Less decidable cases (such as calls from hook_user,
+ *   hook_taxonomy, etc...) might consider using the non-batch mode.
+ *
+ * @see file_access_needs_rebuild()
+ *
+ */
+function file_entity_access_rebuild($batch_mode = FALSE) {
+  db_delete('file_access')->execute();
+  // Only recalculate if the site is using a file_access module.
+  if (count(module_implements('file_grants'))) {
+    if ($batch_mode) {
+      $batch = [
+        'title' => t('Rebuilding file access permissions'),
+        'operations' => [
+          ['_file_entity_access_rebuild_batch_operation', []],
+        ],
+        'finished' => '_file_entity_access_rebuild_batch_finished',
+      ];
+      batch_set($batch);
+    }
+    else {
+      // Try to allocate enough time to rebuild file grants
+      drupal_set_time_limit(240);
+
+      // Rebuild newest files first so that recent content becomes available quickly.
+      $fids = db_query("SELECT fid FROM {file_managed} ORDER BY fid DESC")->fetchCol();
+      foreach ($fids as $fid) {
+        $file = file_load($fid);
+        if (!empty($file)) {
+          file_entity_access_acquire_grants($file);
+        }
+      }
+    }
+  }
+  else {
+    db_insert('file_access')
+      ->fields([
+        'fid' => 0,
+        'realm' => 'all',
+        'gid' => 0,
+        'grant_view' => 1,
+        'grant_update' => 0,
+        'grant_delete' => 0,
+      ])
+      ->execute();
+  }
+
+  if (!isset($batch)) {
+    drupal_set_message(t('File permissions have been rebuilt.'));
+    cache_clear_all();
+  }
+}
+
+/**
+ * Performs batch operation for file_access_rebuild().
+ *
+ * This is a multistep operation: we go through all files by packs of 20. The
+ * batch processing engine interrupts processing and sends progress feedback
+ * after 1 second execution time.
+ *
+ * @param array $context
+ *   An array of contextual key/value information for rebuild batch process.
+ */
+function _file_entity_access_rebuild_batch_operation(&$context) {
+  if (empty($context['sandbox'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['current_file'] = 0;
+    $context['sandbox']['max'] = db_query('SELECT COUNT(DISTINCT fid) FROM {file_managed}')->fetchField();
+  }
+
+  // Process the next 20 files.
+  $limit = 20;
+  $fids = db_query_range("SELECT fid FROM {file_managed} WHERE fid > :fid ORDER BY fid ASC", 0, $limit, [':fid' => $context['sandbox']['current_file']])->fetchCol();
+  $files = file_load_multiple($fids, [], TRUE);
+  foreach ($files as $fid => $file) {
+    if (!empty($file)) {
+      file_access_acquire_grants($file);
+    }
+    $context['sandbox']['progress']++;
+    $context['sandbox']['current_file'] = $file;
+  }
+
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+}
+
+/**
+ * Performs post-processing for file_access_rebuild().
+ *
+ * @param bool $success
+ *   A boolean indicating whether the re-build process has completed.
+ * @param array $results
+ *   An array of results information.
+ * @param array $operations
+ *   An array of function calls (not used in this function).
+ */
+function _file_entity_access_rebuild_batch_finished($success, $results, $operations) {
+  if ($success) {
+    drupal_set_message(t('The file access permissions have been rebuilt.'));
+  }
+  else {
+    drupal_set_message(t('The file access permissions have not been properly rebuilt.'), 'error');
+  }
+  cache_clear_all();
+}
+
+/**
+ * Implements hook_action_info().
+ */
+/**
+ * Implements hook_file_entity_access().
+ */
+function file_entity_access_file_entity_access($op, $file, $account) {
+
+  if ($op == 'delete') {
+    if (user_access('bypass file access', $account)) {
+      return NODE_ACCESS_ALLOW;
+    }
+  }
+
+  if ($op == 'update') {
+    if (user_access('bypass file access', $account)) {
+      return NODE_ACCESS_ALLOW;
+    }
+  }
+
+  if ($op == 'create') {
+    if (user_access('create files', $account) || user_access('bypass file access', $account)) {
+      return NODE_ACCESS_ALLOW;
+    }
+  }
+
+  $cid = is_object($file) ? $file->fid : $file;
+
+  $access = module_invoke_all('file_entity_access_ignore_grants', $op, $file, $account);
+  if (in_array(FILE_ENTITY_ACCESS_DENY, $access, TRUE)) {
+    return $rights[$account->uid][$cid][$op] = FILE_ENTITY_ACCESS_DENY;
+  }
+  elseif (in_array(FILE_ENTITY_ACCESS_ALLOW, $access, TRUE)) {
+    return $rights[$account->uid][$cid][$op] = FILE_ENTITY_ACCESS_ALLOW;
+  }
+
+  if ($op != 'create' && $file->fid) {
+    if (module_implements('file_grants')) {
+      $query = db_select('file_access');
+      $query->addExpression('1');
+      $query->condition('grant_' . $op, 1, '>=');
+      $fids = db_or()->condition('fid', $file->fid);
+      if ($file->status) {
+        $fids->condition('fid', 0);
+      }
+      $query->condition($fids);
+      $query->range(0, 1);
+
+      $grants = db_or();
+      foreach (file_access_grants($op, $account) as $realm => $gids) {
+        foreach ($gids as $gid) {
+          $grants->condition(db_and()
+            ->condition('gid', $gid)
+            ->condition('realm', $realm)
+          );
+        }
+      }
+      if (count($grants) > 0) {
+        $query->condition($grants);
+      }
+      $result = (bool) $query
+        ->execute()
+        ->fetchField();
+      $rights[$account->uid][$cid][$op] = $result;
+
+      if ($result) {
+        return FILE_ENTITY_ACCESS_ALLOW;
+      }
+      else {
+        return FILE_ENTITY_ACCESS_DENY;
+      }
+    }
+    elseif (is_object($file) && $op == 'view' && $file->status) {
+      $rights[$account->uid][$cid][$op] = TRUE;
+      return FILE_ENTITY_ACCESS_ALLOW;
+    }
+  }
+}

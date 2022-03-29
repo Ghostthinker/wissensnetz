@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * @file
+ * Tests for postal_code_validation.
+ */
+
+/**
+ * Tests for postal_code_validation.
+ */
+class PostalCodeValidationTestCase extends DrupalUnitTestCase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getInfo() {
+    return [
+      'name' => t('Postal Code Validation'),
+      'description' => t('Test the Postal Code Validation module.'),
+      'group' => t('Location'),
+    ];
+  }
+
+  /**
+   * The tests.
+   */
+  public function test() {
+    include_once __DIR__ . '/../postal_code_validation.module';
+
+    $supported_countries = postal_code_validation_get_supported_countries();
+    $countries_without_codes = postal_code_validation_get_countries_without_codes();
+    $dependencies = postal_code_validation_get_dependencies();
+
+    $array_intersect = array_intersect($countries_without_codes, $supported_countries);
+    $this->assertTrue(count($array_intersect) === 0, 'No countries are listed as supported if they do not have a postal code system.' . implode(', ', $array_intersect));
+
+    $array_intersect = array_intersect($countries_without_codes, array_keys($dependencies));
+    $this->assertTrue(count($array_intersect) === 0, 'No countries are listed as having no postal code system if they use the system of another country.' . implode(', ', $array_intersect));
+
+    $array_intersect = array_intersect($supported_countries, array_keys($dependencies));
+    $this->assertTrue(count($array_intersect) === 0, 'No countries are listed as supported if they use the system of another country.' . implode(', ', $array_intersect));
+
+    $array_unique = array_unique($dependencies);
+    $array_intersect = array_intersect($supported_countries, $array_unique);
+    $this->assertTrue(count($array_intersect) === count($array_unique), 'Only supported countries are listed as being the postal code system used by another country.' . implode(', ', array_diff($array_unique, $supported_countries)));
+
+    $missing_country_files = array();
+    $missing_country_functions = array();
+    foreach ($supported_countries as $country) {
+      $filename = __DIR__ . '/../countries/' . drupal_strtolower($country) . '.inc';
+      if (is_file($filename)) {
+        include_once $filename;
+      }
+      else {
+        $missing_country_files[] = $country;
+      }
+      if (!function_exists('_postal_code_validation_validate_' . $country)) {
+        $missing_country_functions[] = $country;
+      }
+    }
+    $this->assertTrue(count($missing_country_files) === 0, 'Every supported country has a file in the countries directory.' . implode(', ', $missing_country_files));
+    $this->assertTrue(count($missing_country_functions) === 0, 'Every supported country implements _postal_code_validation_validate_COUNTRYCODE().' . implode(', ', $missing_country_functions));
+  }
+
+}

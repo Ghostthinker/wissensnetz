@@ -1,0 +1,984 @@
+<?php
+
+/**
+ * @file
+ *   Basic API implementation.
+ *
+ * @author JAnez Urevc <janez@janezurevc.name>
+ */
+
+/**
+ * Derivative status codes. This status codes define derivative state.
+ */
+define('MEDIA_DERIVATIVE_TYPE_WAITING', 0);
+define('MEDIA_DERIVATIVE_TYPE_PROCESSING', 1);
+define('MEDIA_DERIVATIVE_TYPE_FINISHED', 2);
+define('MEDIA_DERIVATIVE_TYPE_ERROR', 3);
+
+/**
+ * Derivative owner configuration codes.
+ */
+define('MEDIA_DERIVATIVE_OWNER_FILE', 0);
+define('MEDIA_DERIVATIVE_OWNER_DERIVATIVE', 1);
+define('MEDIA_DERIVATIVE_OWNER_STATIC', 2);
+
+/**
+ * Define derivative type codes.
+ */
+define('MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED', 0);
+define('MEDIA_DERIVATIVE_FILE_TYPE_MANAGED', 1);
+
+/**
+ * Include basic implementations.
+ */
+include_once('plugins/media_derivatives.conditions.inc');
+include_once('plugins/media_derivatives.schedulers.inc');
+include_once('plugins/media_derivatives.events.inc');
+
+
+/**
+ * Implements hook_menu().
+ */
+function media_derivatives_menu() {
+  $items = array();
+
+  $items['admin/config/media/media-derivatives/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Configure Media derivatives settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('media_derivatives_settings_form'),
+    'access arguments' => array('administer media_derivatives'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function media_derivatives_permission() {
+  return array(
+    'administer media_derivatives' => array(
+      'title' => t('Administer Media derivatives'),
+      'description' => t('Perform administration tasks for Media derivatives API.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_file_delete().
+ */
+function media_derivatives_file_delete($file) {
+  // Delete this file's derivatives if needed.
+  _media_derivatives_delete_derivatives($file);
+
+  // Delete entry from media_derivatives if this was a derivative file.
+  db_delete('media_derivatives')->condition('derivative_fid', $file->fid)->execute();
+}
+
+/**
+ * Deletes all derivatives of a $file if a recursive delete
+ * was set to TRUE during creation of it.
+ *
+ * Files will not be physically deleted. This function will just mark
+ * them as temporary, so next cron wil most likely delete them.
+ *
+ * Check constant DRUPAL_MAXIMUM_TEMP_FILE_AGE.
+ *
+ */
+function _media_derivatives_delete_derivatives($file) {
+  $derivatives = db_select('media_derivatives', 'md')
+    ->condition('source_fid', $file->fid)
+    ->condition('status', MEDIA_DERIVATIVE_TYPE_FINISHED)
+    ->fields('md', array('mdid'))
+    ->execute();
+
+  while ($mdid = $derivatives->fetchField()) {
+    $derivative = media_derivatives_load($mdid);
+
+    // Delete managed files.
+    if ($derivative->preset->settings['type'] == MEDIA_DERIVATIVE_FILE_TYPE_MANAGED) {
+      if (isset($derivative->preset->settings['recursive_delete']) && $derivative->preset->settings['recursive_delete']) {
+        $derivative_file = file_load($derivative->derivative_fid);
+        _media_derivatives_mark_temporary($derivative_file, $file);
+        _media_derivatives_delete_derivatives($derivative_file);
+      }
+    }
+
+    // Delete unmanaged files.
+    else {
+      file_unmanaged_delete($derivative->unmanaged_uri);
+
+      db_delete('media_derivatives_unmanaged')
+        ->condition('mdid', $derivative->mdid)
+        ->execute();
+
+      db_delete('media_derivatives')->condition('mdid', $derivative->mdid)->execute();
+
+      if (variable_get('media_derivatives_display_status_messages', TRUE)) {
+        drupal_set_message(t('Unmanaged file %derivative, derivative of %orig, was deleted.', array('%derivative' => $derivative->unmanaged_uri, '%orig' => $file->filename)), 'status');
+      }
+    }
+  }
+}
+
+/**
+ * Marks file as temporary.
+ */
+function _media_derivatives_mark_temporary(&$derivative_file, $file) {
+  $derivative_file->status = 0;
+  file_save($derivative_file);
+  if (variable_get('media_derivatives_display_status_messages', TRUE)) {
+    drupal_set_message(t('File %derivative, derivative of %orig, was marked as temporary and will be deleted during one of the next crons.', array('%derivative' => $derivative_file->filename, '%orig' => $file->filename)), 'status');
+  }
+}
+
+/**
+ * Implements hook_file_load().
+ */
+function media_derivatives_file_load($files) {
+
+  // Recognize files that are derivatives and populate its file object with
+  // derivative info.
+  foreach ($files as $key => $file) {
+
+    // Check for derivative.
+    /* $derivative = db_select('media_derivatives', 'md')
+      ->fields('md', array('mdid'))
+      ->condition('derivative_fid', $file->fid)
+      ->execute()
+      ->fetchField();*/
+
+    // Populate file object if derivative.
+    //if ($derivative) {
+      media_derivatives_inform_file_object($files[$key]);
+    //}
+    //else {
+      //$file->media_derivatives['is_derivative'] = FALSE;
+    //}
+
+  }
+
+}
+
+/**
+ * Implements hook_cron().
+ *
+ * Checks all waiting derivatives and runs those that are ready to be encoded.
+ */
+function media_derivatives_cron() {
+
+  // Ask schedulers about derivatives that are waiting
+  // and have no scheduled_time set.
+  $sched = db_select('media_derivatives', 'md')
+    ->fields('md', array('mdid'))
+    ->condition('status', 0)
+    ->isNull('scheduled_time')
+    ->execute();
+
+  // Run encoding for all scheduled encodings.
+  while ($mdid = $sched->fetchField()) {
+    $derivative = media_derivatives_load($mdid);
+    media_derivatives_schedule_derivative($derivative);
+  }
+
+  // Check if there are some encodings that must be run.
+  // TODO: Use queue/batch here.
+  $sched = db_select('media_derivatives', 'md')
+    ->fields('md', array('mdid'))
+    ->condition('status', 0)
+    ->isNotNull('scheduled_time')
+    ->condition('scheduled_time', REQUEST_TIME, '<')
+    ->execute();
+
+  // Run encoding for all scheduled encodings.
+  while ($mdid = $sched->fetchField()) {
+    $derivative = media_derivatives_load($mdid);
+    media_derivatives_start_encode($derivative);
+  }
+
+}
+
+/**
+ * Returns list of derivation engines with configuration for each of them.
+ */
+function media_derivatives_get_engines() {
+
+  // Load cached data if availible.
+  if ($cache = cache_get('media_derivatives_engines', 'cache')) {
+    $engines = $cache->data;
+  }
+
+  // Ask engine modules for info and build data array.
+  else {
+    $engines = array();
+    foreach (module_implements('media_derivatives_engine_info') as $module) {
+      $engines[$module] = module_invoke($module, 'media_derivatives_engine_info');
+      $engines[$module]['module_name'] = $module;
+    }
+    drupal_alter('media_derivatives_engine_info', $engines);
+
+    cache_set('media_derivatives_engines', $engines, 'cache', CACHE_TEMPORARY);
+  }
+
+  return $engines;
+}
+
+
+/**
+ * Returns list of derivation presets with configuration for each of them.
+ */
+function media_derivatives_get_presets() {
+
+  // Load cached data if availible.
+  if ($cache = cache_get('media_derivatives_presets', 'cache')) {
+    $presets = $cache->data;
+  }
+
+  // Ask ctools to provide us with exported presets data and return.
+  else {
+    ctools_include('export');
+    $presets = ctools_export_load_object('media_derivatives_presets', 'all');
+
+    // Filter out disabled presets.
+    $enabled_presets = array();
+    foreach ($presets as $name => $preset) {
+      if (empty($preset->disabled)) {
+        $enabled_presets[$name] = $preset;
+      }
+    }
+
+    $presets = $enabled_presets;
+
+    cache_set('media_derivatives_presets', $presets, 'cache', CACHE_TEMPORARY);
+  }
+
+  return $presets;
+}
+
+
+/**
+ * Creates derivatives for a file.
+ *
+ * @param $file File object for original.
+ * @param $event Event that executed  derivativation process.
+ * @param $context Optional context array that was passed by event.
+ *
+ */
+function media_derivatives_create_all_derivatives($file, $event, $context = array()) {
+  $presets = media_derivatives_get_presets();
+  $derivatives = array();
+
+  foreach ($presets as $preset) {
+    media_derivatives_create_derivative($file, $preset, $event, $context);
+  }
+}
+
+/**
+ * Creates a single derivative for a file.
+ *
+ * @param $file File object for original.
+ * @param $preset Preset that will be used to create a derivative of $file.
+ * @param $event Event that executed  derivativation process.
+ * @param $context Optional context array that was passed by event.
+ *
+ */
+function media_derivatives_create_derivative($file, $preset, $event, $context = array()) {
+
+  // Check if this engine supports this file.
+  if (media_derivatives_check_conditions($file, $preset) &&
+      media_derivatives_check_event($file, $preset, $event, $context) &&
+      !media_derivatives_derivative_exists($file, $preset)) {
+
+    // Create derivative.
+    $derivative = media_derivatives_create_derivative_object($file, $preset, $event, $context);
+
+    // Check if drivative needs to be run.
+    media_derivatives_schedule_derivative($derivative);
+
+  }
+
+}
+
+/**
+ * Checks if file should be processed with a given preset.
+ *
+ * @param $file File to be tested.
+ * @param $preset Preset to be tested for.
+ *
+ * @return TRUE if file should be processed, FALSE otherwise.
+ */
+function media_derivatives_check_conditions($file, $preset) {
+
+  // Run all conditions this preset expects.
+  $conditions = media_derivatives_get_conditions();
+  $support = TRUE;
+  foreach ($preset->conditions as $condition) {
+    if (isset($conditions[$condition])) {
+      $callback = $conditions[$condition]['callback'];
+      $negate = !empty($conditions[$condition]['negatable']) && !empty($preset->conditions_settings[$condition . '_negate']);
+      $support &= $negate ? !$callback($file, $preset) : $callback($file, $preset);
+    }
+    else {
+      drupal_set_message(t('Condition %condition, requested by derivation preset %preset, does not exist.', array('%condition' => $condition, '%preset' => $preset->machine_name)), 'error');
+      watchdog('media_derivatives', 'Condition %condition, requested by derivation preset %preset, does not exist.', array('%condition' => $condition, '%preset' => $preset->machine_name), WATCHDOG_ERROR);
+      return FALSE;
+    }
+  }
+
+  return $support;
+
+}
+
+/**
+ * Runs validation callbacks for current event.
+ *
+ * @param $file File to be derivated.
+ * @param $preset Preset that will be used to create a derivative.
+ * @param $event Event's machine name (event that wants to derivate $file).
+ * @param $context Optional context array that was passed by event.
+ *
+ * @return TRUE if file should be processed, FALSE otherwise.
+ */
+function media_derivatives_check_event($file, $preset, $event, $context = NULL) {
+
+  // Check if $preset reacts on this event.
+  if (in_array($event, $preset->events) || $preset->events == 'all') {
+    // Get derivation events registry.
+    $events = media_derivatives_get_events();
+
+    // Check if event exists.
+    $support = TRUE;
+    if (isset($events[$event])) {
+
+      // Run all validation callbacks. Since this is a optional setting, check for existance first.
+      if (isset($events[$event]['validation_callbacks'])) {
+        foreach ($events[$event]['validation_callbacks'] as $callback) {
+          $support &= $callback($file, $preset, $context);
+        }
+      }
+
+    }
+
+    // Throw error, if event does not exists in the registry.
+    else {
+      $message = 'Event %event, which is said to have triggered derivation of %file with preset %preset, does not exsist.';
+      drupal_set_message(
+        t($messagge),
+        array(
+          '%event' => $event,
+          '%file' => $file->uri,
+          '%preset' => $preset->machine_name,
+        ),
+        'error'
+      );
+      watchdog('media_derivatives', $message, $vars, WATCHDOG_ERROR);
+      return FALSE;
+    }
+
+    return $support;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Creates new derivative and sets its status code to
+ * MEDIA_DERIVATIVE_WAITING.
+ *
+ * @param $file File object of source file.
+ * @param $preset Derivation preset information.
+ */
+function media_derivatives_create_derivative_object($file, $preset, $event, $context = array()) {
+  global $user;
+
+  // Create derivative object.
+  $derivative = new stdClass;
+  $derivative->type = isset($preset->settings['type']) ? $preset->settings['type'] : MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED;
+  $derivative->unmanaged_uri = NULL;
+  $derivative->engine = $preset->engine;
+  $derivative->preset_name = $preset->machine_name;
+  $derivative->preset = $preset;
+  $derivative->status = MEDIA_DERIVATIVE_TYPE_WAITING;
+  $derivative->source_fid = $file->fid;
+  $derivative->root_source_fid = $file->media_derivatives['is_derivative'] ? $file->media_derivatives['derivative_object']->root_source_fid : $file->fid;
+  $derivative->uid = $user->uid;
+  $derivative->scheduler = $preset->scheduler;
+  $derivative->scheduled_time = NULL;
+  $derivative->event = $event;
+  $derivative->context = $context;
+
+  return media_derivatives_save($derivative);
+}
+
+/**
+ * Starts encoding for a given derivative and populates media_derivatives and
+ * file_managed table.
+ * @param $derivative
+ */
+function media_derivatives_start_encode($derivative) {
+  $file = file_load($derivative->source_fid);
+
+  // Fail if file does not exist.
+  if (!$file) {
+
+    $derivative->status = MEDIA_DERIVATIVE_TYPE_ERROR;
+    $derivative->log = t('Requested source file does not exist.');
+    media_derivatives_save($derivative);
+
+    // Log error
+    watchdog('media_derivatives', 'The requested source file (FID: %fid) for derivative %id, was not found.', array('%id' => $derivative->mdid, '%fid' => $derivative->source_fid), WATCHDOG_ERROR);
+    drupal_set_message(t('The requested source file (FID: %fid) for derivative %id, was not found.', array('%id' => $derivative->mdid, '%fid' => $derivative->source_fid)), 'error');
+
+    return;
+  }
+
+  try {
+
+    // Set status to "processing" before calling engine.
+    $derivative->status = MEDIA_DERIVATIVE_TYPE_PROCESSING;
+    media_derivatives_save($derivative);
+
+    // Run encoding.
+    $der_file = module_invoke($derivative->engine, 'media_derivatives_create_derivative', $file, $derivative);
+
+    // For managed files.
+    if (isset($derivative->preset->settings['type']) && $derivative->preset->settings['type'] == MEDIA_DERIVATIVE_FILE_TYPE_MANAGED) {
+
+      // If URI string was returned we have to prepare file object before save.
+      if (is_string($der_file)) {
+
+        // If engine returned URI string build file object.
+        $uri = $der_file;
+        $der_file = new stdClass;
+        $der_file->uri = $uri;
+
+        if (isset($derivative->preset->settings['user']) && $derivative->preset->settings['user'] == MEDIA_DERIVATIVE_OWNER_DERIVATIVE) {
+          $der_file->uid = $derivative->uid;
+        }
+        elseif (isset($derivative->preset->settings['user']) && $derivative->preset->settings['user'] == MEDIA_DERIVATIVE_OWNER_STATIC) {
+          $der_file->uid = $derivative->preset->settings['user_uid'];
+        }
+        else { //$derivative->preset->settings['user'] == MEDIA_DERIVATIVE_OWNER_FILE
+          $der_file->uid = $file->uid;
+        }
+
+        $der_file->filemime = file_get_mimetype($uri);
+        $filename = explode('/', $der_file->uri);
+        $der_file->filename = array_pop($filename);
+        $der_file->status = FILE_STATUS_PERMANENT;
+
+      }
+
+      // Populate new file object with derivative information.
+      media_derivatives_inform_file_object($der_file, $derivative->mdid);
+
+      // Save to DB.
+      $der_file = file_save($der_file);
+
+      // Populate media_derivatives table.
+      $derivative->derivative_fid = $der_file->fid;
+      $derivative->status = MEDIA_DERIVATIVE_TYPE_FINISHED;
+      media_derivatives_save($derivative);
+
+      // Derivatives of new file could be created by now, so populate once again.
+      media_derivatives_inform_file_object($der_file);
+
+    }
+    // For unmanaged files.
+    else {
+      $derivative->unmanaged_uri = $der_file;
+      $derivative->status = MEDIA_DERIVATIVE_TYPE_FINISHED;
+      media_derivatives_save($derivative);
+    }
+
+    module_invoke_all('media_derivatives_derivative_postencode', $derivative);
+
+    // Delete source if needed.
+    if (isset($derivative->settings['delete_source']) && $derivative->settings['delete_source']) {
+      file_delete($file);
+    }
+
+  }
+  catch (MediaDerivativesException $e) {
+
+    // If there was an error.
+    $derivative->status = MEDIA_DERIVATIVE_TYPE_ERROR;
+    $derivative->log = $e->getMessage();
+    media_derivatives_save($derivative);
+
+    // Log error
+    watchdog('media_derivatives', 'There was an error while trying to create derivative %id: @error.', array('%id' => $derivative->mdid, '@error' => $e->getMessage()), WATCHDOG_ERROR);
+    drupal_set_message(t('There was an error while trying to create derivative %id: @error.', array('%id' => $derivative->mdid, '@error' => $e->getMessage())), 'error');
+
+  }
+
+  if (module_exists('entitycache')) {
+    // If entitycache module is enabled clear cache for this file
+    cache_clear_all($file->fid, 'cache_entity_file');
+  }
+
+}
+
+/**
+ * Saves media derivative to DB.
+ *
+ * @param $derivative Derivative object ($derivative->mdid must be defined if updating an exsisting item)
+ *
+ * @return Populated derivative object.
+ */
+function media_derivatives_save($derivative) {
+  $transaction = db_transaction();
+
+  try {
+    // Check if this is new.
+    $new = !isset($derivative->mdid);
+
+    // Set created time if new.
+    if ($new) {
+      $derivative->created = REQUEST_TIME;
+    }
+
+    // Always update changed time.Enter description here ...
+    $derivative->changed = REQUEST_TIME;
+
+    // Presave hook.
+    module_invoke_all('media_derivatives_derivative_presave', $derivative);
+
+    // Write to DB.
+    if ($new) {
+      module_invoke_all('media_derivatives_derivative_insert', $derivative);
+      drupal_write_record('media_derivatives', $derivative);
+    }
+    else {
+      drupal_write_record('media_derivatives', $derivative, 'mdid');
+    }
+
+    // Save URI for unmanaged files.
+    if (!empty($derivative->unmanaged_uri)) {
+      $derivative->mdid;
+      $derivative->unmanaged_uri;
+
+      $old_uri = db_select('media_derivatives_unmanaged', 'mu')
+        ->condition('mdid', $derivative->mdid)
+        ->fields('mu', array('mdid'))
+        ->execute()
+        ->fetchField();
+
+      if ($old_uri) {
+        db_update('media_derivatives_unmanaged')
+          ->condition('mdid', $derivative->mdid)
+          ->fields(array(
+            'uri' => $derivative->unmanaged_uri,
+          ))
+          ->execute();
+      }
+      else {
+        db_insert('media_derivatives_unmanaged')
+          ->fields(array(
+            'mdid' => $derivative->mdid,
+            'uri' => $derivative->unmanaged_uri,
+          ))
+          ->execute();
+      }
+    }
+
+    // Return media derivative object for saved item.
+    return media_derivatives_load($derivative->mdid);
+  }
+  catch (Exception $e) {
+    $transaction->rollback();
+    watchdog_exception('media_derivatives', $e);
+    throw $e;
+  }
+}
+
+/**
+ * Load media derivative object.
+ *
+ * @param int $mdid Derivative's ID.
+ * @return Media derivative object.
+ */
+function media_derivatives_load($mdid) {
+  $derivative = media_derivatives_load_multiple(array($mdid));
+
+  return $derivative[$mdid];
+}
+
+/**
+ * Load multiple media derivative objects.
+ *
+ * @param $mdids Array of Derivative IDs.
+ * @return Media derivative object.
+ */
+function media_derivatives_load_multiple($mdids) {
+  $derivatives = array();
+
+  foreach ($mdids as $mdid) {
+    $derivative = db_select('media_derivatives', 'md')
+      ->fields('md')
+      ->condition('mdid', $mdid)
+      ->execute()
+      ->fetchObject();
+
+    $derivative->preset = unserialize($derivative->preset);
+    $derivative->context = unserialize($derivative->context);
+
+    // Load unmanaged URI if needed.
+    $uri = db_select('media_derivatives_unmanaged', 'mu')
+      ->condition('mdid', $derivative->mdid)
+      ->fields('mu', array('uri'))
+      ->execute()
+      ->fetchField();
+    $derivative->unmanaged_uri = $uri;
+    $derivative->filemime = file_get_mimetype($uri);
+
+    module_invoke_all('media_derivatives_derivative_load', $derivative);
+    $derivatives[$derivative->mdid] = $derivative;
+  }
+
+  return $derivatives;
+}
+
+/**
+ * Populates given file object with derivative information (this file is a derivative, so we
+ * add info about that to its object).
+ *
+ * Data about derivatives will be loaded from DB. There is a situation right after derivative
+ * encode, where there is no DB entry yet. When we have use case like that we can pass derivative
+ * $mdid as an argument.
+ *
+ * @param $file Derivative's file object.
+ * @param $derivative MDID of this derivative.
+ */
+function media_derivatives_inform_file_object($file, $derivative = NULL) {
+  // Check if is derivative derivative.
+  if (empty($derivative)) {
+    $derivative = db_select('media_derivatives', 'md')
+      ->fields('md', array('mdid'))
+      ->condition('derivative_fid', $file->fid)
+      ->execute()
+      ->fetchField();
+  }
+
+  if ($derivative) {
+    $file->media_derivatives['is_derivative'] = TRUE;
+    $file->media_derivatives['derivative_object'] = media_derivatives_load($derivative);
+  }
+  else {
+    $file->media_derivatives['is_derivative'] = FALSE;
+  }
+
+  // Check if has derivatives.
+  if (isset($file->fid)) {
+    $file->media_derivatives['has_derivatives'] = FALSE;
+    $derivative = db_select('media_derivatives', 'md')
+      ->fields('md', array('mdid'))
+      ->condition('source_fid', $file->fid)
+      ->execute();
+
+    while ($mdid = $derivative->fetchField()) {
+      $der_object = media_derivatives_load($mdid);
+      $file->media_derivatives['derivatives_list'][$der_object->preset->machine_name] = $der_object;
+      $file->media_derivatives['has_derivatives'] = TRUE;
+    }
+  }
+
+}
+
+/**
+ * Returns array of all supported fields that can be used to event encoding when
+ * a file has been saved to it.
+ *
+ * @return array of field_name => fid_column pairs, where field_name represents machine
+ *         name of supported field and fid_column is column where fid of attached file is
+ *         stored.
+ */
+function media_derivatives_supported_fields() {
+  if (!($fields = cache_get('media_derivatives_supported_fields', 'cache'))) {
+    $types = media_derivatives_field_types();
+    $fields = array();
+
+    foreach (field_info_fields() as $field => $data) {
+      if (isset($types[$data['type']])) {
+        $fields[$field] = $types[$data['type']];
+      }
+    }
+
+    cache_set('media_derivatives_supported_fields', $fields, 'cache', CACHE_TEMPORARY);
+    return $fields;
+  }
+
+  return $fields->data;
+}
+
+/**
+ * Returns array of supported field types (mereged data returned by all
+ * implementations of hook_media_derivatives_field_types()).
+ *
+ *  @see hook_media_derivatives_field_types()
+ */
+function media_derivatives_field_types() {
+  if (!($types = cache_get('media_derivatives_field_types', 'cache'))) {
+    $types = module_invoke_all('media_derivatives_field_types');
+    cache_set('media_derivatives_field_types', $types, 'cache', CACHE_TEMPORARY);
+    return $types;
+  }
+
+  return $types->data;
+}
+
+/**
+ * Implements hook_media_derivatives_field_types().
+ */
+function media_derivatives_media_derivatives_field_types() {
+  return array(
+    'file' => 'fid',
+    'media' => 'fid',
+    'image' => 'fid',
+  );
+}
+
+/**
+ * Checks if a derivative of file already exists.
+ *
+ * @param $file Original file.
+ * @param $preset Derivative preset.
+ *
+ * @return MDID if derivative exists, FALSE otherwise.
+ */
+function media_derivatives_derivative_exists($file, $preset) {
+  return db_select('media_derivatives', 'md')
+    ->condition('preset_name', $preset->machine_name)
+    ->condition('source_fid', $file->fid)
+    ->fields('md', array('mdid'))
+    ->execute()
+    ->fetchField();
+}
+
+/**
+ * Returns a list of derivation conditions in system.
+ */
+function media_derivatives_get_conditions() {
+
+  // Load cached data if availible.
+  if ($cache = cache_get('media_derivatives_conditions', 'cache')) {
+    $conditions = $cache->data;
+  }
+
+  // Ask modules for info about conditions they implement.
+  else {
+    $conditions = array();
+    $conditions = module_invoke_all('media_derivatives_conditions_info');
+    drupal_alter('media_derivatives_conditions_info', $conditions);
+
+    cache_set('media_derivatives_conditions', $conditions, 'cache', CACHE_TEMPORARY);
+  }
+
+  return $conditions;
+
+}
+
+/**
+ * Retuns array of all events in the system.
+ */
+function media_derivatives_get_events() {
+
+  // Load cached data if availible.
+  if ($cache = cache_get('media_derivatives_events', 'cache')) {
+    $events = $cache->data;
+  }
+
+  // Ask modules for info about events they implement.
+  else {
+    $events = array();
+    $events = module_invoke_all('media_derivatives_events_info');
+    drupal_alter('media_derivatives_events_info', $events);
+
+    cache_set('media_derivatives_events', $events, 'cache', CACHE_TEMPORARY);
+  }
+
+  return $events;
+}
+
+/**
+ * Retuns array of all schedulers in the system.
+ */
+function media_derivatives_get_schedulers() {
+
+  // Load cached data if availible.
+  if ($cache = cache_get('media_derivatives_schedulers', 'cache')) {
+    $schedulers = $cache->data;
+  }
+
+  // Ask modules for info about schedulers they implement.
+  else {
+    $schedulers = array();
+    $schedulers = module_invoke_all('media_derivatives_schedulers_info');
+    drupal_alter('media_derivatives_schedulers_info', $schedulers);
+
+    cache_set('media_derivatives_schedulers', $schedulers, 'cache', CACHE_TEMPORARY);
+  }
+
+  return $schedulers;
+}
+
+/**
+ * Asks scheduler if a derivate should be processed.
+ */
+function media_derivatives_schedule_derivative($derivative) {
+
+  $schedulers = media_derivatives_get_schedulers();
+  $callback = $schedulers[$derivative->scheduler]['callback'];
+
+  $action = $callback($derivative);
+
+  // If scheduler returns timestamp just schedule it. It will be run with cron.
+  if (is_integer($action)) {
+    $derivative->scheduled_time = $action;
+    media_derivatives_save($derivative);
+  }
+
+  // If scheduler returns "TRUE", run it immediatley.
+  elseif ($action) {
+    $derivative->scheduled_time = time();
+    media_derivatives_save($derivative);
+
+    // Start processing using background_process.module
+    if (module_exists('background_process') && variable_get('media_derivatives_background_process', TRUE)) {
+      $handle = background_process_start('media_derivatives_start_encode', $derivative);
+      if (variable_get('media_derivatives_display_status_messages', TRUE)) {
+        drupal_set_message(t('Processing of derivative passed to background_process (preset:  %der_name, source FID: %fid).', array('%der_name' => $derivative->preset_name, '%fid' => $derivative->source_fid)), 'status');
+      }
+    }
+    else {
+      media_derivatives_start_encode($derivative);
+    }
+  }
+
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function media_derivatives_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'media_derivatives') . '/views',
+  );
+}
+
+/**
+ * Implements hook_enable().
+ */
+function media_derivatives_enable() {
+  cache_clear_all('media_derivatives_engines', 'cache');
+  cache_clear_all('media_derivatives_presets', 'cache');
+  cache_clear_all('media_derivatives_conditions', 'cache');
+  cache_clear_all('media_derivatives_events', 'cache');
+  cache_clear_all('media_derivatives_schedulers', 'cache');
+  cache_clear_all('media_derivatives_supported_fields', 'cache');
+  cache_clear_all('media_derivatives_field_types', 'cache');
+}
+
+/**
+ * Implements hook_disable().
+ */
+function media_derivatives_disable() {
+  cache_clear_all('media_derivatives_engines', 'cache');
+  cache_clear_all('media_derivatives_presets', 'cache');
+  cache_clear_all('media_derivatives_conditions', 'cache');
+  cache_clear_all('media_derivatives_events', 'cache');
+  cache_clear_all('media_derivatives_schedulers', 'cache');
+  cache_clear_all('media_derivatives_supported_fields', 'cache');
+  cache_clear_all('media_derivatives_field_types', 'cache');
+}
+
+/**
+ * Settings form.
+ */
+function media_derivatives_settings_form($form, &$form_state) {
+  $form = array();
+
+  if (module_exists('background_process')) {
+    $form['media_derivatives_background_process'] = array(
+      '#title' => t('Process using Background process'),
+      '#description' => t('Process derivatives using <a href="@url">Background process</a> module.', array('@url' => 'http://drupal.org/project/background_process')),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get('media_derivatives_background_process', TRUE),
+    );
+  }
+
+  $form['media_derivatives_display_status_messages'] = array(
+    '#title' => t('Display status messages'),
+    '#description' => t('Show messages about the status of media derivatives.'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('media_derivatives_display_status_messages', TRUE)
+  );
+
+  return system_settings_form($form);
+}
+
+
+/**
+ * Updates progress information when using background_process.module
+ * to process files in background.
+ *
+ * This function will probably be called from encoding function of
+ * a module that implements an engine for media_derivatives.
+ *
+ * @param $progress Progress information (real number on a <0.0 - 1.0> interval).
+ * @param $message Message to be displayed with progress information.
+ *
+ * @return TRUE if progress update was successful, FALSE otherwise.
+ */
+function media_derivatives_set_progress($progress, $message) {
+  if (module_exists('background_process') && $handle = background_process_current_handle()) {
+    return progress_set_progress($handle, $message, $progress);
+  }
+
+  return FALSE;
+}
+
+
+/**
+ * Delete unmanaged derivative. To delete managed derivative use
+ * core's file_delete().
+ *
+ * @param $file Source file object
+ * @param $preset Unmanaged derivative preset name.
+ *
+ * @return TRUE if delete operation was successful. FALSE otherwise.
+ */
+function media_derivatives_delete_unmanaged($file, $preset) {
+
+  // Check if derivative exists.
+  $delete = !empty($file->media_derivatives['derivatives_list'][$preset]);
+  $derivative = $file->media_derivatives['derivatives_list'][$preset];
+  $delete &= $derivative->preset->settings['type'] == MEDIA_DERIVATIVE_FILE_TYPE_UNMANAGED;
+
+  // Derivative was not found. Cancel.
+  if (!$delete) {
+    return FALSE;
+  }
+
+  // Delete derivative.
+  if ($delete) {
+    $success = file_unmanaged_delete($derivative->unmanaged_uri);
+
+    db_delete('media_derivatives_unmanaged')
+      ->condition('mdid', $derivative->mdid)
+      ->execute();
+
+    db_delete('media_derivatives')->condition('mdid', $derivative->mdid)->execute();
+
+    if (variable_get('media_derivatives_display_status_messages', TRUE)) {
+      drupal_set_message(t('Unmanaged file %derivative, derivative of %orig, was deleted.', array('%derivative' => $derivative->unmanaged_uri, '%orig' => $file->filename)), 'status');
+    }
+
+    return TRUE;
+  }
+
+}

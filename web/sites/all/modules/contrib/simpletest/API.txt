@@ -1,0 +1,15 @@
+
+DESCRIPTION
+-----------
+Provides a reference of the API changes between SimpleTest 7.x-1.x include with
+Drupal 7 core and SimpleTest 7.x-2.x.
+
+CHANGES
+-------
+ * The DrupalWebTestCase::setUp() method no longer accepts a variable number of
+   arguments, instead it only accepts an array of the modules to be enabled.
+
+ * Modules that provided 2.x compatible tests are required to add the following
+   attribute to their info file.
+   
+   testing_api = 2.x

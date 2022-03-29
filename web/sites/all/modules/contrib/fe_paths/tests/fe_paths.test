@@ -1,0 +1,285 @@
+<?php
+
+/**
+ * @file
+ *  Tests for File Entity Paths
+ */
+
+class FileEntityPathsHelper extends DrupalWebTestCase {
+  // An array of files to be processed.
+  protected $files = array();
+  // Array of different File Entity Paths configurations for testing different
+  // cases
+  protected $configs = array();
+  // 10 random and some default file path pattern. It should be used in
+  // configuration.
+  protected $filePathPatterns = array();
+  // 10 random and some default file name pattern. It should be used in
+  // configuration.
+  protected $fileNamePatterns = array();
+
+
+  function setUp() {
+    parent::setUp(array('fe_paths_test'));
+    $web_user = $this->drupalCreateUser(array(
+      'create fe_paths_test_1 content',
+      'create fe_paths_test_2 content',
+      'administer files',
+      'administer_fe_paths',
+      'administer users'
+    ));
+    $this->drupalLogin($web_user);
+    $this->setDefaultVariables(array('image', 'text'));
+    $this->setUpFiles();
+    $this->setfileNamePatterns();
+    $this->setfilePathPatterns();
+  }
+
+  function setUpFiles() {
+    $types = array('text', 'image');
+    foreach ($types as $type) {
+      foreach ($this->drupalGetTestFiles($type) as $file) {
+        $this->files[$type][] = $file;
+      }
+    }
+  }
+
+  protected function setDefaultVariables($file_types = array(), $postfix = '') {
+    foreach ($file_types as $type) {
+      $config = array();
+      foreach (fe_paths_get_allowed_schemes() as $scheme) {
+        $config[$scheme] = array(
+          'path' => $type . $postfix,
+          'filename' => $type . $postfix . '.fep.test',
+        );
+      }
+      variable_set("fep_$type", $config);
+    }
+  }
+
+  /**
+   * Create 10 random filename with random extension. + Add the original
+   * pattern.
+   */
+  protected function setFileNamePatterns() {
+    while (!isset($this->fileNamePatterns[9])) {
+      $this->fileNamePatterns[] = $this->randomName(8) . '.' . $this->randomName(3);
+    };
+    $this->fileNamePatterns['original'] = '[file:name-only-original].[file:extension-original]';
+  }
+
+  /**
+   * Create 10 random filepath pattern. Also add a fix sample to image and text.
+   */
+  protected function setFilePathPatterns() {
+    while (!isset($this->filePathPatterns[9])) {
+      $this->filePathPatterns[] = $this->randomName(8);
+    }
+
+    $this->filePathPatterns['image'] = 'images';
+    $this->filePathPatterns['text'] = 'text';
+  }
+
+  /**
+   * Create random configuration object based on file_path and file_name.
+   *
+   * @param $file_path
+   * @param $file_name
+   *
+   * @return object
+   */
+  protected function generateRandomConfig($file_path, $file_name, $weight = 0) {
+    return (object) array(
+      'machine_name' => strtolower($this->randomName(8)),
+      'label' => $this->randomString(8),
+      'path' => $file_path,
+      'filename' => $file_name,
+      'status' => TRUE,
+      'weight' => $weight,
+      // @todo: figure out better data handling.
+      'data' => array(
+        'transliteration' => 0,
+        'pathauto' => 0,
+        'file_entity' => array(
+          'application' => 0,
+          'audio' => 0,
+          'image' => 'image',
+          'video' => 0,
+          'default' => 0,
+          'text' => 'text'
+        ),
+        'entity' => 'node',
+        'bundle' => array(
+          'fe_paths_test_1' => array(),
+          'fe_paths_test_2' => array(),
+        ),
+      ),
+      'other_config' => 0,
+      'override_options' => 0,
+    );
+  }
+
+  /**
+   * Save the config and add to the class configs array.
+   *
+   * @param $config
+   */
+  protected function addToConfig($config) {
+    if (fe_paths_config_save($config)) {
+      $this->configs[] = $config;
+    };
+  }
+}
+
+/**
+ * Configuration page tests.
+ */
+class FileEntityPathsConfigurationPageTestCase extends FileEntityPathsHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'File Entity Paths configuration',
+      'description' => 'Test file entity configuration and settings pages.',
+      'group' => 'File Entity Paths',
+      'dependencies' => array('file_entity'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $this->addToConfig($this->generateRandomConfig($this->filePathPatterns[0], $this->fileNamePatterns[0], 0));
+    $this->addToConfig($this->generateRandomConfig($this->filePathPatterns[1], $this->fileNamePatterns[1], 1));
+    $this->addToConfig($this->generateRandomConfig($this->filePathPatterns[2], $this->fileNamePatterns[2], 2));
+  }
+
+  function testConfigPage() {
+    $configs = fe_paths_config_load_multiple();
+    // Working on id 1 configuration
+    $config = $configs[1];
+    $this->drupalGet('admin/config/media/fe-paths');
+
+    $configs_in_page = $this->xpath('id("config-order-form")//tbody/tr');
+
+    $this->assertTrue(count($configs_in_page) == 3, 'All 3 generated configuration found on settings page.');
+    if (!empty($configs)) {
+      $row_index = 1;
+      $label = $this->xpath("id('config-order-form')//tbody/tr[$row_index]/td[1]");
+      //td[2] is the draggable item!!
+      $machine_name = $this->xpath("id('config-order-form')//tbody/tr[$row_index]/td[3]");
+      $status = $this->xpath("id('config-order-form')//tbody/tr[$row_index]/td[4]");
+      $path = $this->xpath("id('config-order-form')//tbody/tr[$row_index]/td[5]");
+      $filename = $this->xpath("id('config-order-form')//tbody/tr[$row_index]/td[6]");
+
+      $this->assertTrue($label[0] == $config->label, t('Label is the same in the table as in the configuration. Result: @result, Expected: @expected',
+        array(
+          '@result' => $label[0],
+          '@expected' => $config->label,
+        ))
+      );
+      $this->assertTrue($machine_name[0] == $config->machine_name, t('Machine name is the same in the table as in the configuration. Result: @result, Expected: @expected',
+        array(
+          '@result' => $machine_name[0],
+          '@expected' => $config->machine_name,
+        ))
+      );
+      $status_text = $config->status ? t('Enabled') : t('Disabled');
+      $this->assertTrue($status[0] == $status_text, t('Status is the same in the table as in the configuration. Result: @result, Expected: @expected',
+        array(
+          '@result' => $status[0],
+          '@expected' => $status_text,
+        ))
+      );
+      // http://drupal.org/node/1797646
+      $this->assertTrue($path[0] == $config->path, t('Path is the same in the table as in the configuration. Result: @result, Expected: @expected',
+        array(
+          '@result' => $path[0],
+          '@expected' => $config->path,
+        ))
+      );
+      $this->assertTrue($filename[0] == $config->filename, t('Filename is the same in the table as in the configuration. Result: @result, Expected: @expected',
+        array(
+          '@result' => $filename[0],
+          '@expected' => $config->filename,
+        ))
+      );
+      // @todo: figure out $config->data checking.
+
+      // Let's go to the edit page
+      $this->clickLink('Edit');
+      $this->assertFieldById('edit-label', $config->label);
+      $this->assertFieldById('edit-machine-name', $config->machine_name);
+      $this->assertFieldById('edit-path', $config->path);
+      $this->assertFieldById('edit-filename', $config->filename);
+
+      foreach ($config->data['file_entity'] as $bundle => $value) {
+        if ($bundle !== 'default') {
+          if ($bundle === $value) {
+            $this->assertFieldChecked('edit-data-file-entity-' . str_replace('_', '-', $bundle));
+          }
+          else {
+            $this->assertNoFieldChecked('edit-data-file-entity-' . str_replace('_', '-', $bundle));
+          }
+        }
+      }
+    }
+  }
+}
+
+class FileEntityPathsGlobalSettingsTestCase extends FileEntityPathsHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'File Entity Paths global settings',
+      'description' => 'Test global settings.',
+      'group' => 'File Entity Paths',
+      'dependencies' => array('file_entity'),
+    );
+  }
+
+  function testGlobalConfigBasic() {
+    $image_config = variable_get('fep_image');
+    $this->assertTrue($image_config['public']['path'] == 'image', 'fep_image variable set up successful. Value: ' . $image_config['public']['path']);
+
+    // Create a file.
+    $edit = array();
+    $edit["files[upload]"] = drupal_realpath($this->files['image'][0]->uri);
+
+    $this->drupalPost('file/add', $edit, t('Submit'));
+    $max_fid_after = db_query('SELECT MAX(fid) AS fid FROM {file_managed}')->fetchField();
+
+    $file = file_load($max_fid_after);
+
+    $expected_uri = 'public://' . $image_config['public']['path'] . '/' . $image_config['public']['filename'];
+    $this->assertTrue($file->filename != $file->origname, 'The original filename different, than the saved. The file process works when added new file in file/add path. Issue: #1791270');
+    $this->assertTrue($file->uri = $expected_uri, format_string('The original filename was changed successful from @original by the pattern: @path/@filename to @uri',
+      array(
+        '@original' => $file->origname,
+        '@path' => $image_config['public']['path'],
+        '@filename' => $image_config['public']['filename'],
+        '@uri' => $file->uri)
+      )
+    );
+  }
+}
+
+class FileEntityPathsSpecialUsageTestCase extends FileEntityPathsHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'File Entity Paths usage tests',
+      'description' => 'Other test cases, usually based on drupal.org issue queue.',
+      'group' => 'File Entity Paths',
+      'dependencies' => array('file_entity'),
+    );
+  }
+
+  protected function testFileEntityPathsUserAdd() {
+    $edit = array(
+      'name' => $this->randomName(),
+      'mail' => $this->randomName() . '@example.com',
+      'pass[pass1]' => $pass = $this->randomString(),
+      'pass[pass2]' => $pass,
+      'notify' => FALSE,
+    );
+    $this->drupalPost('admin/people/create', $edit, t('Create new account'));
+    $this->drupalGet('admin/people');
+    $this->assertText($edit['name'], 'User found in list of users. Issue: <a href="http://drupal.org/node/1806472">Fatal error when user entity is saving.</a>');
+  }
+}

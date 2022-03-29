@@ -1,0 +1,44 @@
+.modal-content {
+  border-radius: 0;
+}
+
+@media (max-width: @screen-md) {
+
+  #modalContent {
+    top: 6em !important;
+    left: 0;
+    .close.ctools-close-modal {
+      display: none;
+    }
+  }
+  .ctools-modal-dialog.modal-dialog {
+    height: 100vh !important;
+  }
+  #modalContent,
+  #modal-content,
+  .ctools-modal-dialog.modal-dialog {
+    margin: 0;
+    width: 100% !important;
+    border: 0;
+    min-height: 300px;
+
+    .modal-content {
+      border: 0;
+      height: 100%;
+    }
+    .close {
+      font-size: 2.5em;
+      margin-right: 10px;
+    }
+  }
+
+  .progress.progress-striped,
+  .progress.progress-striped.active,
+  .progress-bar {
+    top: 2em;
+  }
+
+  #modalBackdrop {
+    display: none !important;
+  }
+}

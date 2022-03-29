@@ -1,0 +1,255 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the File Entity Paths module.
+ * @todo: Figure out, how should this work with Filefield Paths.
+ *   Now, the filefield_paths has partial media + File Entity support
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function fe_paths_schema() {
+  $schema['fe_paths_config'] = array(
+    'description' => 'Table definition for fe_paths config entity schema. ',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The unique identifier for config.',
+        'not null' => TRUE,
+        'type' => 'serial',
+      ),
+      'machine_name' => array(
+        'type' => 'varchar',
+        'length' => '64',
+        'not null' => TRUE,
+        'description' => 'The machine name of the configuration.',
+      ),
+      'label' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'The label of the configuration.',
+        'default' => 'unlabeled',
+      ),
+      'module' => array(
+        'description' => 'The name of the providing module if the entity has been defined in code. (Need for exportables.)',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'status' => array(
+        'description' => 'Boolean indicating whether the configuration is active. (Need for exportables.)',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+        'description' => 'Weight of the settings.',
+      ),
+      'path' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'The path of this config.',
+        'default' => 'unlabeled',
+      ),
+      'filename' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'The filename of this config.',
+        'default' => 'unlabeled',
+      ),
+      'data' => array(
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+        'description' => 'The configuration data, serialized.',
+      ),
+    ),
+    'primary key' => array('id'),
+    'unique keys' => array(
+      'machine_name' => array('machine_name'),
+    ),
+  );
+
+  $schema['fe_paths_usage'] = array(
+    'description' => 'Table definition for fe_paths usage schema. ',
+    'fields' => array(
+      'fid' => array(
+        'description' => 'File ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'entity_type' => array(
+        'description' => 'The name of the entity type in which the file is used.',
+        'type' => 'varchar',
+        'length' => '64',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'entity_id' => array(
+        'description' => 'The primary key of the entity using the file.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'id' => array(
+        'description' => 'The unique identifier for config.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('fid'),
+  );
+  return $schema;
+}
+/**
+ * Implements hook_schema_alter().
+ *
+ * @param $schema
+ *   The system-wide schema
+ */
+function fe_paths_schema_alter(&$schema) {
+  $schema['file_managed']['fields']['origname'] = array(
+    'description' => 'Original name of the file.',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  );
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function fe_paths_requirements($phase) {
+  if ($phase == 'update' || $phase == 'install') {
+    $return = array();
+    $t = get_t();
+    $files = system_rebuild_module_data();
+    // Check file entity dependency. The version checking was removed from
+    // .info, because drupal.org testbot doesn't handle >=7.x-2.0-unstable6
+    // style dependecy.
+    $file_entity = drupal_check_incompatibility(drupal_parse_dependency('file_entity (>=7.x-2.0-unstable6)'), str_replace(DRUPAL_CORE_COMPATIBILITY . '-', '', $files['file_entity']->info['version']));
+    if (!is_null($file_entity)) {
+      $return['fe_paths_file_entity'] = array(
+        'title' => $t('File Entity Paths incompatible dependency.'),
+        'value' => '',
+        'description' => $t('The File Entity Paths needs at least @version of File Entity mödule.', array('@version' => $file_entity)),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+    // filefield_paths and fe_paths can't work together, no let install the module
+    if (module_exists('filefield_paths') || drupal_get_installed_schema_version('filefield_paths') != SCHEMA_UNINSTALLED) {
+      $return['fe_paths_ffp'] = array(
+        'title' => $t('File Entity Paths status.'),
+        'value' => '',
+        'description' => $t('The File Entity Paths can\'t work with File (Field) Paths together. You have to disable and uninstall it first.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+    return $return;
+  }
+}
+
+/**
+ * Implements hook_install().
+ */
+function fe_paths_install() {
+  // Add origname field to {file_managed}, and populate with the current
+  // filenames.
+  if (!module_exists('filefield_paths') && drupal_get_installed_schema_version('filefield_paths') == SCHEMA_UNINSTALLED) {
+    db_add_field('file_managed', 'origname', array(
+      'description' => 'Original name of the file with no path components. Used by the fe_paths module.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    ));
+    db_update('file_managed')
+      ->expression('origname', 'filename')
+      ->execute();
+  }
+  // Set the weight to 1.
+  db_update('system')
+    ->fields(array('weight' => 1))
+    ->condition('type', 'module')
+    ->condition('name', 'fe_paths')
+    ->execute();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function fe_paths_uninstall() {
+  if (!module_exists('filefield_paths') && drupal_get_installed_schema_version('filefield_paths') == SCHEMA_UNINSTALLED) {
+    db_drop_field('file_managed', 'origname');
+    // Need to 'Column not found:' error message after uninstall module.
+    cache_clear_all();
+    entity_info_cache_clear();
+    registry_rebuild();
+  }
+}
+
+/**
+ * Implements hook_update_7000();
+ *
+ * Create missing database table to store fe_paths configuration.
+ */
+function fe_paths_update_7000() {
+  db_create_table('fe_paths_config', drupal_get_schema('fe_paths_config'));
+  return t('The table for configuration created successful.');
+}
+
+/**
+ * Implements hook_update_7001();
+ *
+ * Create missing database table to store fe_paths configuration usage.
+ */
+function fe_paths_update_7001() {
+  db_create_table('fe_paths_usage', drupal_get_schema('fe_paths_usage'));
+  return t('The table for configuration created successful.');
+}
+
+/**
+ * Implements hook_update_7002();
+ *
+ * Fix existing saved configuration because of new field based structure.
+ */
+function fe_paths_update_7002() {
+  $configs = fe_paths_config_load_multiple();
+  foreach ($configs as $config) {
+    if (!empty($config->data['entity'])) {
+      if (isset($config->data['bundle']) && !is_array($config->data['bundle']) && $config->data['bundle'] != 'global') {
+        $fields = fe_paths_get_available_fields($config->data['entity'], $config->data['bundle']);
+        $bundle = $config->data['bundle'];
+        $config->data['bundle'] = array();
+        foreach ($fields as $field_name => $field) {
+          $config->data['bundle'][$bundle][$field_name] = 1;
+        }
+      }
+      else {
+        $bundles = fe_paths_get_bundle_names($config->data['entity']);
+        $config->data['bundle'] = array();
+        foreach ($bundles as $bundle => $value) {
+          $fields = fe_paths_get_available_fields($config->data['entity'], $bundle);
+          foreach ($fields as $field_name => $field) {
+            $config->data['bundle'][$bundle][$field_name] = 1;
+          }
+        }
+
+      }
+      fe_paths_config_save($config);
+    }
+  }
+}

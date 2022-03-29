@@ -1,0 +1,22 @@
+#edit-message {
+	padding: 1.0em 0 0 0;
+}
+
+.edit-preset .wizard-trail {
+  float: left;
+  margin-right: 3em;
+  margin-bottom: 5em;
+  width: 11em;
+}
+
+.edit-preset .wizard-trail span{
+  display: block;
+}
+
+.edit-preset .clearfix {
+  clear: both;  
+}
+
+.edit-preset fieldset#edit-wrapper {
+  padding: 0; 
+}

@@ -1,0 +1,91 @@
+.salto_og_user_invite .salto_og_users_selector {
+    margin-bottom: 40px;
+}
+
+.salto_og_user_invite .salto_og_users_selector .items {
+    max-height: 220px;
+    overflow-y: auto;
+    display: block;
+    list-style-type: none;
+    -webkit-padding-start: 0;
+}
+
+.salto_og_user_invite .invitelist-item,
+.salto_og_user_invite .invitelist-empty {
+
+    border-top: 1px solid #C8C8C8;
+    padding: 4px 0 4px 0;
+    list-style-type: none;
+    background-color: #fff;
+}
+
+.salto_og_user_invite .sortable-placeholder {
+    height: 40px;
+    width: 100%;
+    background-color: #ccc;
+}
+
+.salto_og_user_invite .invitelist-item.ui-sortable-helper {
+    border: 1px solid #C8C8C8;
+}
+
+.salto_og_user_invite .usermail {
+
+    color: #BEBEBE;
+    display: block;
+    font-size: 13px;
+
+    font-weight: normal;
+}
+
+.salto_og_user_invite .salto_og_user_invites_invite_list ul.items {
+    padding: 0;
+}
+
+.salto_og_user_invite .invitelist-header {
+    background-color: #f5f5f5;
+}
+
+#salto-organisation-membership-add #edit-submit {
+    display: none;
+}
+
+.salto_og_user_invite .importuser-form .import-user-area {
+    width: 100%;
+    height: 40px;
+}
+
+.salto_og_user_invites_selector .loading {
+    background-image: url(/misc/throbber.gif);
+    background-position: right -14px !important;
+    background-repeat: no-repeat;
+}
+
+.salto_og_user_invites_selector .search-query {
+    background-image: url(/misc/throbber.gif);
+    background-position: right 6px;
+    background-repeat: no-repeat;
+}
+
+.salto_og_user_invite .input-group {
+    border-spacing: 0;
+}
+
+.salto_og_user_invite #og-role-select {
+    width: 100%;
+}
+
+#organisation-select{
+    width: 100%;
+    height: 32px;
+}
+#organisation_select_chosen a {
+    height: 32px;
+    line-height: 32px;
+}
+
+
+/*API*/
+.og_users_invite_list .api .permissions {
+    display: none !important;
+}

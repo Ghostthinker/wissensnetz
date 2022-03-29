@@ -1,0 +1,10 @@
+<?php
+
+/**
+ * delete unavailable chosen module
+ */
+function salto_debug_update_30000(){
+  db_delete('system')
+    ->condition('name', "chosen", '=')
+    ->execute();
+}

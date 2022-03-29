@@ -1,0 +1,79 @@
+<?php
+
+/**
+ * @file
+ * Organic groups UI.
+ */
+
+/**
+ * Implements hook_entity_info().
+ */
+function group_invite_entity_info() {
+
+  $return['og_invite'] = [
+    'label' => t('Og Invite'),
+    'entity class' => 'OgInvite',
+    'controller class' => 'OgInviteController',
+    'base table' => 'og_invites',
+    'fieldable' => TRUE,
+    'entity keys' => [
+      'id' => 'iid',
+      'bundle' => 'type',
+    ],
+    'bundle keys' => [
+      'bundle' => 'type',
+    ],
+    'bundles' => [],
+    'load hook' => 'group_invite_load',
+    'view modes' => [
+      'full' => [
+        'label' => t('Default'),
+        'custom settings' => FALSE,
+      ],
+    ],
+    'label callback' => 'entity_class_label',
+    'uri callback' => 'entity_class_uri',
+    'module' => 'group_invite',
+    'access callback' => 'group_invite_access',
+  ];
+  return $return;
+}
+
+function group_invite_access() {
+  return TRUE;
+}
+
+function group_invite_load($iid, $reset = FALSE) {
+  $invites = group_invite_load_multiple([$iid], [], $reset);
+  return reset($invites);
+}
+
+/**
+ * Load multiple invite based on certain conditions.
+ */
+function group_invite_load_multiple($iids = [], $conditions = [], $reset = FALSE) {
+  return entity_load('og_invite', $iids, $conditions, $reset);
+}
+
+/**
+ * Save invite.
+ */
+function group_invite_save($invite) {
+  entity_save('og_invite', $invite);
+}
+
+/**
+ * Delete single task.
+ */
+function group_invite_delete($invite) {
+  entity_delete('og_invite', entity_id('og_invite', $invite));
+}
+
+/**
+ * Delete multiple tasks.
+ */
+function group_invite_delete_multiple($invite_ids) {
+  entity_delete_multiple('og_invite', $invite_ids);
+}
+
+?>

@@ -1,0 +1,109 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Stefan
+ * Date: 18.08.2016
+ * Time: 13:59
+ */
+
+class SaltoCoreUnitTests extends DrupalUnitTestCase {
+
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Core helper unit tests'),
+      'description' => t('Some generic tets'),
+      'group' => t('Bildungsnetz'),
+    );
+  }
+
+  /**
+   * Test the  next quarter function with fixed
+   */
+  function testNextQuarterDateFixedDate() {
+
+
+    $q1 = strtotime("last day of march 2000");
+    $q2 = strtotime("last day of june 2000");
+    $q3 = strtotime("last day of september 2000");
+    $q4 = strtotime("last day of december 2000");
+
+
+    // q1
+    $now = strtotime("january 1, 2000");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q1);
+
+    $now = strtotime("february 29, 2000");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q1);
+
+    $now = strtotime("march  31, 2000");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q1);
+
+    // q2
+    $now = strtotime("may 4, 2000");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q2);
+
+    //q3
+    $now = strtotime("september 16, 2000");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q3);
+
+    //q4
+    $now = strtotime("december 31 2000");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q4);
+
+  }
+
+  /**
+   * Test the  next quarter function with relative year
+   */
+  function testNextQuarterDateRelativeDate() {
+
+
+
+    $q1 = strtotime("last day of march");
+    $q2 = strtotime("last day of june");
+    $q3 = strtotime("last day of september");
+    $q4 = strtotime("last day of december");
+
+
+    // q1
+    $now = strtotime("january 1");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q1);
+
+    $now = strtotime("february 29");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q1);
+
+    $now = strtotime("march  31");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q1);
+
+    // q2
+    $now = strtotime("may 4");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q2);
+
+    //q3
+    $now = strtotime("september 16");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q3);
+
+    //q4
+    $now = strtotime("december 31");
+    $quater_date = salto_core_get_next_date_quarter($now);
+    $this->assertTrue($quater_date == $q4);
+
+
+  }
+
+
+}

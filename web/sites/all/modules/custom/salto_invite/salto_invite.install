@@ -1,0 +1,186 @@
+<?php
+
+/**
+ * @file
+ * Sets up the base table for our entity and a table to store information about
+ * the entity types.
+ */
+
+
+/**
+ * Implements hook_schema().
+ */
+function salto_invite_schema() {
+  $schema = array();
+
+  $schema['salto_invite'] = array(
+    'description' => 'The base table for salto_invite entities.',
+    'fields' => array(
+      'salto_invite_id' => array(
+        'description' => 'Primary Key: Identifier for a salto_invite.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'type' => array(
+        'description' => 'The {salto_invite_type}.type of this salto_invite.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'uid' => array(
+        'description' => 'The user ID of the inviting user.',
+        'type' => 'int',
+        'default value' => NULL,
+        'unsigned' => TRUE,
+      ),
+      'language' => array(
+        'description' => 'The language of the salto_invite.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'code' => array(
+        'description' => 'The code of the salto_invite - a human-readable identifier.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the salto_invite was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the salto_invite was most recently saved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'used' => array(
+        'description' => 'Whether the invite is has been used or not',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'data' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized array of additional data.',
+      ),
+    ),
+    'primary key' => array('salto_invite_id'),
+    'indexes' => array(
+      'type' => array('type'),
+    ),
+  );
+
+  $schema['salto_invite_type'] = array(
+    'description' => 'Stores information about defined salto_invite types.',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique salto_invite type identifier.',
+      ),
+      'type' => array(
+        'description' => 'The machine-readable name of this salto_invite type.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'label' => array(
+        'description' => 'The human-readable name of this salto_invite type.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+        'description' => 'The weight of this salto_invite type in relation to others.',
+      ),
+      'data' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized array of additional data related to this salto_invite type.',
+      ),
+    ) + entity_exportable_schema_fields(),
+    'primary key' => array('id'),
+    'unique keys' => array(
+      'type' => array('type'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * set default invite email body text
+ */
+function salto_invite_update_30000() {
+  $body = "Hallo [salto_invite:name],
+           [salto_invite:user] hat Sie in das [site:name] eingeladen:
+
+           [salto_invite:message]
+
+           Mit folgendem Link können Sie sich ein Benutzerkonto erstellen:
+           [salto_invite:invite_link]
+
+           Nachdem Sie Ihr Passwort festgelegt haben, können Sie sich zukünftig mit
+           folgenden Zugangsdaten auf [site:login-url] anmelden:
+
+           Benutzername: Ihre E-Mail-Adresse
+           Passwort: Ihr Passwort
+
+           Viele Grüße
+           Das Team von [site:name]";
+
+  variable_set('email_salto_invite_new_user_body', $body);
+}
+
+/**
+ * set default invite subject email body text
+ */
+function salto_invite_update_30001() {
+  $body = "Einladung in das DOSB Wissensnetz";
+  variable_set('email_salto_invite_new_user_subject', $body);
+}
+
+/**
+ * set default email
+ */
+/* TODO: manually
+function salto_invite_update_30002() {
+  variable_set('site_mail', 'info@wissensnetz.dosb.de');
+}
+
+/**
+ * set default name
+ */
+/* TODO: manually
+function salto_invite_update_30003() {
+  variable_set('site_name', 'DOSB Wissensnetz');
+}
+*/
+
+/**
+ * set default support mail
+ */
+/* TODO: manually
+function salto_invite_update_30004() {
+  variable_set('support_mail', 'support@wissensnetz.dosb.de');
+}
+*/

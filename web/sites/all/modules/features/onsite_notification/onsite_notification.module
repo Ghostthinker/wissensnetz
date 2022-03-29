@@ -1,0 +1,1821 @@
+<?php
+/**
+ * @file
+ * Code for the onsite notifications feature.
+ */
+
+include_once 'onsite_notification.features.inc';
+
+include('onsite_notification.events.inc');
+include('onsite_notification.queue.inc');
+
+define('NOTIFICATION_FREQUENCY_IMIDIATE', 'imidiate');
+define('NOTIFICATION_FREQUENCY_DAILY', 'daily');
+define('NOTIFICATION_FREQUENCY_WEEKLY', 'weekly');
+
+/**
+ * Implements hook_ctools_plugin_directory()
+ */
+function onsite_notification_ctools_plugin_directory($module, $plugin) {
+  return "plugins/$plugin";
+}
+
+/**
+ * Implements hook_menu().
+ */
+function onsite_notification_menu() {
+  $items = [];
+  $items['notifications'] = [
+    'title callback' => 'onsite_notification_title',
+    'title' => 'Notifications',
+    'page callback' => 'onsite_notification_page_callback',
+    'access callback' => 'onsite_notification_access',
+    'access arguments' => [1],
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'user-menu',
+    'weight' => -10,
+  ];
+
+  $items['notifications/js'] = [
+    'title' => 'Notifications',
+    'page callback' => 'onsite_notification_js_callback',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['redirect/message'] = [
+    'page callback' => 'onsite_notification_link_callback',
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  ];
+
+  $items['notifications/settings'] = [
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['onsite_notification_settings_form'],
+    'access callback' => 'onsite_notification_access',
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'onsite_notifications',
+    'weight' => 10,
+  ];
+
+  $items['admin/config/salto/notifications'] = [
+    'title' => 'Notification settings',
+    'description' => 'Settings for salto-bip core',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['onsite_notification_admin_settings'],
+    'file' => 'onsite_notification.admin.inc',
+  ];
+
+
+  $items['admin/config/salto/maintenance_message'] = [
+    'title' => 'Maintenance Message',
+    'description' => 'Notify API users about maintenance downtime',
+    'access arguments' => ['administer site configuration'],
+    'page callback' => 'salto_maintenance_message_redirect',
+  ];
+
+
+  $items['salto/config/salto/maintenance_message'] = [
+    'title' => 'Maintenance Message',
+    'description' => 'Notify API users about maintenance downtime',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['onsite_notification_maintenance_message'],
+    'file' => 'onsite_notification.admin.inc',
+  ];
+
+
+  return $items;
+}
+
+/**
+ *
+ */
+function salto_maintenance_message_redirect() {
+  drupal_goto("salto/config/salto/maintenance_message");
+}
+
+/**
+ * Implements hook_permission().
+ */
+function onsite_notification_permission() {
+  return [
+    'view own notifications' => [
+      'title' => t('View own notifications'),
+      'description' => t('View own notifications'),
+    ],
+    'view any notifications' => [
+      'title' => t('View any notification'),
+      'description' => t('View all notifications for all users.'),
+    ],
+  ];
+}
+
+/**
+ * Titelcallback for notifications
+ *
+ * @return [type] [description]
+ */
+function onsite_notification_title() {
+  global $user;
+  $count = onsite_notification_get_new_count($user->uid);
+  if ($count > 0) {
+    return t('Notifications (!count new)', ['!count' => $count]);
+  }
+  return t('Notifications');
+}
+
+/**
+ * menu access callback for viewing messages
+ *
+ * @param  [type] $account [description]
+ *
+ * @return [type]          [description]
+ */
+function onsite_notification_access($account = NULL) {
+  global $user;
+
+  if (is_numeric($account)) {
+    $account = user_load($account);
+  }
+
+  if (user_access('view any notifications')) {
+    return TRUE;
+  }
+
+  if (empty($account)) {
+    $account = clone $user;
+  }
+
+  if ($account->uid == $user->uid && user_access('view own notifications')) {
+    return TRUE;
+  }
+  return FALSE;
+
+}
+
+/**
+ * Check if a user has access to a message
+ *
+ * @param $op
+ * @param $notification
+ * @param $account
+ *
+ * @return bool
+ */
+function onsite_notification_message_access($op, $notification, $account) {
+  if (empty($account)) {
+    global $user;
+    $account = clone $user;
+  }
+
+  switch ($op) {
+    case 'view':
+
+      if (user_access('adminster site configuration')) {
+        return TRUE;
+      }
+
+      //check if audience has view access for the referenced entity
+      //check for nodes
+      if (!empty($notification->field_notification_node_ref)) {
+        $ref_node = $notification->field_notification_node_ref[LANGUAGE_NONE][0]['target_id'];
+        $node = node_load($ref_node);
+        return $node && node_access('view', $node, $account);
+      }
+
+      //check for comments -  check access to parent node
+      if (!empty($notification->field_notification_comment_ref)) {
+        $ref_comment = $notification->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id'];
+        $comment = comment_load($ref_comment);
+
+        if ($comment) {
+          $parent_node = node_load($comment->nid);
+          return $parent_node && node_access('view', $parent_node, $account);
+        }
+      }
+      break;
+    case 'create':
+    case 'delete':
+    case 'update':
+      return FALSE;
+  }
+
+
+  return TRUE;
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function onsite_notification_preprocess_page(&$variables) {
+  global $user;
+  if ($user->uid != 0) {
+    drupal_add_js(drupal_get_path('module', 'onsite_notification') . '/js/onsite_notification.js');
+    drupal_add_css(drupal_get_path('module', 'onsite_notification') . '/less/onsite_notification.less');
+  }
+}
+
+
+/**
+ * Page callback for notifications
+ *
+ * @param  [type] $account [description]
+ *
+ * @return [type]          [description]
+ */
+function onsite_notification_page_callback() {
+  global $user;
+  drupal_goto('notifications/all/' . $user->uid);
+}
+
+/**
+ * js callbacks for onsite notifications
+ *
+ * @param  [type] $op [description]
+ *
+ * @return [type]     [description]
+ */
+function onsite_notification_js_callback($op, $arg1 = NULL) {
+  global $user;
+  switch ($op) {
+    case 'load':
+      $output = onsite_notification_load_new_notifications_for_ajax_request($user);
+      $count = count(onsite_notificaions_get_new_notifications($user->uid, 'data'));
+
+      $json = ['output' => $output, 'count' => $count];
+      drupal_json_output($json);
+      break;
+    case 'markasread':
+
+      $token = $_GET['token'];
+
+      if (empty($arg1)) {
+        $arg1 = $user->uid;
+      }
+
+      if (!onsite_notification_access($arg1) || !drupal_valid_token($token)) {
+        drupal_json_output([
+          "error" => [
+            "uid" => $arg1,
+            'token' => $token,
+          ],
+        ]);
+        drupal_add_http_header('Status', '403 Forbidden');
+        return;
+      }
+      try {
+        $message = t('All messages have been marked as read.');
+        $json = ['output' => $message, 'arays' => [$op, $arg1]];
+        drupal_json_output($json);
+      } catch (Exception $e) {
+        //just in case
+      }
+      break;
+
+    default:
+      break;
+  }
+}
+
+/**
+ * message link callback
+ *
+ * @param  [type] $mid [description]
+ *
+ * @return [type]      [description]
+ */
+function onsite_notification_link_callback($mid) {
+
+  $message = message_load($mid);
+
+  if (!empty($message->field_notification_link[LANGUAGE_NONE][0]['value'])) {
+
+    //mark as read
+    try {
+      flag('flag', 'notification_mark_as_read', $message->mid);
+
+    } catch (Exception  $e) {
+      dpm($e);
+    }
+
+    $http_response_code = NULL;
+
+    $url = $message->field_notification_link[LANGUAGE_NONE][0]['value'];
+    header('Location: ' . $url, TRUE, $http_response_code);
+    drupal_exit($url);
+  }
+  else {
+    drupal_set_message(t('Message link not found'), 'error', FALSE);
+    drupal_goto();
+  }
+}
+
+/**
+ * Mark all unmarked content as read
+ *
+ * @param  [type] $uid [description]
+ *
+ * @return [type]      [description]
+ */
+function onsite_notifications_mark_all_as_read($uid) {
+  $data = onsite_notificaions_get_new_notifications($uid, 'data', 0);
+
+  foreach ($data as $d) {
+    flag('flag', 'notification_mark_as_read', $d->mid);
+  }
+
+  return $data;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function onsite_notification_form_alter(&$form, &$form_state, $form_id) {
+
+  //hide Newsletter field in user profile form
+  if ($form_id == 'user_profile_form') {
+    hide($form['field_salto_newsletter']);
+  }
+
+  if ($form['#id'] == 'views-exposed-form-notifications-panel-pane-1') {
+
+    if (!empty($form['flagged']['#options'])) {
+      $form['flagged']['#options'] = [
+        'All' => t('All'),
+        '0' => t('unread'),
+        '1' => t('read'),
+      ];
+    }
+  }
+}
+
+////////////////// API /////////////////////////////////////////////////////////
+
+/**
+ * Get all subscribers of a node in a normalized uid => uid array
+ *
+ * @param  [type] $node [description]
+ *
+ * @return [type]       [description]
+ */
+function _onsite_notification_node_get_subscribers($node) {
+  return _onsite_notification_get_subscribers('node',
+    'notification_subscribe_node', $node);
+}
+
+/**
+ * Get all subscribers of a material in a normalized uid => uid array
+ *
+ * @param  [type] $node [description]
+ *
+ * @return [type]       [description]
+ */
+function _onsite_notification_material_get_subscribers($file) {
+  return _onsite_notification_get_subscribers('file',
+    'notification_subscribe_material', $file);
+}
+
+function _onsite_notification_get_subscribers($type, $flagname, $entity) {
+  ////////////////////
+  // Manual Subscribe Logic
+  ////////////////////
+
+
+  //get the audience by subscribtions
+
+  $id = $type == 'node' ? $entity->nid : $entity->fid;
+
+  $flag = $flagname;
+  $audience_flags = array_keys(flag_get_entity_flags($type, $id, $flag));
+  $audience = [];
+
+  foreach ($audience_flags as $key => $value) {
+    $audience[$value] = $value;
+  }
+
+
+  ///////////////////////
+  // Auto-Subscribe Logic
+  ///////////////////////
+
+  if ($type == 'node' || $type == 'file') {
+    $hasReadAccessAll = onsite_notification_group_post_has_read_access_all($entity);
+    $isGroup = onsite_notification_entity_has_group($entity);
+    //only when no group is set -  group posts have no autosubscribe logic
+    if (!$isGroup || $hasReadAccessAll) {
+
+      //check auto subscribers - they will always be put in the list
+      $audience += onsite_notification_get_auto_subscribers($entity, $type);
+
+      //check ignore flags - remove ignored posts
+      if ($type == 'file') {
+        $flag = 'notification_ignore_material';
+      }
+      else {
+        $flag = 'notification_ignore_post';
+      }
+
+      $audience_flags = array_keys(flag_get_entity_flags($type, $id, $flag));
+
+      foreach ($audience_flags as $key => $value) {
+        if (!empty($audience[$value])) {
+          unset($audience[$value]);
+        }
+      }
+    }
+  }
+
+  return $audience;
+}
+
+/**
+ * @param $entity
+ *
+ * @return bool
+ */
+function onsite_notification_entity_has_read_access_all($entity) {
+  return $entity->field_post_collaboration[LANGUAGE_NONE][0]['read'] == SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL;
+}
+
+/**
+ * @param $entity
+ *
+ * @return bool
+ */
+function onsite_notification_entity_has_group($entity) {
+  return !empty($entity->field_og_group[LANGUAGE_NONE][0]['target_id']);
+}
+
+/**
+ * @param $node
+ *
+ * @return bool
+ */
+function onsite_notification_group_post_has_read_access_all($node) {
+  $isReadUsers = onsite_notification_entity_has_read_access_all($node);
+  $isGroup = onsite_notification_entity_has_group($node);
+  return $isGroup && $isReadUsers;
+}
+
+/**
+ * Filter a list of message receivers (field_notification_audience) according to
+ *   - notification settings
+ *   - subscriptions of nodes/comments etc
+ *
+ * @param  [type] $audience     [description]
+ * @param  [type] $message_type [description]
+ * @param  [type] $context      [description]
+ *
+ * @return [type]               [description]
+ */
+function onsite_notification_filter_audience(&$audience, $message_type) {
+
+  foreach ($audience as $uid) {
+    $settings = onsite_nottification_settings_load($uid);
+    if (empty($settings[$message_type]) || (!empty($settings[$message_type]) && $settings[$message_type]->status == 0)) {
+      unset($audience[$uid]);
+    }
+  }
+
+  global $user;
+
+  if (!empty($audience[$user->uid])) {
+    unset($audience[$user->uid]);
+  }
+}
+
+
+/**
+ * Get the count of new messages for a user
+ *
+ * @param  [type] $uid [description]
+ *
+ * @return [type]      [description]
+ */
+function onsite_notification_get_new_count($uid) {
+
+  $data = &drupal_static(__FUNCTION__);
+
+
+  if (!isset($data)) {
+
+    $flag = flag_load('notification_mark_as_read');
+
+    if (!isset($flag->fid)) {
+      watchdog('onsite_notification', 'Warning, flag mark_as_read semms broken or not available', [], WATCHDOG_EMERGENCY, 'admin/structure/flags');
+    }
+
+    $fid = $flag->fid;
+
+    $sql = "SELECT message.mid AS mid
+    FROM
+    {message} message
+    LEFT JOIN {users} users_message ON message.uid = users_message.uid
+    LEFT JOIN {flagging} flagging_message ON message.mid = flagging_message.entity_id AND (flagging_message.fid = :fid AND flagging_message.uid = :uid)
+    LEFT JOIN {field_data_field_notification_audience} field_data_field_notification_audience ON message.mid = field_data_field_notification_audience.entity_id AND (field_data_field_notification_audience.entity_type = 'message' AND field_data_field_notification_audience.deleted = '0')
+    WHERE (( (field_data_field_notification_audience.field_notification_audience_target_id = :uid ) )AND(( (flagging_message.uid IS NULL ) )))";
+
+    $result = db_query($sql, [':uid' => $uid, ':fid' => $fid]);
+    $data = $result->rowCount();
+  }
+
+  return $data;
+
+}
+
+/**
+ * Get the new/unred notifications of a user as array or rendered view
+ *
+ * @param  [type] $uid    [description]
+ * @param string $format rendred or data
+ *
+ * @return [type]         [description]
+ */
+function onsite_notificaions_get_new_notifications($uid, $format = 'rendered', $limit = 10) {
+
+  $data = &drupal_static(__FUNCTION__);
+
+  if (empty($data[$uid][$format])) {
+
+    $view_name = 'notifications';
+    $display_name = 'ajax_callback_unread';
+
+    $view = views_get_view($view_name);
+    if (empty($view)) {
+      watchdog('onsite_notification', 'view: notifications not found!', [], WATCHDOG_CRITICAL);
+      return;
+    }
+
+    $view->set_display($display_name);
+    $view->set_arguments([$uid]);
+    $view->set_items_per_page($limit);
+    $view->pre_execute();
+    $view->execute();
+
+    $data[$uid]['rendered'] = $view->render();
+    $data[$uid]['data'] = $view->result;
+
+  }
+
+  switch ($format) {
+    case 'rendered':
+      return $data[$uid]['rendered'];
+    case 'data':
+      return $data[$uid]['data'];
+  }
+  return NULL;
+}
+
+/**
+ * Get all new notifications that are younger than time_max. Time max should be
+ * in format "+2 days", "-3 months", "-1 week"
+ * Executes the notifications view with display mail_aggregation and sets the
+ * exposed filter programatically
+ *
+ * @param int $uid
+ *         users uid
+ * @param string $time_max
+ *         Limit filter by relative time, use values like "+2 days", "-3
+ *   months", "-1 week"
+ *
+ * @return array
+ *         entity stubs as arrays
+ */
+function onsite_notificaions_get_new_notifications_by_time_max_for_mails($uid, $time_max = "-1 day") {
+
+  //get new notifications. We use a view for this
+  $view_name = 'notifications';
+  $display_name = 'mail_aggregation';
+
+  $view = views_get_view($view_name);
+  if (empty($view)) {
+    watchdog('onsite_notification', 'view: notifications not found!', [], WATCHDOG_CRITICAL);
+    return;
+  }
+
+  $view->set_display($display_name);
+  $view->is_cacheable = FALSE;
+
+  $filters = $view->display_handler->get_option('filters');
+  $filters['timestamp']['value']['value'] = $time_max;
+  $view->display_handler->set_option('filters', $filters);
+
+  $view->set_arguments([$uid]);
+  $view->pre_execute();
+  $view->execute();
+
+  return $view->result;
+}
+
+/**
+ * Get the rendered new notifications for lazy ajax loading
+ *
+ * @param  [type] $account [description]
+ *
+ * @return [type]          [description]
+ */
+function onsite_notification_load_new_notifications_for_ajax_request($account) {
+  return onsite_notificaions_get_new_notifications($account->uid, 'rendered');
+}
+
+
+/**
+ * Settings_form
+ *
+ * @param  [type] $form        [description]
+ * @param  [type] $form_submit [description]
+ *
+ * @return [type]              [description]
+ */
+function onsite_notification_settings_form($form, &$form_submit, $account = NULL) {
+
+  $types = onsite_notification_get_notification_types();
+  ctools_include('dependent');
+
+  drupal_set_title(t('Notification settings'));
+
+  $form = [];
+
+  global $user;
+
+  $uid = !empty($account) && $account->uid != 0 ? $account->uid : $user->uid;
+  $form['#uid'] = $uid;
+
+  $settings = onsite_nottification_settings_load($uid);
+
+
+  $form['community_area'] = [
+    '#title' => t("Community area"),
+    '#type' => 'fieldset',
+    '#tree' => TRUE,
+    '#weight' => -1,
+  ];
+  $form['community_area']['auto_subscribe'] = [
+    '#title' => t('Auto subscribe posts from the community area'),
+    '#type' => 'radios',
+    '#default_value' => !empty($settings['community_area']->data['auto_subscribe']) ? $settings['community_area']->data['auto_subscribe'] : "0",
+    '#options' => [
+      "0" => t('Manual subscribing'),
+      "1" => t('Auto subscribe'),
+    ],
+  ];
+
+  $form['community_area']['auto_subscribe_materials'] = [
+    '#title' => t('Auto subscribe materials from the community area'),
+    '#type' => 'radios',
+    '#description' => t('When enabling e-mail autosubscribe, all posts or materials are subscribe automatically.'),
+    '#default_value' => !empty($settings['community_area']->data['auto_subscribe_materials']) ? $settings['community_area']->data['auto_subscribe_materials'] : "0",
+    '#options' => [
+      "0" => t('Manual subscribing'),
+      "1" => t('Auto subscribe'),
+    ],
+  ];
+
+  foreach ($types as $type) {
+    $form[$type->name] = [
+      '#title' => $type->description,
+      '#type' => 'fieldset',
+      '#tree' => TRUE,
+    ];
+
+    $form[$type->name]['status'] = [
+      '#title' => t('Notification'),
+      '#type' => 'checkbox',
+      '#default_value' => !empty($settings[$type->name]) ? $settings[$type->name]->status : 0,
+
+    ];
+    $form[$type->name]['mail'] = [
+      '#title' => t('Mail notification'),
+      '#type' => 'checkbox',
+      '#default_value' => !empty($settings[$type->name]) ? $settings[$type->name]->data['mail'] : 0,
+
+    ];
+
+  }
+
+  $form['general'] = [
+    '#title' => t("General settings"),
+    '#type' => 'fieldset',
+    '#tree' => TRUE,
+  ];
+  $form['general']['mail_frequency'] = [
+    '#title' => t('Mail frequency'),
+    '#type' => 'radios',
+    '#description' => t('When enabling e-mail notification, how often do you want to receive mails?'),
+    '#default_value' => !empty($settings['general']) ? $settings['general']->data['mail_frequency'] : variable_get('salto_notification_mail_frequency', NOTIFICATION_FREQUENCY_DAILY),
+    '#options' => onsite_notification_get_mail_frequency_options(),
+  ];
+
+  $form['newsletter'] = [
+    '#title' => t("Newsletter"),
+    '#type' => 'fieldset',
+    '#tree' => TRUE,
+  ];
+
+  //newsletter settings
+  $account = user_load($user->uid);
+  $newsletter_flag = !empty($account->field_salto_newsletter) ? $account->field_salto_newsletter[LANGUAGE_NONE][0]['value'] : FALSE;
+  $field_info = field_info_instances('user', 'user');
+
+
+  $form['newsletter']['newsletter'] = [
+    '#title' => t('I would like to receive a newsletter.'),
+    '#type' => 'checkbox',
+    '#description' => $field_info['field_salto_newsletter']['description'],
+    '#default_value' => $newsletter_flag,
+  ];
+
+  $form['submit'] = [
+    '#value' => t('Save'),
+    '#type' => 'submit',
+  ];
+  return $form;
+}
+
+/**
+ * Submit function for settings
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ *
+ * @return [type]             [description]
+ */
+function onsite_notification_settings_form_submit($form, &$form_state) {
+
+  global $user;
+
+
+  $values = $form_state['values'];
+  $uid = $form['#uid'];
+
+  $types = onsite_notification_get_notification_types();
+
+  foreach ($types as $type) {
+    if (isset($values[$type->name])) {
+      $data = $values[$type->name];
+      $status = $data['status'];
+      unset($data['status']);
+      try {
+        onsite_notification_settings_save($uid, $type->name, $data, $status);
+      } catch (Exception $e) {
+        dpm($e);
+      }
+    }
+  }
+
+  //store general settings
+  $data = $values['general'];
+  onsite_notification_settings_save($uid, 'general', $data, 0);
+
+  //store other settings
+  $community_area_data = $values['community_area'];
+  onsite_notification_settings_save($uid, 'community_area', $community_area_data, 0);
+
+  drupal_set_message(t('Notification settings have been saved!'), 'status', FALSE);
+
+  //store newsletter setting
+  $account = user_load($user->uid);
+  $newletter_flag = $values['newsletter']['newsletter'];
+
+  if (empty($account->field_salto_newsletter)) {
+    $account->field_salto_newsletter = [LANGUAGE_NONE => [['value' => 0]]];
+  }
+
+  $account->field_salto_newsletter[LANGUAGE_NONE][0]['value'] = $newletter_flag;
+
+  user_save($account);
+
+}
+
+
+/**
+ * Render the form
+ *
+ * @param  [type] $uid [description]
+ *
+ * @return [type]      [description]
+ */
+function theme_onsite_notification_form_settings($uid = NULL) {
+  $elements = drupal_get_form("onsite_notification_settings_form", $uid);
+  $form = drupal_render($elements);
+  return $form;
+}
+
+/**
+ * get a list with all message types "YES - ALL messages types. "
+ *
+ * @return array [type] [description]
+ */
+function onsite_notification_get_notification_types() {
+  $types = [];
+  $query = new EntityFieldQuery();
+  $result = $query->entityCondition('entity_type', 'message_type')->execute();
+
+  if (!empty($result['message_type'])) {
+    $ids = array_keys($result['message_type']);
+    $types = entity_load('message_type', $ids);
+  }
+
+  foreach ($types as $k => $type) {
+    if ($type->name == 'notification_base') {
+      unset($types[$k]);
+    }
+  }
+
+  // alter hook
+  drupal_alter('notification_types', $types);
+
+  return $types;
+}
+
+/**
+ * load all settings by user in teh db
+ *
+ * @param  [type] $uid [description]
+ *
+ * @return array [type][description]
+ */
+function onsite_nottification_settings_load($uid) {
+
+  $data = &drupal_static(__FUNCTION__);
+
+  // $data[$uid] not fully populated e.g. codeception Cest (LK + SN)
+  if (empty($data[$uid]) || count($data[$uid]) < count(onsite_notification_get_notification_types())) {
+    $result = db_select('notification_setting', 'ns')
+      ->fields('ns')
+      ->condition('uid', $uid, '=')
+      ->execute()
+      ->fetchAllAssoc('message_type');
+
+    foreach ($result as $key => &$value) {
+      $value->data = unserialize($value->data);
+    }
+
+    $data[$uid] = $result;
+  }
+
+
+  return $data[$uid];
+}
+
+/**
+ * save a setting in the db
+ *
+ * @param  [type]  $uid          [description]
+ * @param  [type]  $message_type [description]
+ * @param  [type]  $data         [description]
+ * @param integer $status [description]
+ */
+function onsite_notification_settings_save($uid, $message_type, $data, $status = 1) {
+
+  $settings = onsite_nottification_settings_load($uid);
+
+  if (!empty($settings[$message_type])) {
+    onsite_notification_settings_update($uid, $message_type, $data, $status);
+  }
+  else {
+    db_insert('notification_setting')// Table name no longer needs {}
+    ->fields([
+      'message_type' => $message_type,
+      'uid' => $uid,
+      'data' => serialize($data),
+      'status' => $status,
+    ])
+      ->execute();
+  }
+
+  drupal_static_reset('onsite_nottification_settings_load');
+}
+
+/**
+ * update a setting in the db
+ *
+ * @param  [type]  $uid          [description]
+ * @param  [type]  $message_type [description]
+ * @param  [type]  $data         [description]
+ * @param integer $status [description]
+ */
+function onsite_notification_settings_update($uid, $message_type, $data, $status = 1) {
+
+  db_update('notification_setting')
+    ->fields([
+      'message_type' => $message_type,
+      'uid' => $uid,
+      'data' => serialize($data),
+      'status' => $status,
+    ])
+    ->condition('uid', $uid, '=')
+    ->condition('message_type', $message_type, '=')
+    ->execute();
+}
+
+/**
+ * Implements hook_action_links_info
+ */
+function onsite_notification_action_links_info() {
+  $items['notification'] = t('Notifications');
+  return $items;
+}
+
+
+function onsite_notification_autoflag($entity_type, $entity, $account = NULL) {
+
+  if (!$account) {
+    global $user;
+    $account = clone $user;
+  }
+
+  switch ($entity_type) {
+    case 'node':
+
+      //prevent autosubscription from types that are not allowed in for this flag
+      $flag = flag_load("notification_subscribe_node");
+      if (!in_array($entity->type, $flag->types)) {
+        return;
+      }
+
+      //check if the node has the author field
+      if (!empty($entity->is_new)) {
+        _onsite_notification_autoflag_node_on_insert_authors($entity);
+        _onsite_notification_autoflag_group_node_on_insert($entity);
+      }
+      else {
+        _onsite_notification_autoflag_node_on_update($entity);
+      }
+
+      break;
+    case 'file':
+      $account = user_load($entity->salto_file->uid);
+      flag('flag', 'notification_subscribe_material', $entity->salto_file->fid, $account);
+      break;
+  }
+}
+
+/**
+ * Autosubscribe logic for node updates
+ *
+ * @param  [type] $node [description]
+ *
+ * @return [type]       [description]
+ */
+function _onsite_notification_autoflag_node_on_update($node) {
+
+  if (empty($node->field_post_authors[LANGUAGE_NONE])) {
+    return;
+  }
+  //get the unchanged (old) node
+  $old_authors = $node->original->field_post_authors[LANGUAGE_NONE];
+  $new_authors = $node->field_post_authors[LANGUAGE_NONE];
+
+  //extract the uids into better arrays
+  $old_uids = [];
+  $new_uids = [];
+  foreach ($old_authors as $old) {
+    $old_uids[] = $old['target_id'];
+  }
+  foreach ($new_authors as $new) {
+    $new_uids[] = $new['target_id'];
+  }
+
+  foreach ($new_uids as $uid) {
+    if (!in_array($uid, $old_uids)) {
+      flag('flag', 'notification_subscribe_node', $node->nid, user_load($uid));
+    }
+  }
+}
+
+/**
+ * Autosubscribe (flag) logic for new nodes
+ *
+ * @param  [type] $node [description]
+ *
+ * @return [type]       [description]
+ */
+function _onsite_notification_autoflag_node_on_insert_authors($node) {
+
+  if (!empty($node->field_post_authors[LANGUAGE_NONE])) {
+    $authors = $node->field_post_authors[LANGUAGE_NONE];
+
+    foreach ($authors as $a) {
+      $uid = $a['target_id'];
+      if (!empty($uid)) {
+        if ($account = user_load($uid)) {
+          flag('flag', 'notification_subscribe_node', $node->nid, $account);
+        }
+      }
+    }
+  }
+  //also flag node author
+  $author = user_load($node->uid);
+  flag('flag', 'notification_subscribe_node', $node->nid, $author);
+}
+
+/**
+ * Autosubscribe (flag) logic for new nodes in groups
+ *
+ * @param $node
+ */
+function _onsite_notification_autoflag_group_node_on_insert($node) {
+  if (!empty($node->field_og_group[LANGUAGE_NONE][0]['target_id'])) {
+    onsite_notification_flag_post_for_group_members($node);
+  }
+}
+
+/**
+ * Mail frequency settings
+ *
+ * @return [type] [description]
+ */
+function onsite_notification_get_mail_frequency_options() {
+  return [
+    NOTIFICATION_FREQUENCY_IMIDIATE => t('imidiately'),
+    NOTIFICATION_FREQUENCY_DAILY => t('daily'),
+    NOTIFICATION_FREQUENCY_WEEKLY => t('weekly'),
+  ];
+}
+
+/**
+ * Implements hook_mail().
+ */
+function onsite_notification_mail($key, &$message, $params) {
+  $data['user'] = $params['account'];
+  $options['language'] = $message['language'];
+  user_mail_tokens($variables, $data, $options);
+
+  $optionsLanguage['langcode'] = $message['language']->language;
+
+  //get the notifications from parameters and render the mail display
+  $notifications = $params['notifications'];
+
+  //do not send if notifications are not set
+  if (count($notifications) == 0) {
+    return;
+  }
+  //render the notifications
+  $element = entity_view('message', $notifications, 'message_mail', $optionsLanguage['langcode']);
+  $content = "<table>" . render($element) . '</table>';
+
+  $message['body'][] = $content;
+
+  switch ($key) {
+    case NOTIFICATION_FREQUENCY_IMIDIATE:
+      //set title
+      $subject = t('You have a new notification', [], $optionsLanguage);
+      $message['content_title'] = $subject;
+      break;
+    case NOTIFICATION_FREQUENCY_DAILY:
+      $date = format_date(time(), 'custom', "d F");
+      $subject = t('Notifications for !day', ['!day' => $date], $optionsLanguage);
+      $message['content_title'] = $subject;
+      break;
+    case NOTIFICATION_FREQUENCY_WEEKLY:
+      $date = format_date(time(), 'custom', "W");
+      $subject = t('Notifications for KW !weeknumber', ['!weeknumber' => $date], $optionsLanguage);
+      $message['content_title'] = $subject;
+      break;
+
+  }
+  $message['subject'] = $subject;
+  $message['footer'] = l(
+    t('Notification settings', [], $optionsLanguage),
+    'notifications/settings', [
+      'absolute' => TRUE,
+      'attributes' => ['style' => 'color: #fff'],
+    ]
+  );
+
+
+}
+
+/**
+ * send a mail immediately
+ *
+ * @param  [type] $account      [description]
+ * @param  [type] $notification [description]
+ *
+ * @return [type]               [description]
+ */
+function onsite_notification_send_mail_imidiate($account, $notification = NULL) {
+
+  $params['account'] = $account;
+  $params['notifications'] = [$notification];
+  watchdog('onsite-notification', 'Drupal mail is ready to %mail', ['%mail' => $account->mail], WATCHDOG_INFO);
+  drupal_mail('onsite_notification', NOTIFICATION_FREQUENCY_IMIDIATE, $account->mail, user_preferred_language($account), $params);
+  watchdog('onsite-notification', 'Drupal mail was send to %mail', ['%mail' => $account->mail], WATCHDOG_INFO);
+}
+
+/**
+ * Send notifications based on the aggregation type to users
+ *
+ * @param  [type] $account [description]
+ * @param  [type] $type    [description]
+ *
+ * @return [type]          [description]
+ */
+function onsite_notification_send_mail_aggregated($account, $type) {
+
+  $notifications = onsite_notification_get_messages_for_mail_aggregated($account->uid, $type);
+  if (count($notifications) > 0) {
+    $params['account'] = $account;
+    $params['notifications'] = $notifications;
+    drupal_mail('onsite_notification', $type, $account->mail, user_preferred_language($account), $params);
+  }
+}
+
+
+/**
+ * Generate output for mail notification
+ *
+ * @param $uid
+ * @param $type
+ *
+ * @return array
+ */
+function onsite_notification_get_messages_for_mail_aggregated($uid, $type) {
+
+  switch ($type) {
+    case NOTIFICATION_FREQUENCY_DAILY:
+      $data = onsite_notificaions_get_new_notifications_by_time_max_for_mails($uid, '-1 day');
+      break;
+    case NOTIFICATION_FREQUENCY_WEEKLY:
+      $data = onsite_notificaions_get_new_notifications_by_time_max_for_mails($uid, '-1 week');
+      break;
+  }
+
+  if (count($data) < 0) {
+    return [];
+  }
+
+  $account = user_load($uid);
+
+  $messages = [];
+  foreach ($data as $m) {
+    $message = message_load($m->mid);
+    if (onsite_notification_message_access('view', $message, $account)) {
+      $messages[$m->mid] = $message;
+    }
+  }
+
+  return $messages;
+}
+
+/**
+ * Implements hook_cron().
+ *
+ */
+function onsite_notification_cron() {
+
+  //store bools if day/hour match
+  $is_hour_to_send = (int) date('H') >= variable_get('salto_notification_mail_time', 5);
+  $is_day_to_send = (int) date('w') == variable_get('salto_notification_mail_weekday', 1);
+
+  //daily - get timestamp from 24h ago
+  $interval_daily = 60 * 60 * 24;
+  $last_execution_daily = variable_get('onsite_notification_mail_last_execution_daily', 0);
+
+  //weekly - get timestamp from 7days ago
+  //$interval_weekly = 60 * 60 * 24 * 7;
+  $last_execution_weekly = variable_get('onsite_notification_mail_last_execution_weekly', 0);
+
+  //last execution time day + one day = greater than now and check if we are in the hour that we'd like to send
+  if (time() >= $last_execution_daily + $interval_daily && $is_hour_to_send) {
+    onsite_notification_send_daily();
+  }
+
+  //last execution time week + one week greater than now also check if it is monday, weekday = 1
+  if (time() >= $last_execution_weekly + $interval_daily && $is_day_to_send && $is_hour_to_send) {
+    onsite_notification_send_weekly();
+  }
+}
+
+/**
+ * send daily mails
+ *
+ * @return [type] [description]
+ */
+function onsite_notification_send_daily() {
+
+  $audience = onsite_notification_get_users_settings_daily();
+
+
+  variable_set('onsite_notification_mail_last_execution_daily', time());
+
+  set_time_limit(0);
+
+  foreach ($audience as $account) {
+    onsite_notification_send_mail_aggregated($account, NOTIFICATION_FREQUENCY_DAILY);
+  }
+
+  watchdog('onsite_notification', 'Daily notification has been sent!', [], WATCHDOG_NOTICE);
+}
+
+/**
+ * send weekly mails
+ *
+ * @return [type] [description]
+ */
+function onsite_notification_send_weekly() {
+
+  $audience = onsite_notification_get_users_settings_weekly();
+
+  variable_set('onsite_notification_mail_last_execution_weekly', time());
+
+  set_time_limit(0);
+
+  foreach ($audience as $account) {
+    onsite_notification_send_mail_aggregated($account, NOTIFICATION_FREQUENCY_WEEKLY);
+  }
+
+  watchdog('onsite_notification', 'Weekly notification has been sent!', [], WATCHDOG_NOTICE);
+}
+
+/**
+ * Get users with the mail frequency setting daily
+ *
+ * @return [type] [description]
+ */
+function onsite_notification_get_users_settings_daily() {
+  $sql = 'SELECT uid FROM {notification_setting} WHERE data like \'%\"mail_frequency\";s:5:\"daily\"%\'';
+
+  $result = db_query($sql)->fetchAll();
+  $accounts = [];
+
+  foreach ($result as $value) {
+    $account = user_load($value->uid);
+    if (!empty($account)) {
+      $accounts[$account->uid] = $account;
+    }
+  }
+  return $accounts;
+}
+
+/**
+ * Get users with the mail frequency setting weekly
+ *
+ * @return [type] [description]
+ */
+function onsite_notification_get_users_settings_weekly() {
+  $sql = 'SELECT uid FROM {notification_setting} WHERE data like \'%\"mail_frequency\";s:6:\"weekly\"%\'';
+
+  $result = db_query($sql)->fetchAll();
+  $accounts = [];
+
+  //load full user objects
+  foreach ($result as $value) {
+    $account = user_load($value->uid);
+    if (!empty($account)) {
+      $accounts[$account->uid] = $account;
+    }
+  }
+  return $accounts;
+}
+
+
+/**
+ * set the default settings for notifications for an uid
+ *
+ * @param  [type] $uid [description]
+ *
+ * @return void [type]      [description]
+ */
+function onsite_notification_set_default_settings($uid) {
+
+  $types = onsite_notification_get_notification_types();
+
+  foreach ($types as $type) {
+    onsite_notification_settings_save($uid, $type->name, ["mail" => 1], 1);
+  }
+
+  onsite_notification_settings_save($uid, 'general', ["mail_frequency" => variable_get('salto_notification_mail_frequency', NOTIFICATION_FREQUENCY_DAILY)]);
+
+  $community_area_data = [
+    'auto_subscribe' => '1',
+    'auto_subscribe_materials' => '1',
+  ];
+  onsite_notification_settings_save($uid, 'community_area', $community_area_data, 0);
+}
+
+
+/**
+ * Implements hook_user_insert().
+ */
+function onsite_notification_user_insert(&$edit, $account, $category) {
+  onsite_notification_set_default_settings($account->uid);
+}
+
+/**
+ * Implements hook_user_delete().
+ */
+function onsite_notification_user_delete($account) {
+  db_query("DELETE FROM {notification_setting} where uid = :uid", [':uid' => $account->uid]);
+}
+
+
+/**
+ * Called in the notification_content_preview ds field
+ *
+ * @return [type] [description]
+ */
+function onsite_notification_context_preview($entity, $view_mode = NULL) {
+
+  $outputs = module_invoke_all('onsite_notification_content_preview', $entity);
+  return implode("", $outputs);
+
+}
+
+/**
+ * Content preview for comments
+ *
+ * @param  [type] $entity [description]
+ *
+ * @return [type]         [description]
+ */
+function onsite_notification_onsite_notification_content_preview($message) {
+  if (!empty($message->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id'])) {
+    $comment = comment_load($message->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id']);
+    $output = field_view_field('comment', $comment, 'comment_body', ['label' => 'hidden']);
+    return render($output);
+  }
+}
+
+/**
+ * Implements onsite_notification_content_preview
+ *
+ * @param  [type] $entity [description]
+ *
+ * @return [type]         [description]
+ */
+function privatemsg_onsite_notification_content_preview($message) {
+  if (!empty($message->field_notification_privatemsg[LANGUAGE_NONE][0]['target_id'])) {
+    $privatemsg = privatemsg_message_load($message->field_notification_privatemsg[LANGUAGE_NONE][0]['target_id']);
+    $output = check_markup($privatemsg->body, $privatemsg->format);
+    return render($output);
+  }
+}
+
+function onsite_notification_preprocess_entity(&$variables) {
+  if ($variables['entity_type'] == "message" && $variables['message']->type == "notification_licenses_marked_for_extension") {
+    if ($variables['message']->uid == 0) {
+      $variables['user_picture2'] = "1";
+    }
+    else {
+      $variables['user_picture2'] = "2";
+    }
+  }
+}
+
+
+/**
+ * A preprocess function for our theme('flag'). It generates the
+ * variables needed there.
+ *
+ * The $variables array initially contains the following arguments:
+ * - $flag
+ * - $action
+ * - $entity_id
+ * - $after_flagging
+ * - $errors
+ * - $needs_wrapping_element
+ *
+ * See 'flag.tpl.php' for their documentation.
+ */
+
+
+function onsite_notification_theme() {
+  $path = drupal_get_path('module', 'onsite_notification') . '/templates';
+  return [
+    'flag' => [
+      'variables' => [
+        'flag' => NULL,
+        'action' => NULL,
+        'entity_id' => NULL,
+        'after_flagging' => FALSE,
+        'needs_wrapping_element' => FALSE,
+        'errors' => [],
+      ],
+      'template' => 'flag',
+      'pattern' => 'flag__',
+      'path' => $path,
+    ],
+  ];
+}
+
+
+function onsite_notification_get_bildungsreferenten_for_newsletter_export() {
+
+  $query = db_select('users', 'u')
+    ->fields('u', ['uid', 'name'])
+    ->fields('ur', ['rid']);
+  $query->join('field_data_field_salto_newsletter', 'n', 'n.entity_id = u.uid');
+  $query->condition('u.uid', 0, '>')
+    ->condition('u.status', 0, '>')
+    ->condition('n.field_salto_newsletter_value', 1, '=');
+  $db_or = db_or();
+  $db_or->condition('r.name', [
+    'DOSB',
+    'GHOST',
+    'Support',
+    'Admin',
+    'anonymous user',
+  ], 'NOT IN');
+  $db_or->isNULL('r.name');
+
+  $query->condition($db_or)
+    ->groupBy('u.uid');
+  $query->leftJoin('users_roles', 'ur', 'u.uid = ur.uid');
+  $query->leftJoin('role', 'r', 'ur.rid = r.rid');
+  $results = $query->execute();
+
+  $result = $results->rowCount();
+
+  return $result;
+}
+
+
+/**
+ * Flag all group content for a user
+ * Case: Subscribing to group
+ *
+ * @param $group
+ * @param $account
+ */
+function onsite_notification_flag_group_content($group, $account) {
+  //get all group nodes
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->propertyCondition('entity_type', 'node');
+  $query->propertyCondition('gid', $group->nid);
+  $result = $query->execute();
+
+  //flag all group nodes
+  if (!empty($result['og_membership'])) {
+    $mids = array_keys($result['og_membership']);
+    $og_memberships = entity_load('og_membership', $mids);
+    foreach ($og_memberships as $ms) {
+      $nid = $ms->etid;
+      if (!empty($nid)) {
+        flag('flag', 'notification_subscribe_node', $nid, $account);
+      }
+    }
+  }
+}
+
+/**
+ * Unflag all group content for a user
+ * Case: Unsubscribing from group
+ *
+ * @param $group
+ * @param $account
+ */
+function onsite_notification_unflag_group_content($group, $account) {
+  //get all group nodes
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->propertyCondition('entity_type', 'node');
+  $query->propertyCondition('gid', $group->nid);
+  $result = $query->execute();
+
+  //flag all group nodes
+  if (!empty($result['og_membership'])) {
+    $mids = array_keys($result['og_membership']);
+    $og_memberships = entity_load('og_membership', $mids);
+    foreach ($og_memberships as $ms) {
+      $nid = $ms->etid;
+      if (!empty($nid)) {
+        flag('unflag', 'notification_subscribe_node', $nid, $account);
+      }
+    }
+  }
+}
+
+/**
+ * Flag a node for all members who have subscribed the group
+ *
+ * @param $node
+ */
+function onsite_notification_flag_post_for_group_members($node) {
+
+  $gid = $node->field_og_group[LANGUAGE_NONE][0]['target_id'];
+
+  //get all members in group
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->entityCondition('bundle', 'group_membership ');
+  $query->propertyCondition('entity_type', 'user');
+  $query->propertyCondition('state', OG_STATE_ACTIVE);
+  $query->propertyCondition('gid', $gid);
+  $result = $query->execute();
+
+  //set flag for all members of this group
+  if (!empty($result['og_membership'])) {
+    $mids = array_keys($result['og_membership']);
+    $og_memberships = entity_load('og_membership', $mids);
+    foreach ($og_memberships as $mids) {
+      $uid = $mids->etid;
+      //check if user is subscribed to group
+      if (!empty($uid) && flag_get_user_flags('node', $gid, $uid)) {
+        if ($account = user_load($uid)) {
+          flag('flag', 'notification_subscribe_node', $node->nid, $account);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Get all auto subscribers uids
+ *
+ * @return mixed
+ */
+function onsite_notification_get_auto_subscribers($entity, $type = 'node') {
+
+  $entity_id = $entity->fid ?? $entity->nid;
+  $cacheName = 'auto_subscribers:' . $type . ':' . $entity_id;
+  $cache = &drupal_static($cacheName);
+
+  if (!empty($cache)) {
+    return $cache;
+  }
+  else {
+    $cache = [];
+  }
+
+  if ($entity->type != 'post' && $type != 'file') {
+    return [];
+  }
+
+  $nodes_themenfelder = salto_knowledgebase_post_get_themenfelder($entity);
+
+  $nodes_themenfelder_tids = [];
+  foreach ($nodes_themenfelder as $ti) {
+    $nodes_themenfelder_tids[] = $ti->tid;
+  }
+
+  if ($entity->type == 'post') {
+    $subscriptionType = '"auto_subscribe";s:1:"1"';
+  }
+  else {
+    $subscriptionType = '"auto_subscribe_materials";s:1:"1"';
+
+  }
+
+  $query = db_select("notification_setting", "ns");
+  $query->fields("ns", ["uid"]);
+  $query->distinct(); //profile may have multiple interests
+  $query->condition("ns.message_type", "community_area");
+  $query->condition("ns.data", '%' . db_like($subscriptionType) . '%', "LIKE");
+  $query->leftJoin('users', 'u', 'u.uid = ns.uid');
+  $query->condition("u.status", 1);
+
+  if (!empty($nodes_themenfelder_tids)) {
+    $query->leftJoin('profile', 'p', 'p.uid = ns.uid');
+    $query->leftJoin('field_data_field_profile_categories', 'fpc', 'fpc.entity_id = p.pid AND fpc.deleted = 0');
+    $query->condition('fpc.field_profile_categories_tid', $nodes_themenfelder_tids, "IN");
+  }
+
+  $result = $query->execute()->fetchAll();
+
+  foreach ($result as $value) {
+    $cache[$value->uid] = (int) $value->uid;
+  }
+  return $cache;
+}
+
+/**
+ * Get all auto subscribers uids
+ *
+ * @return mixed
+ */
+function onsite_notification_get_auto_subscribers_for_materials($node) {
+  $cache = &drupal_static('auto_subscribers_materials');
+
+  if (!empty($cache)) {
+    return $cache;
+  }
+  else {
+    $cache = [];
+  }
+
+  if ($node->type != 'file') {
+    return [];
+  }
+
+  //get active user's themenfelder and preprocess for query IN condition
+  $nodes_themenfelder = salto_knowledgebase_post_get_themenfelder($node);
+
+  $nodes_themenfelder_tids = [];
+  foreach ($nodes_themenfelder as $ti) {
+    $nodes_themenfelder_tids[] = $ti->tid;
+  }
+
+  $query = db_select("notification_setting", "ns");
+  $query->fields("ns", ["uid"]);
+  $query->distinct(); //profile may have multiple interests
+  $query->condition("ns.message_type", "community_area");
+  $query->condition("ns.data", '%' . db_like('"auto_subscribe_materials";s:1:"1"') . '%', "LIKE");
+  $query->leftJoin('users', 'u', 'u.uid = ns.uid');
+  $query->condition("u.status", 1);
+
+  if (!empty($nodes_themenfelder_tids)) {
+    $query->leftJoin('profile', 'p', 'p.uid = ns.uid');
+    $query->leftJoin('field_data_field_profile_categories', 'fpc', 'fpc.entity_id = p.pid AND fpc.deleted = 0');
+    $query->condition('fpc.field_profile_categories_tid', $nodes_themenfelder_tids, "IN");
+  }
+
+
+  $result = $query->execute();
+
+  foreach ($result as $value) {
+    $cache[$value->uid] = (int) $value->uid;
+  }
+  return $cache;
+}
+
+/**
+ * Get all people that have a certain mesage type enabled
+ *
+ * @param $message_type
+ *   machine_name of the message type
+ * @param int $status
+ *   Enabled 1, disabled 0
+ *
+ * @return mixed
+ */
+function onsite_notification_get_users_that_have_enabled_message_type($message_type, $status = 1) {
+  $cache = &drupal_static('auto_subscribers_users_that_have_enabled_message_type');
+
+  if (!empty($cache)) {
+    return $cache;
+  }
+  else {
+    $cache = [];
+  }
+
+  $sql = 'SELECT uid FROM {notification_setting} WHERE message_type=:message_type and status=:status';
+  $result = db_query($sql, [
+    ':message_type' => $message_type,
+    ':status' => $status,
+  ])->fetchAll();
+
+  foreach ($result as $value) {
+    $cache[$value->uid] = (int) $value->uid;
+  }
+  return $cache;
+}
+
+/**
+ * Check if a certain user has autosubscribe enbaled
+ *
+ * @param $uid
+ *
+ * @return mixed
+ */
+function onsite_notification_autosubscribe_enabled($uid, $type = 'post') {
+  $cache = &drupal_static('auto_subscriber_' . $type);
+  if (!empty($cache[$uid])) {
+    return $cache[$uid];
+  }
+  else {
+    if (empty($cache)) {
+      $cache = [];
+    }
+  }
+
+  if ($type == 'post') {
+    $subscriptionType = '%"auto_subscribe";s:1:"1"%';
+  }
+  else {
+    $subscriptionType = '%"auto_subscribe_materials";s:1:"1"%';
+  }
+
+  $sql = 'SELECT uid FROM {notification_setting} WHERE uid = :uid AND message_type=\'community_area\' AND data like :subscription_type';
+  $result = db_query($sql, [
+    ':uid' => $uid,
+    ':subscription_type' => $subscriptionType,
+  ])->fetchField();
+  $cache[$uid] = !empty($result);
+
+  return $cache[$uid];
+
+}
+
+/**
+ * Render the flasg for messages
+ *
+ * @param $entity
+ *
+ * @return string
+ */
+function onsite_notification_message_node_flags($entity) {
+  global $user;
+  $out = "";
+  if (!empty($entity->field_notification_node_ref[LANGUAGE_NONE][0]['target_id']) && $entity->type != 'notification_create_comment_reply') {
+
+    if (!onsite_notification_autosubscribe_enabled($user->uid)) {
+      $out .= flag_create_link('notification_subscribe_node', $entity->field_notification_node_ref[LANGUAGE_NONE][0]['target_id']);
+    }
+    else {
+      $out .= flag_create_link('notification_ignore_post', $entity->field_notification_node_ref[LANGUAGE_NONE][0]['target_id']);
+    }
+  }
+  return $out;
+}
+
+function onsite_notification_preprocess_salto_363_toolbar_alter(&$variables) {
+  if (stripos(current_path(), 'notifications/') === FALSE) {
+    return;
+  }
+
+  $title = $variables['node'] ? $variables['node']->title : drupal_get_title();
+
+  $variables['toolbar']['title'] = $title;
+  $variables['toolbar']['context_links'] = [];
+
+  $variables['toolbar']['action_links'][] = [
+    'icon' => 'cog',
+    'target' => '/notifications/settings',
+    'text' => t('Settings'),
+    'title' => t('Settings'),
+    'class' => 'action_link action_settings',
+  ];
+}
+
+function onsite_notification_preprocess_salto_363_modal_alter(&$variables) {
+  if (stripos(current_path(), 'notifications/') === FALSE) {
+    return;
+  }
+
+  onsite_notification_preprocess_salto_363_modal_toc($variables);
+  onsite_notification_preprocess_salto_363_modal_filter($variables);
+}
+
+function onsite_notification_preprocess_salto_363_modal_toc(&$variables) {
+  $panelId = $variables['display']->panels['left'][0];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, 'onsite_notifications') === FALSE) {
+    return;
+  }
+
+  $variables['modals']['toc']['html'] = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+}
+
+function onsite_notification_preprocess_salto_363_modal_filter(&$variables) {
+  $panelId = $variables['display']->panels['left'][1];
+  salto_core_preprocess_salto_363_modal_filter($panelId, $variables);
+}
+
+
+function onsite_notification_file_presave($file) {
+  $createNotificationsSent = &drupal_static(__FUNCTION__, []);
+  if (empty($file->fid)) {
+    return;
+  }
+
+  if (isset($createNotificationsSent[$file->fid])) {
+    return;
+  }
+
+  $old_files = entity_load('file', [$file->fid], [], TRUE);
+  $old_file = reset($old_files);
+
+  if (empty($old_file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'])) {
+    onsite_notification_material_created($file);
+    $createNotificationsSent[$file->fid] = $file->fid;
+  }
+  else {
+
+    $updated = salto_files_check_file_is_changed($file, $old_file);
+
+    if ($updated) {
+      onsite_notification_material_changed($file);
+    }
+  }
+}
+
+function salto_files_check_file_is_changed($file, $oldFile) {
+
+  $titleOld = entity_label('file', $oldFile);
+  $titleNew = entity_label('file', $file);
+
+  $updated = ($file->filename != $oldFile->filename) ||
+    ($file->uri != $oldFile->uri) ||
+    ($titleOld != $titleNew);
+
+  return $updated;
+
+}
+

@@ -1,0 +1,10 @@
+class_name: ApiTester
+modules:
+    enabled:
+        - Asserts
+        - \Helper\Bildungsnetz
+        - \Helper\Api
+        - REST:
+            url: http://apache/api/lims
+            depends: PhpBrowser
+error_level: "E_ALL & ~E_STRICT & E_DEPRECATED & ~E_NOTICE"

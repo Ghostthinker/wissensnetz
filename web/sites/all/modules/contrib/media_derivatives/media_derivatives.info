@@ -1,0 +1,33 @@
+name = Media derivatives
+description = Derivatives API for Media ecosystem.
+package = Media
+core = 7.x
+
+; Core files
+files[] = media_derivatives.install
+files[] = media_derivatives.module
+files[] = MediaDerivativesException.inc
+
+; Implementations of basic rules, schedulers and triggers.
+files[] = plugins/media_derivatives.rules.module
+files[] = plugins/media_derivatives.triggers.module
+files[] = plugins/media_derivatives.schedulers.module
+
+; Tests
+files[] = tests/media_derivatives.test
+
+; Views
+files[] = views/handlers/media_derivatives_handler_field_derivative_type.inc
+files[] = views/handlers/media_derivatives_handler_filter_derivative_type.inc
+
+dependencies[] = file_entity
+dependencies[] = ctools
+
+testing_api = 2.x
+
+; Information added by Drupal.org packaging script on 2016-07-31
+version = "7.x-1.0-beta3+6-dev"
+core = "7.x"
+project = "media_derivatives"
+datestamp = "1469958540"
+

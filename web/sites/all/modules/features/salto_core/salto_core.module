@@ -1,0 +1,927 @@
+<?php
+
+/**
+ * @file
+ * Code for the salto_core feature.
+ */
+define('ROLE_GLOBAL_DOSB_RID', 6);
+define('ROLE_GLOBAL_ADMIN_RID', 3);
+define('ROLE_GLOBAL_GARDENER_RID', 8);
+
+include_once 'salto_core.features.inc';
+include_once 'inc/helpers.inc';
+include_once 'inc/salto_core.privatemsg.inc';
+include_once 'inc/salto_core.path.inc';
+include_once 'inc/salto_mailsystem.inc';
+include_once 'inc/RejectOptions.inc';
+include_once 'inc/NodeRepository.php';
+include_once 'inc/BlankCleanup.php';
+
+require_once 'sites/all/libraries/vendor/autoload.php';
+
+/**
+ * Implements hook_menu().
+ */
+function salto_core_menu() {
+  $items['admin/config/salto'] = [
+    'title' => 'DOSB Wissensnetz',
+    'description' => 'Settings for salto-bip core',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_core_admin_settings'],
+    'file' => 'salto_core.admin.inc',
+  ];
+  return $items;
+}
+
+
+/**
+ * Implements hook_menu_alter()
+ */
+function salto_core_menu_alter(&$items) {
+  $items['admin_menu/toggle-modules']['access callback'] = FALSE;
+
+  $items['node']['access callback'] = FALSE;
+}
+
+
+/**
+ * Implements hook_ctools_plugin_directory()
+ */
+function salto_core_ctools_plugin_directory($module, $plugin) {
+  return "plugins/$plugin";
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function salto_core_form_alter(&$form, &$form_state, $form_id) {
+  if (!empty($form['comment_body'])) {
+    $form['comment_body']['#after_build'][] = 'salto_core_customize_comment_form';
+  }
+
+  if (in_array($form_id, ['privatemsg_new', 'privatemsg_form_reply'])) {
+    $form['body']['#format'] = 'editor';
+
+    if (empty($form['body']['#default_value'])) {
+      $form['body']['#default_value'] = "&nbsp;";
+    }
+  }
+
+  if (variable_get('salto_protect_on_leave', TRUE)) {
+
+    $protect_form_ids = salto_core_protected_forms();
+
+    $form_id_tmp = $form_id;
+
+    if (strstr($form_id_tmp, 'node_form')) {
+      $form_id_tmp = 'node_form';
+    }
+    if (strstr($form_id_tmp, 'media_edit')) {
+      $form_id_tmp = 'media_edit';
+    }
+    if (strstr($form_id_tmp, 'comment_node')) {
+      $form_id_tmp = 'comment_node';
+    }
+
+    if (in_array($form_id_tmp, $protect_form_ids)) {
+      $form['#after_build'][] = 'salto_core_add_protection_js_after_build';
+    }
+  }
+}
+
+/**
+ * way to attach js and css even if form validation errors occur
+ *
+ * @param type $form
+ * @param type $form_state
+ *
+ * @return type
+ */
+function salto_core_add_protection_js_after_build(&$form, &$form_state) {
+  drupal_add_js(drupal_get_path('module', 'salto_core') . "/js/salto_core_protection.js", $options = ['weight' => 1000]);
+  return $form;
+}
+
+/**
+ * Afterbuild function to set the textformat for comments
+ *
+ * @param type &form
+ *
+ * @return type
+ */
+function salto_core_customize_comment_form(&$form) {
+
+  $form[LANGUAGE_NONE][0]['format']['guidelines']['#access'] = FALSE;
+  $form[LANGUAGE_NONE][0]['format']['help']['#access'] = FALSE;
+  return $form;
+}
+
+/**
+ * Implements hook_mail().
+ */
+function salto_core_mail($key, &$message, $params) {
+  $message['subject'] = t($params['subject']);
+  $message['body'][] = $params['body'];
+
+  switch ($key) {
+    case 'debug':
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['body'];
+      break;
+  }
+}
+
+/**
+ * Entity metadata callback to load profiles for the given user account.
+ */
+function profile2_user_get_properties($account, array $options, $name) {
+  $profile = profile2_load_by_user($account, substr($name, 8));
+  return $profile ? $profile : NULL;
+}
+
+/**
+ * Implements hook_stream_wrappers().
+ */
+function salto_core_stream_wrappers() {
+  return [
+    'bildungsnetz' => [
+      'name' => t('Default files'),
+      'class' => 'SaltoStreamWrapper',
+      'description' => t('Provides read-only paths to default distribution files.'),
+      'type' => STREAM_WRAPPERS_READ_VISIBLE,
+    ],
+  ];
+}
+
+
+function salto_core_context_links($key = NULL, $elem = NULL) {
+  $links = &drupal_static(__FUNCTION__, []);
+  if (!empty($elem)) {
+    $links[$key] = $elem;
+  }
+
+  return $links;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function salto_core_theme($existing, $type, $theme, $path) {
+  return [
+    'button_group' => [
+      'template' => 'templates/button-group',
+      'variables' => ['title' => NULL, 'attributes' => NULL, 'items' => []],
+    ],
+    'htmlmail' => [
+      'template' => 'templates/htmlmail',
+      'variables' => ['message' => NULL],
+    ],
+    'salto_93__file' => [
+      'template' => 'templates/salto-93--file',
+      'variables' => ['file' => NULL],
+    ],
+  ];
+}
+
+/**
+ * Preprocess mails
+ *
+ * @param  [type] $variables [description]
+ *
+ * @return [type]            [description]
+ */
+function salto_core_preprocess_htmlmail(&$variables) {
+  global $conf;
+
+  $variables['logo_fix_size'] = TRUE;
+  $variables['logo'] = url('sites/all/files/header_mail_wn.png', ['absolute' => TRUE]);
+
+  // override logo
+  if (!empty($conf['wn_blanko']['logo'])) {
+    $variables['logo_fix_size'] = FALSE;
+    $variables['logo'] = url("/" . drupal_get_path('module', 'wn_blanko') . "/images/" . $conf['wn_blanko']['logo'], ['absolute' => TRUE]);
+  }
+
+  $variables['content'] = $variables['message']['body'];
+
+  if (!empty($variables['message']['footer'])) {
+    $variables['footer'] = $variables['message']['footer'];
+  }
+
+  if (empty($variables['message']['content_title'])) {
+    $variables['title'] = $variables['message']['subject'];
+  }
+  else {
+    $variables['title'] = $variables['message']['content_title'];
+  }
+}
+
+function salto_core_preprocess_salto_39(&$variables) {
+  salto_core_preprocess_salto_363($variables);
+}
+
+function salto_core_preprocess_salto_363(&$variables) {
+  if (WN_TESTS_RUNNING === TRUE) {
+    return;
+  }
+
+  drupal_alter('preprocess_salto_363_modal', $variables);
+  $funExists = function_exists('salto2014_modal_toc');
+  if ($variables['modals'] && $funExists) {
+    $modals = salto2014_modal_toc($variables) . salto2014_modal_filter($variables);
+    $variables['modals']['content'] = $modals;
+  }
+  drupal_alter('preprocess_salto_363_toolbar', $variables);
+  if ($variables['toolbar']) {
+    $variables['content']['toolbar'] = theme('toolbar', $variables);
+  }
+  drupal_alter('preprocess_salto_363_panel', $variables);
+
+  if (!isset($variables['title'])) {
+    $variables['title'] = drupal_get_title();
+  }
+}
+
+/**
+ * call this func in preprocess_salto_363_modal
+ *
+ * @param $panelId
+ * @param $variables
+ */
+function salto_core_preprocess_salto_363_modal_filter($panelId, &$variables) {
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, 'views-') === FALSE) {
+    return;
+  }
+
+  $variables['modals']['filter']['title'] = t('Filter');
+  $variables['modals']['filter']['html'] = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+  $variables['modals']['filter']['icon'] = 'filter';
+}
+
+/**
+ * Implements hook_file_download_access().
+ */
+function salto_core_file_download_access($field, $entity_type, $entity) {
+  if ($entity_type == 'profile2') {
+    return TRUE;
+  }
+}
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function salto_core_element_info_alter(&$types) {
+  if (isset($types['text_format']['#process'])) {
+    foreach ($types['text_format']['#process'] as &$callback) {
+      if ($callback === 'filter_process_format') {
+        $callback = 'salto_core_process_format';
+      }
+    }
+  }
+  //add placeholder process function
+  foreach (array_keys($types) as $type) {
+    switch ($type) {
+      case 'textfield':
+      case 'textarea':
+      case 'password':
+        $types[$type]['#process'][] = 'placeholder_process_placeholder';
+        break;
+    }
+  }
+}
+
+/**
+ * Custom processor for textformats. used to hide textformat selection for non
+ * admins
+ *
+ * @param  [type] $element [description]
+ *
+ * @return [type]          [description]
+ */
+function salto_core_process_format($element) {
+
+  // array of field names to restrict (add more here as needed)
+  $fields = [
+    'field_textarea',
+    'comment_body',
+    'field_profile_about_me',
+  ];
+  $element = filter_process_format($element);
+  if (isset($element['#field_name']) && in_array($element['#field_name'], $fields)) {
+    if (!user_access('administer site configuration')) {
+      $element['format']['#attributes']['class'][] = 'element-hidden';
+    }
+  }
+  return $element;
+}
+
+/**
+ * Implementation of hook_entity_info_alter().
+ *
+ * Redirect any links to program taxonomy terms to their corresponding node
+ * page.
+ */
+function salto_core_entity_info_alter(&$entity_info) {
+  $entity_info['taxonomy_term']['uri callback'] = 'salto_core_taxonomy_uri_callback';
+}
+
+/**
+ * Entity uri callback for taxonomy terms. Add special exception to redirect
+ * users away from taxonomy term pages to the associated program node page.
+ */
+function salto_core_taxonomy_uri_callback($term) {
+
+  $profile_vocabs = [
+    'profile_interests',
+    'profile_sports',
+    'profile_competencies',
+  ];
+
+
+  if (in_array($term->vocabulary_machine_name, $profile_vocabs)) {
+
+    $field_name = "{$term->vocabulary_machine_name}";
+    return [
+      'path' => 'people',
+      'options' => ["query" => [$field_name => $term->name]],
+    ];
+  }
+
+  if ($term->vocabulary_machine_name == 'lehr_lern_material_kategorien') {
+    return [
+      'path' => 'materials/' . $term->tid,
+    ];
+  }
+
+  if ($term->vocabulary_machine_name == 'wissensbasis_kategorien') {
+    return [
+      'path' => 'posts/' . $term->tid,
+    ];
+  }
+
+  return taxonomy_term_uri($term);
+}
+
+/**
+ * Checks if the current legal conditions have been accepted by the user
+ *
+ * @return accpted bool
+ */
+function salto_core_check_legal_accepted($uid) {
+  $user = user_load($uid);
+  $accepted = FALSE;
+
+  // Get last accepted version for this account
+  $legal_account = legal_get_accept($user->uid);
+
+  // If no version has been accepted yet, get version with current language revision.
+
+  if (!empty($legal_account['version'])) {
+    $conditions = legal_get_conditions($legal_account['language']);
+    // No conditions set yet.
+    if (empty($conditions['conditions'])) {
+
+      return $accepted;
+    }
+
+    // Check latest version of T&C has been accepted.
+    $accepted = legal_version_check($user->uid, $conditions['version'], $conditions['revision'], $legal_account);
+  }
+  return $accepted;
+}
+
+function salto_core_heartbeat_type_symbol($entity) {
+
+  if ($entity->message_id == "heartbeat_add_node" || $entity->message_id == "heartbeat_edit_node") {
+    return '<span class="heartbeat-activity-type-' . $entity->variables['node_type'] . '"/>';
+  }
+  if ($entity->message_id == "heartbeat_add_comment") {
+    return '<span class="heartbeat-activity-comment"/>';
+  }
+}
+
+/**
+ * Implements hook_init
+ */
+function salto_core_init() {
+
+  drupal_add_js(drupal_get_path('module', 'salto_core') . "/js/readmore.min.js");
+  drupal_add_js(drupal_get_path('module', 'salto_core') . "/js/salto_core.js");
+  drupal_add_js(drupal_get_path('module', 'salto_core') . "/js/jquery.timeago.js");
+
+  drupal_add_js(drupal_get_path('module', 'salto_core') . "/js/browser-detect.umd.js");
+  //include frontpage slider
+  if (drupal_is_front_page()) {
+
+    drupal_add_js(drupal_get_path('module', 'salto_core') . "/js/salto_core_slider.js");
+    drupal_add_js(['salto_core' => ['salto_core_frontpage_slider_interval' => variable_get('salto_core_frontpage_slider_interval', 6000)]], ['type' => 'setting']);
+  }
+
+}
+
+/**
+ * get number of group members or posts in og group
+ *
+ * @param type $gid
+ * @param type $entity_type
+ *
+ * @return type
+ */
+function salto_core_og_count_entity($gid, $entity_type = 'user') {
+  $query = new EntityFieldQuery();
+  $result = $query
+    ->entityCondition('entity_type', 'og_membership')
+    // Type can be "node" or "user"
+    ->propertyCondition('entity_type', $entity_type, '=')
+    // This is the group ID
+    ->propertyCondition('gid', $gid, '=')
+    // Get only the active members
+    ->count()
+    ->addTag('efq_debug')
+    ->execute();
+
+  return $result;
+}
+
+function salto_core_query_alter($query) {
+  if ($query->hasTag('efq_debug')) {
+    dpm((string) $query);
+  }
+}
+
+/**
+ * Clears an error against one form element.
+ *
+ * @param $name
+ *   The name of the form element.
+ */
+function form_unset_error($name) {
+  $errors = &drupal_static('form_set_error', []);
+  $removed_messages = [];
+  if (isset($errors[$name])) {
+    $removed_messages[] = $errors[$name];
+    unset($errors[$name]);
+  }
+  if (isset($_SESSION['messages']['error'])) {
+    if (!is_array($_SESSION['messages']['error'])) {
+      unset($_SESSION['messages']['error']);
+      return;
+    }
+    $_SESSION['messages']['error'] = array_diff($_SESSION['messages']['error'], $removed_messages);
+    if (count($_SESSION['messages']['error']) < 1) {
+      unset($_SESSION['messages']['error']);
+    }
+  }
+}
+
+/**
+ * Get a list with forms to protect
+ *
+ * @return [type] [description]
+ */
+function salto_core_protected_forms() {
+  return [
+    'node_form',
+    'privatemsg_new',
+    'taxonomy_form_term',
+    'user_profile_form',
+    'media_edit',
+    'salto_og_invite_form',
+    'file_entity_add_upload_multiple',
+    'comment_node',
+    'dosb_license_edit_form',
+    'salto_organisation_membership_form',
+  ];
+}
+
+/**
+ * Render action links of type $type
+ *
+ * @param $type as defined in hook_action_links_info
+ * @param $content_context the content contxt like node/user/file/license
+ *
+ * @return stdClass
+ * @throws Exception
+ */
+function salto_core_render_action_links($type, $content_context) {
+  //invoke all action links
+  $links = module_invoke_all('salto_action_links', $type, $content_context);
+  drupal_alter('salto_action_links', $links, $type, $content_context);
+
+  if (!empty($links)) {
+    $menu_object = [
+      'type' => 'list',
+      'items' => $links,
+    ];
+    salto_core_context_links("notification", $menu_object);
+  }
+
+
+  $out = "";
+
+  $actions_links = salto_core_context_links();
+
+  foreach ($actions_links as $key => $data) {
+    if (!empty($data['type']) && $data['type'] == 'group') {
+      $items = [];
+      foreach ($data['items'] as $key => $val) {
+        $items[] = render($val);
+      }
+      $out .= theme('button_group', [
+        'title' => $data['title'],
+        'items' => $items,
+      ]);
+    }
+    if (!empty($data['type']) && $data['type'] == 'list') {
+      $items = [];
+      foreach ($data['items'] as $key => $val) {
+        $items[] = render($val);
+        $out .= render($val);
+      }
+    }
+    if (!empty($data['type']) && $data['type'] == 'single') {
+      $out .= render($data['items']);
+    }
+  }
+
+  $out;
+  if (user_access("administer site configuration")) {
+    $tabs = menu_local_tabs();
+    $out .= drupal_render($tabs);
+  }
+  return $out;
+}
+
+/**
+ * Element process callback. Adds support for the HTML5 placeholder attribute.
+ *
+ * @param array $element
+ *   The render array element.
+ *
+ * @return
+ *   The processed element.
+ */
+function placeholder_process_placeholder($element) {
+  if (isset($element['#placeholder']) || isset($element['#attributes']['placeholder'])) {
+    // Set the placeholder attribute, if we need to.
+    if (!isset($element['#attributes']['placeholder'])) {
+      $element['#attributes']['placeholder'] = $element['#placeholder'];
+    }
+  }
+
+  return $element;
+}
+
+/**
+ * set registered_name
+ * fix for bug
+ * https://trello.com/c/rbfzyDQP/471-autor-verschwindet-bei-kommentar-bearbeitung-live
+ * author got resetted when editing comments in Admin role
+ *
+ * @param  [type]
+ *
+ * @return [type]
+ */
+
+function salto_core_comment_load($comments) {
+  foreach ($comments as &$comment) {
+    if (empty($comment->registered_name)) {
+      $author = user_load($comment->uid);
+      $comment->registered_name = $comment->registered_name ? $comment->registered_name : $author->name;
+    }
+  }
+}
+
+/**
+ * Implements hook_jreject_options_alter()
+ *
+ * @param  [type] $options [description]
+ *
+ * @return void [type]     [description]
+ */
+function salto_core_jreject_options_alter(&$options) {
+
+  $rejectOptions = new RejectOptions();
+  $options[] = $rejectOptions->buildScript(FALSE);
+}
+
+/**
+ * Get last day of the current quarter of date  $timestamp
+ *
+ * @param $timestamp
+ *
+ * @return int
+ */
+function salto_core_get_next_date_quarter($timestamp) {
+
+  $year = date("Y", $timestamp);
+
+  $q1 = strtotime("last day of march $year");
+  $q2 = strtotime("last day of june $year");
+  $q3 = strtotime("last day of september $year");
+  $q4 = strtotime("last day of december $year");
+
+  if ($timestamp <= $q1) {
+    return $q1;
+  }
+
+  if ($timestamp <= $q2) {
+    return $q2;
+  }
+
+  if ($timestamp <= $q3) {
+    return $q3;
+  }
+
+  if ($timestamp <= $q4) {
+    return $q4;
+  }
+
+  return NULL;
+}
+
+
+/**
+ * Get first day of the current quarter of date $timestamp
+ *
+ * @param $timestamp
+ *
+ * @return int
+ */
+function salto_core_get_first_date_quarter($timestamp) {
+
+  $year = date("Y", $timestamp);
+
+  $q1 = strtotime("first day of january $year");
+  $q2 = strtotime("first day of april $year");
+  $q3 = strtotime("first day of july $year");
+  $q4 = strtotime("first day of october $year");
+
+  if ($timestamp >= $q4) {
+    return $q4;
+  }
+  if ($timestamp >= $q3) {
+    return $q3;
+  }
+  if ($timestamp >= $q2) {
+    return $q2;
+  }
+  if ($timestamp >= $q1) {
+    return $q1;
+  }
+
+  return NULL;
+}
+
+/**
+ * get quarter number by timetamp
+ *
+ * @param $timestamp
+ *
+ * @return float
+ */
+function salto_core_get_quarter($timestamp) {
+  $month = date("m", $timestamp);
+  return floor(($month - 1) / 3) + 1;
+}
+
+
+/**
+ * =======================================
+ * Validation
+ * =======================================
+ **/
+
+function salto_core_validate_postal_5($postal) {
+
+  if (is_numeric($postal) && strlen($postal) == 5) {
+    return TRUE;
+  }
+
+  if (preg_match("/^[A-Z]{1,2}\-[0-9]{1,5}$/", $postal) == 1) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * @param $postal
+ * @param bool $withoutModify only postal of right user input, modified postal
+ *   from module will ignore
+ * @param bool $postalModify if true, then get correct postal (if supported,
+ *   trim, space on right pos, -), e.q. AT-1234
+ * @param bool $withError if error, get the error message, not FALSE
+ *
+ * @return bool|string
+ */
+function salto_core_validate_postal($postal, $withoutModify = TRUE, $postalModify = FALSE, $withError = FALSE) {
+  if (salto_core_validate_postal_5($postal)) {
+    return TRUE;
+  }
+
+  // match one for postal with begin with one char
+  $matchOne = preg_match('/^[A-Z]{1}/', $postal);
+  // match two for postal with begin with two chars
+  $matchTwo = preg_match('/^[A-Z]{2}/', $postal);
+  if ($matchTwo == 1) {
+    $countryCode = substr($postal, 0, 2);
+    $postalSub = substr($postal, 3);
+    $result = postal_code_validation_validate($postalSub, $countryCode);
+  }
+  else {
+    if ($matchOne == 1) {
+      //match one, so has country code a length of one char
+      $countryCode = substr($postal, 0, 1);
+      $postalSub = substr($postal, 2);
+      // mapping the one char to
+      switch ($countryCode) {
+        case 'A':
+          $countryCode = 'AT';
+          break;
+        case 'B':
+          $countryCode = 'BE';
+          break;
+        case 'D':
+          $countryCode = 'DE';
+          break;
+        case 'F':
+          $countryCode = 'FR';
+          break;
+        case 'H':
+          $countryCode = 'HU';
+          break;
+        case 'I':
+          $countryCode = 'IT';
+          break;
+        case 'J':
+          $countryCode = 'JP';
+          break;
+        case 'L':
+          $countryCode = 'LU';
+          break;
+        case 'T':
+          $countryCode = 'TR';
+          break;
+      }
+      $result = postal_code_validation_validate($postalSub, $countryCode);
+    }
+    else {
+      // not match run all validates of module
+      $result = postal_code_validation_validate($postal);
+    }
+  }
+
+  // get error message, default false
+  if ($withError && $result['error'] !== FALSE) {
+    return $result['error'];
+  }
+
+  /*
+   * $result['postal_code_changed'] also modified by error, is true
+   * (also spaces or hyphen on false pos)
+   * default true
+   */
+  if ($withoutModify && $result['postal_code_changed']) {
+    return FALSE;
+  }
+
+  // supported postal has no errors (spaces or hyphen on false pos not include)
+  if ($result['country_supported'] == TRUE && $result['error'] == FALSE) {
+    //module can get the correct/modified postal, min errors (e.q. spaces)
+    if ($postalModify && $result['postal_code_changed']) {
+      return $result['country'] . '-' . $result['postal_code'];
+    }
+    return TRUE;
+  }
+
+  //postal not supported by module, than check with a global pattern (3,4-6 with numbers)
+  if ($result['country_supported'] == FALSE) {
+    // hangover/legacy [A-Z]{1,2} for L- and other begins :( postal, not very proud
+    if (preg_match("/^[A-Z]{1,2}\-[0-9]{4,6}$/", $postal) == 1) {
+      return TRUE;
+    }
+    // first I or IS for Island and Faroe Islands has 3 numbers
+    if (preg_match("/^(I|IS|FO)\-[0-9]{3}$/", $postal) == 1) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+function salto_core_strip_input($input) {
+  return strip_tags($input);
+}
+
+function salto_core_check_plain($input) {
+  return check_plain($input);
+}
+
+/*
+* check nodes titles for scripts (xss)
+*/
+function _salto_core_node_check_batch(&$sandbox) {
+  // Use the sandbox at your convenience to store the information needed
+  // to track progression between successive calls to the function.
+  if (!isset($sandbox['progress'])) {
+
+    $sandbox['progress'] = 0;
+    $sandbox['max'] = db_query('SELECT COUNT(nid) FROM {node} WHERE title LIKE :pattern',
+      [':pattern' => '%' . db_like('script') . '%']
+    )->fetchField();
+
+    // A place to store messages during the run.
+    $sandbox['messages'] = [];
+    $sandbox['valid'] = 0;
+    $sandbox['invalid'] = 0;
+
+    // Last node read via the query.
+    $sandbox['current_node'] = -1;
+  }
+
+  // Process nodes by groups of 10 (arbitrary value).
+  // When a group is processed, the batch update engine determines
+  // whether it should continue processing in the same request or provide
+  // progress feedback to the user and wait for the next request.
+  $limit = 500;
+
+  // Retrieve the next group of nids.
+  $result = db_select('node', 'n')
+    ->fields('n', ['nid',])
+    ->orderBy('n.nid', 'ASC')
+    ->where('n.nid > :nid', [':nid' => $sandbox['current_node'],])
+    ->condition('n.title', '%' . db_like('script') . '%', 'LIKE')
+    ->extend('PagerDefault')
+    ->limit($limit)
+    ->execute();
+
+  foreach ($result as $row) {
+    $node = node_load($row->nid);
+
+    // Here we actually perform a dummy 'update' on the current node.
+    $sandbox['progress']++;
+    $sandbox['current_node'] = $row->nid;
+
+    watchdog('salto_core_node_check', "Before: (!nid) - <pre>!title</pre>",
+      [
+        '!nid' => $node->nid,
+        '!title' => $node->title,
+      ], WATCHDOG_NOTICE
+    );
+
+    $node->title = filter_xss($node->title);
+
+    watchdog('salto_core_node_check', "After: (!nid) - <pre>!title</pre>",
+      [
+        '!nid' => $node->nid,
+        '!title' => $node->title,
+      ], WATCHDOG_NOTICE
+    );
+
+    node_save($node);
+  }
+
+  watchdog('salto_core_node_check',
+    'Sandbox-Progress: !progress/!max,
+    Sandbox-CurrentNode: !current',
+    [
+      '!progress' => $sandbox['progress'],
+      '!max' => $sandbox['max'],
+      '!current' => $sandbox['current_node'],
+    ]);
+
+  // Set the "finished" status, to tell batch engine whether this function
+  // needs to run again. If you set a float, this will indicate the progress
+  // of the batch so the progress bar will update.
+  $sandbox['#finished'] = $sandbox['progress'] >= $sandbox['max'] ? TRUE : $sandbox['progress'] / $sandbox['max'];
+
+  // Set up a per-run message; Make a copy of $sandbox so we can change it.
+  // This is simply a debugging stanza to illustrate how to capture status
+  // from each pass through hook_update_N().
+  $sandbox_status = $sandbox;
+
+  // Don't want them in the output.
+  unset($sandbox_status['messages']);
+  $sandbox['messages'][] = t('$sandbox=') . print_r($sandbox_status, TRUE);
+  if ($sandbox['progress'] >= $sandbox['max']) {
+
+    drupal_set_message(t('We processed @total nodes', ['@total' => $sandbox['max']]));
+    // hook_update_N() may optionally return a string which will be displayed
+    // to the user.
+    $final_message = '<ul><li>' . implode('</li><li>', $sandbox['messages']) . "</li></ul>";
+    return t('The batch salto_core_node_check did what it was supposed to do: @message', [
+      '@message' => $final_message,
+    ]);
+  }
+}

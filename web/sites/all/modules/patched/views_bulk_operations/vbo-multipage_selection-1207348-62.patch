@@ -1,0 +1,1028 @@
+diff --git a/js/views_bulk_operations.js b/js/views_bulk_operations.js
+index 1288f28..c95a187 100644
+--- a/js/views_bulk_operations.js
++++ b/js/views_bulk_operations.js
+@@ -8,7 +8,7 @@
+ 
+   Drupal.behaviors.vbo = {
+     attach: function(context) {
+-      $('.vbo-views-form', context).each(function() {
++      $('.vbo-views-form', context).once('vbo', function () {
+         Drupal.vbo.initTableBehaviors(this);
+         Drupal.vbo.initGenericBehaviors(this);
+         Drupal.vbo.toggleButtonsState(this);
+diff --git a/modules/views_bulk_operations_multipage/js/views_bulk_operations_multipage.js b/modules/views_bulk_operations_multipage/js/views_bulk_operations_multipage.js
+new file mode 100644
+index 0000000..70f6464
+--- /dev/null
++++ b/modules/views_bulk_operations_multipage/js/views_bulk_operations_multipage.js
+@@ -0,0 +1,223 @@
++(function ($) {
++
++  Drupal.behaviors.vboMultipage = {
++    attach: function(context) {
++      $('.vbo-views-form form', context).once('vbo-multipage', function () {
++        var $form = $(this);
++        if ($form.data('vboMultipageId')) {
++          Drupal.vbo.multipage.initTableBehaviors($form);
++          Drupal.vbo.multipage.initFormBehaviors($form);
++          $('input.vbo-select', $form).each(function () {
++            Drupal.vbo.multipage.initUpdateSelectionBehaviors(this);
++          });
++        }
++      });
++    }
++  };
++
++  Drupal.vbo = Drupal.vbo || {};
++  Drupal.vbo.multipage = Drupal.vbo.multipage || {};
++
++  /**
++   * Initializes the table behaviors.
++   */
++  Drupal.vbo.multipage.initTableBehaviors = function ($form) {
++    var vboMultipageId = $form.data('vboMultipageId');
++
++    // Remove the "Select all rows" widget if needed.
++    var selectAllMarkup = $('.vbo-table-select-all-markup', $form);
++    if (!Drupal.settings.vbo.multipage[vboMultipageId].selectAllRowsEnabled) {
++      selectAllMarkup.remove();
++      $('.views-table-row-select-all', $form).remove();
++    }
++
++    // Attach event handlers to the "Select all ..." buttons.
++    if (selectAllMarkup.length) {
++      $('.vbo-table-select-all-pages', $form).click(function () {
++        Drupal.vbo.multipage.tableSelectAllPages.call(this, $form);
++        return false;
++      });
++      $('.vbo-table-select-this-page', $form).click(function () {
++        Drupal.vbo.multipage.tableSelectThisPage.call(this, $form);
++        return false;
++      });
++    }
++
++    // Attach event handlers to the "Select all" checkbox.
++    var $selectAll = $('.vbo-table-select-all', $form)
++      .click(function () {
++        Drupal.vbo.multipage.tableSelectAll.call(this, $form);
++      });
++
++    // Initialize the "Select all" widget status if needed.
++    $form.data('selectAllRows', false);
++    if (Drupal.settings.vbo && Drupal.settings.vbo.multipage && Drupal.settings.vbo.multipage[vboMultipageId].showSelectAllRows) {
++      $selectAll.prop('checked', 'checked');
++      $('.views-table-row-select-all', $form).show();
++      Drupal.vbo.tableSelectAllPages($form);
++      $form.data('selectAllRows', true);
++    }
++  };
++
++  /**
++   * Initialize the form behaviors.
++   */
++  Drupal.vbo.multipage.initFormBehaviors = function ($form) {
++    // If we have pending selection requests we cannot submit the form, thus we
++    // record whether the user tried to submit it to be able to automatically
++    // submit it as soon as all requests complete.
++    Drupal.vbo.multipage.setPendingSelectionCount($form, 0);
++    $form.on('submit', function (event) {
++      if (Drupal.vbo.multipage.getPendingSelectionCount($form) > 0) {
++        event.preventDefault();
++        $form
++          .addClass('vbo-multipage-form-submitted')
++          .addClass('form-disabled')
++          .find('.form-submit')
++          .attr('disabled', 'disabled');
++      }
++    });
++  };
++
++  /**
++   * Returns the number of pending selection requests.
++   */
++  Drupal.vbo.multipage.getPendingSelectionCount = function ($form) {
++    return $form.data('vbo-multipage-updating-selection');
++  };
++
++  /**
++   * Sets the number of pending selection requests.
++   */
++  Drupal.vbo.multipage.setPendingSelectionCount = function ($form, count) {
++    $form.data('vbo-multipage-updating-selection', count);
++  };
++
++  /**
++   * Updates the number of pending selection requests.
++   */
++  Drupal.vbo.multipage.updatePendingSelectionCount = function ($form, delta) {
++    var count = Drupal.vbo.multipage.getPendingSelectionCount($form);
++    Drupal.vbo.multipage.setPendingSelectionCount($form, count += delta);
++    return count;
++  };
++
++  /**
++   * Handles clicks on the "Select all" checkbox.
++   */
++  Drupal.vbo.multipage.tableSelectAll = function ($form) {
++    if (this.checked) {
++      Drupal.vbo.multipage.tableSelectThisPage.call(this, $form);
++    }
++    else {
++      // If the checkbox was unselected and the "Select all rows" button was
++      // active, we clear the whole selection, otherwise we unselect only the
++      // current items.
++      var itemIds = {};
++      if ($form.data('selectAllRows')) {
++        itemIds = {'flush': 1};
++      }
++      else {
++        $('.vbo-select:not(:disabled)', $form).each(function () {
++          itemIds[$(this).val()] = 0;
++        });
++      }
++      Drupal.vbo.multipage.updateSelection($form.data('vboMultipageId'), itemIds, $form);
++      $form.data('selectAllRows', false);
++    }
++  };
++
++  /**
++   * Handles clicks on the "Select all rows in all pages" button.
++   */
++  Drupal.vbo.multipage.tableSelectAllPages = function ($form) {
++    $form.data('selectAllRows', true);
++    Drupal.vbo.multipage.updateSelection($form.data('vboMultipageId'), {'all_rows': 1}, $form);
++  };
++
++  /**
++   * Handles clicks on the "Select all rows in this page" button.
++   */
++  Drupal.vbo.multipage.tableSelectThisPage = function ($form) {
++    $form.data('selectAllRows', false);
++    var itemIds = {'all_rows': 0};
++    $(this)
++      .closest('table')
++      .find('.vbo-select:not(:disabled):checked')
++      .each(function () {
++        itemIds[$(this).val()] = 1;
++      });
++    Drupal.vbo.multipage.updateSelection($form.data('vboMultipageId'), itemIds, $form);
++  };
++
++  /**
++   * Initializes the selection checkbox behaviors.
++   */
++  Drupal.vbo.multipage.initUpdateSelectionBehaviors = function (checkbox) {
++    var $checkbox = $(checkbox),
++      $form = $checkbox.closest('form');
++    $checkbox.click(function () {
++      var itemIds = {};
++      itemIds[$checkbox.val()] = this.checked ? 1 : 0;
++      Drupal.vbo.multipage.updateSelection($form.data('vboMultipageId'), itemIds, $form);
++    });
++  };
++
++  /**
++   * Updates selection data with the specified items.
++   */
++  Drupal.vbo.multipage.updateSelection = function (vboMultipageId, itemIds, $form) {
++    // Mark this request as pending.
++    Drupal.vbo.multipage.updatePendingSelectionCount($form, 1);
++
++    var
++      success = $.proxy(Drupal.vbo.multipage.onSelectionSuccess, $form),
++      error = $.proxy(Drupal.vbo.multipage.onSelectionError, $form),
++      data = {
++        'vbo_multipage_id': vboMultipageId,
++        'item_ids': itemIds,
++        'token': Drupal.settings.vbo.multipage[vboMultipageId].token
++      };
++
++    // Invoke the JS front controller if available, otherwise fall back to a
++    // regular AJAX call.
++    if ($.fn.jsCallback) {
++      $.fn.jsCallback('views_bulk_operations_multipage', 'selection_update', {
++        data: data,
++        success: success,
++        error: error
++      });
++    }
++    else {
++      $.ajax({
++        type: 'POST',
++        url: Drupal.settings.basePath + 'views-bulk-operations/multipage/selection-update',
++        dataType: 'json',
++        data: data,
++        success: success,
++        error: error
++      });
++    }
++  };
++
++  /**
++   * Handles a successful selection.
++   */
++  Drupal.vbo.multipage.onSelectionSuccess = function () {
++    // Mark the selection request as complete.
++    var $form = $(this),
++      count = Drupal.vbo.multipage.updatePendingSelectionCount($form, -1);
++    // Automatically submit the VBO form if needed.
++    if (count === 0 && $form.hasClass('vbo-multipage-form-submitted')) {
++      $form.submit();
++    }
++  };
++
++  /**
++   * Handles an error while performing a selection.
++   */
++  Drupal.vbo.multipage.onSelectionError = function () {
++    alert(Drupal.t('An error has occurred while performing the selection.'))
++  };
++
++})(jQuery);
+diff --git a/modules/views_bulk_operations_multipage/views/views_bulk_operations_multipage.views.inc b/modules/views_bulk_operations_multipage/views/views_bulk_operations_multipage.views.inc
+new file mode 100644
+index 0000000..3757bfe
+--- /dev/null
++++ b/modules/views_bulk_operations_multipage/views/views_bulk_operations_multipage.views.inc
+@@ -0,0 +1,17 @@
++<?php
++
++/**
++ * Implements hook_views_data_alter().
++ */
++function views_bulk_operations_multipage_views_data_alter(&$data) {
++  foreach (entity_get_info() as $entity_type => $info) {
++    if (isset($info['base table']) && isset($data[$info['base table']]['table'])) {
++      $handler = &$data['views_entity_' . $entity_type]['views_bulk_operations']['field']['handler'];
++      $handler = 'views_bulk_operations_multipage_handler_field_operations';
++    }
++    if (isset($info['revision table']) && isset($data[$info['revision table']]['table'])) {
++      $handler = &$data[$info['revision table']]['views_bulk_operations']['field']['handler'];
++      $handler = 'views_bulk_operations_multipage_handler_field_operations';
++    }
++  }
++}
+diff --git a/modules/views_bulk_operations_multipage/views/views_bulk_operations_multipage_handler_field_operations.inc b/modules/views_bulk_operations_multipage/views/views_bulk_operations_multipage_handler_field_operations.inc
+new file mode 100644
+index 0000000..256c517
+--- /dev/null
++++ b/modules/views_bulk_operations_multipage/views/views_bulk_operations_multipage_handler_field_operations.inc
+@@ -0,0 +1,44 @@
++<?php
++
++/**
++ * Extends the VBO-field handler to support multipage selection.
++ */
++class views_bulk_operations_multipage_handler_field_operations extends views_bulk_operations_handler_field_operations {
++
++  /**
++   * {@inheritdoc}
++   */
++  public function option_definition() {
++    $options = parent::option_definition();
++    $options['vbo_settings']['contains']['multipage'] = array('default' => 0);
++    $options['vbo_settings']['contains']['multipage_ignore_exposed_filters'] = array('default' => 0);
++    return $options;
++  }
++
++  /**
++   * {@inheritdoc}
++   */
++  public function options_form(&$form, &$form_state) {
++    parent::options_form($form, $form_state);
++
++    $form['vbo_settings']['multipage'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Enable multipage selections'),
++      '#default_value' => $this->options['vbo_settings']['multipage'],
++      '#description' => t('Allow the user to select items belonging to multiple pages.'),
++    );
++
++    $form['vbo_settings']['multipage_ignore_exposed_filters'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Ignore exposed filters'),
++      '#default_value' => $this->options['vbo_settings']['multipage_ignore_exposed_filters'],
++      '#description' => t('Ignore exposed filters when performing selections spanning multiple pages. This will disable the "Select all items on all pages" functionality when any exposed filter is populated.'),
++      '#states' => array(
++        'visible' => array(
++          ':input[name="options[vbo_settings][multipage]"]' => array('checked' => TRUE),
++        ),
++      ),
++    );
++  }
++
++}
+diff --git a/modules/views_bulk_operations_multipage/views_bulk_operations_multipage.info b/modules/views_bulk_operations_multipage/views_bulk_operations_multipage.info
+new file mode 100644
+index 0000000..d9a6dfb
+--- /dev/null
++++ b/modules/views_bulk_operations_multipage/views_bulk_operations_multipage.info
+@@ -0,0 +1,7 @@
++name = Views Bulk Operations Multipage
++description = Provides a way of selecting rows belonging to multiple pages.
++dependencies[] = views_bulk_operations
++package = Views
++core = 7.x
++
++files[] = views/views_bulk_operations_multipage_handler_field_operations.inc
+diff --git a/modules/views_bulk_operations_multipage/views_bulk_operations_multipage.module b/modules/views_bulk_operations_multipage/views_bulk_operations_multipage.module
+new file mode 100644
+index 0000000..60c603f
+--- /dev/null
++++ b/modules/views_bulk_operations_multipage/views_bulk_operations_multipage.module
+@@ -0,0 +1,571 @@
++<?php
++
++/**
++ * @file
++ * Allows to select items belonging to multiple pages.
++ */
++
++/**
++ * Implements hook_views_api().
++ */
++function views_bulk_operations_multipage_views_api() {
++  return array(
++    'api' => 3,
++    'path' => drupal_get_path('module', 'views_bulk_operations_multipage') . '/views',
++  );
++}
++
++/**
++ * Implements hook_menu().
++ */
++function views_bulk_operations_multipage_menu() {
++  $items = array();
++
++  $items['views-bulk-operations/multipage/selection-update'] = array (
++    'title' => 'Update the multipage selection',
++    'type' => MENU_CALLBACK,
++    'page callback' => 'views_bulk_operations_multipage_update_selection_ajax',
++    'access callback' => 'views_bulk_operations_multipage_update_selection_access',
++    'delivery callback' => 'drupal_json_output',
++  );
++
++  return $items;
++}
++
++/**
++ * Implements hook_js_info().
++ */
++function views_bulk_operations_multipage_js_info() {
++  $callbacks = array();
++
++  $callbacks['selection_update'] = array(
++    'bootstrap' => DRUPAL_BOOTSTRAP_SESSION,
++    'callback function' => 'views_bulk_operations_multipage_update_selection',
++    'access callback' => 'views_bulk_operations_multipage_update_selection_access',
++    'methods' => array('POST'),
++    // We already have our internal token handling.
++    'token' => FALSE,
++  );
++
++  return $callbacks;
++}
++
++/**
++ * AJAX access callback to update the selection.
++ *
++ * @return bool
++ *   TRUE if the user is allowed to update the selection, FALSE otherwise.
++ */
++function views_bulk_operations_multipage_update_selection_access() {
++  return drupal_valid_token($_POST['token'], $_POST['vbo_multipage_id']);
++}
++
++/**
++ * AJAX page callback to update the selection.
++ *
++ * @see views_bulk_operations_multipage_update_selection()
++ */
++function views_bulk_operations_multipage_update_selection_ajax() {
++  return views_bulk_operations_multipage_update_selection($_POST['vbo_multipage_id'], $_POST['item_ids']);
++}
++
++/**
++ * JS callback to update the selection.
++ *
++ * @param string $vbo_multipage_id
++ *   The VBO selection identifier.
++ * @param string[] $item_ids
++ *   An array of item identifiers.
++ *
++ * @return array
++ *   An empty array, no response is required.
++ */
++function views_bulk_operations_multipage_update_selection($vbo_multipage_id, $item_ids) {
++  $selection_data = &views_bulk_operations_multipage_get_selection_data($vbo_multipage_id);
++
++  // If all rows were selected we just need to keep track of unselected items,
++  // otherwise we store the selection as usual. This is useful as it keeps the
++  // size of the selection data manageable even with very large result sets.
++  if (!empty($item_ids['all_rows'])) {
++    $selection_data = array(
++      'all_rows' => TRUE,
++    );
++  }
++  else {
++    // First of all clear the selection and remove the "all rows" flag if
++    // needed.
++    if (!empty($item_ids['flush'])) {
++      $selection_data = array();
++    }
++    elseif (isset($item_ids['all_rows'])) {
++      unset($selection_data['all_rows']);
++    }
++    // Store all item identifiers with their selection status.
++    foreach ($item_ids as $item_id => $selected) {
++      // Ignore non-numeric identifiers, as all the supported ones were already
++      // handled before.
++      $item_id = (int) $item_id;
++      if ($item_id) {
++        $selection_data[$item_id] = (bool) $selected;
++      }
++    }
++  }
++
++  return array();
++}
++
++/**
++ * Implements hook_views_bulk_operations_adjust_selection_alter().
++ *
++ * {@inheritdoc}
++ */
++function views_bulk_operations_multipage_views_bulk_operations_adjust_selection_alter(&$adjust_selection, $selection, $vbo) {
++  /** @var views_bulk_operations_handler_field_operations $vbo */
++  if (!$adjust_selection && views_bulk_operations_multipage_enabled($vbo)) {
++    $vbo_id = views_bulk_operations_multipage_get_selection_id($vbo->view);
++    $selected = views_bulk_operations_multipage_get_selected($vbo_id);
++    // We need to adjust the selection only if it spans multiple pages.
++    if (!empty($selected['all_rows']) || count($selected) > count($selection)) {
++      $adjust_selection = TRUE;
++      // Reset the exposed input if needed, this will ensure the view being run
++      // to adjust the selection will cover the full view domain.
++      if ($vbo->get_vbo_option('multipage_ignore_exposed_filters')) {
++        // We cannot set an empty array as Views would fall back to the $_GET
++        // values. This invalid parameter will just be ignored.
++        $exposed_input = array('__views_bulk_operations_multipage' => NULL);
++        $vbo->view->views_bulk_operations['multipage']['normalized_exposed_filters'] = views_bulk_operations_multipage_get_normalized_exposed_filters($vbo->view);
++        $vbo->view->set_exposed_input($exposed_input);
++      }
++    }
++  }
++}
++
++/**
++ * Implements hook_views_query_alter().
++ *
++ * {@inheritdoc}
++ */
++function views_bulk_operations_multipage_views_query_alter(&$view, &$query) {
++  /** @var view $view */
++  /** @var views_plugin_query_default $query */
++  if (!empty($view->views_bulk_operations['adjust_selection'])) {
++    /** @var views_bulk_operations_handler_field_operations $vbo */
++    $vbo = _views_bulk_operations_get_field($view);
++    // If the current view is being used to adjust the VBO selection we need to
++    // alter it according to our selection data.
++    if ($vbo->get_vbo_option('multipage')) {
++      $vbo_id = views_bulk_operations_multipage_get_selection_id($view);
++      $selected = views_bulk_operations_multipage_get_selected($vbo_id);
++      $alias = $vbo->table_alias . '.' . $vbo->field_alias;
++      // If all rows were selected we just need to exclude from the result set
++      // unselected items, if any. Otherwise we have a regular selection and we
++      // have to narrow the result set to match it.
++      if (!empty($selected['all_rows'])) {
++        $unselected = views_bulk_operations_multipage_get_unselected($vbo_id);
++        if ($unselected) {
++          $query->add_where(NULL, $alias, array_keys($unselected), 'NOT IN');
++        }
++      }
++      elseif ($selected) {
++        $query->add_where(NULL, $alias, array_keys($selected));
++      }
++    }
++  }
++}
++
++/**
++ * Implements hook_batch_alter().
++ *
++ * {@inheritdoc}
++ */
++function views_bulk_operations_multipage_batch_alter(&$batch) {
++  // Adjust the total number of rows to process in the batch so it matches our
++  // selection.
++  if (isset($batch['form_state']['vbo_multipage_id'])) {
++    $op_index = FALSE;
++    foreach ($batch['sets'][0]['operations'] as $index => $operation) {
++      if ($operation[0] == 'views_bulk_operations_active_queue_process') {
++        $op_index = $index;
++        break;
++      }
++    }
++    if ($op_index !== FALSE) {
++      // Backup batch sets to avoid messing them up when calculating the actual
++      // total amount of rows, since that may imply re-executing the view with
++      // different exposed forms, which may affect the batch state.
++      $sets = $batch['sets'];
++      $view = $batch['form_state']['build_info']['args'][0];
++      $total = views_bulk_operations_multipage_get_total($view);
++      $batch['sets'] = $sets;
++      $operation = &$batch['sets'][0]['operations'][$op_index];
++      $operation[1][2] = $total;
++    }
++  }
++}
++
++/**
++ * Implements hook_views_bulk_operations_form_alter().
++ *
++ * {@inheritdoc}
++ */
++function views_bulk_operations_multipage_views_bulk_operations_form_alter(&$form, &$form_state, $vbo) {
++  /** @var views_bulk_operations_handler_field_operations $vbo */
++
++  if (!views_bulk_operations_multipage_enabled($vbo)) {
++    return;
++  }
++
++  $validate_handler = 'views_bulk_operations_multipage_views_bulk_operations_form_validate';
++  $submit_handler = 'views_bulk_operations_multipage_views_bulk_operations_form_submit';
++
++  switch ($form_state['step']) {
++    case 'views_form_views_form':
++      // Generate and store an identifier for this VBO form. We use a "data-"
++      // attribute to make it easily available to the JS code.
++      $vbo_id = views_bulk_operations_multipage_get_selection_id($vbo->view);
++      $form_state['vbo_multipage_id'] = $vbo_id;
++      $form['#attributes']['data-vbo-multipage-id'] = $vbo_id;
++
++      // Generate a token from the VBO identifier to avoid CSRF attacks.
++      $js_settings = array('token' => drupal_get_token($vbo_id));
++
++      // Initialize the checkbox statuses through our selection data.
++      $selection_data = views_bulk_operations_multipage_get_selection_data($vbo_id);
++      foreach ($vbo->view->result as $row_index => $row) {
++        $vbo->view->row_index = $row_index;
++        $item_id = $vbo->get_value($row, $vbo->real_field);
++        $form[$vbo->options['id']][$row_index]['#default_value'] = views_bulk_operations_multipage_is_item_selected($selection_data, $item_id);
++      }
++
++      // The "Select all rows" widgets does not play well with exposed filters
++      // if we are using the "global" selection mode, so we need to disable it
++      // in that case.
++      $js_settings['selectAllRowsEnabled'] =
++        $vbo->get_vbo_option('enable_select_all_pages') && count($vbo->view->result) != $vbo->view->total_rows &&
++        (!$vbo->get_vbo_option('multipage_ignore_exposed_filters') || !views_bulk_operations_multipage_get_normalized_exposed_filters($vbo->view));
++
++      // Check whether the user selected all rows and notify the frontend about
++      // that, so that "select all rows" widget can be automatically displayed.
++      $js_settings['showSelectAllRows'] = $js_settings['selectAllRowsEnabled'] &&
++        !empty($selection_data['all_rows']) && !views_bulk_operations_multipage_get_unselected($vbo_id);
++
++      // Set our submit handler depending on whether we have an operation
++      // selector or inline buttons.
++      if ($vbo->get_vbo_option('display_type') == 0) {
++        $form['select']['submit']['#validate'][] = $validate_handler;
++        $form['select']['submit']['#submit'][] = $submit_handler;
++      }
++      else {
++        foreach ($vbo->get_selected_operations() as $operation_id => $operation) {
++          $form['select'][$operation_id]['#validate'][] = $validate_handler;
++          $form['select'][$operation_id]['#submit'][] = $submit_handler;
++        }
++      }
++
++      // Attach JS assets.
++      $form['#attached']['js'][] = drupal_get_path('module', 'views_bulk_operations_multipage') . '/js/views_bulk_operations_multipage.js';
++      $form['#attached']['js'][] = array(
++        'data' => array('vbo' => array('multipage' => array($vbo_id => $js_settings))),
++        'type' => 'setting',
++      );
++      if (module_exists('js')) {
++        $form['#attached']['library'][] = array('js', 'js');
++      }
++      break;
++
++    case 'views_bulk_operations_config_form':
++    case 'views_bulk_operations_confirm_form':
++      $form['actions']['submit']['#submit'][] = $submit_handler;
++      break;
++  }
++}
++
++/**
++ * Implements hook_preprocess_views_bulk_operations_confirmation().
++ *
++ * {@inheritdoc}
++ */
++function views_bulk_operations_multipage_preprocess_views_bulk_operations_confirmation(&$variables) {
++  /** @var views_bulk_operations_handler_field_operations $vbo */
++  $vbo = $variables['vbo'];
++  if (views_bulk_operations_multipage_enabled($vbo)) {
++    $total = views_bulk_operations_multipage_get_total($vbo->view);
++    $variables['more_count'] = $total - count($variables['rows']);
++  }
++}
++
++/**
++ * Validation handler for the VBO form.
++ */
++function views_bulk_operations_multipage_views_bulk_operations_form_validate($form, &$form_state) {
++  // Revert the VBO empty selection error when we actually have items selected
++  // in other pages.
++  $form_errors = &drupal_static('form_set_error');
++  if ($form_errors && !empty($form_state['vbo_multipage_id']) && ($selected = views_bulk_operations_multipage_get_selected($form_state['vbo_multipage_id']))) {
++    /** @var views_bulk_operations_handler_field_operations $vbo */
++    $vbo = _views_bulk_operations_get_field($form_state['build_info']['args'][0]);
++    $field_name = $vbo->options['id'];
++    if (isset($form_errors[$field_name])) {
++      $error_message = $form_errors[$field_name];
++      unset($form_errors[$field_name]);
++      // Clear the validation error message, but keep any other one.
++      $type = 'error';
++      $messages = drupal_get_messages($type, TRUE) + array($type => array());
++      foreach ($messages[$type] as $message) {
++        if ($message != $error_message) {
++          drupal_set_message($message, $type);
++        }
++      }
++    }
++  }
++}
++
++/**
++ * Submit handler for the VBO form.
++ */
++function views_bulk_operations_multipage_views_bulk_operations_form_submit($form, &$form_state) {
++  // Clear selection data if we are executing the form final step. We need to
++  // clear all selections associated with every set of exposed filter values,
++  // otherwise still having items selected after submitting the form, especially
++  // when those do not belong to the first page, could be confusing and lead to
++  // operations being performed on unintended items.
++  if (empty($form_state['rebuild'])) {
++    $view = $form_state['build_info']['args'][0];
++    $prefix = views_bulk_operations_multipage_get_view_id($view);
++    views_bulk_operations_multipage_clear_selection_data($prefix);
++  }
++}
++
++
++/**
++ * API
++ */
++
++/**
++ * Checks whether multipage selection is enabled.
++ *
++ * @param views_bulk_operations_handler_field_operations $vbo
++ *   The VBO field handler. The parent view is expected to be already executed.
++ *
++ * @return bool
++ *   TRUE if multipage selection is enabled for the specified view, FALSE
++ *   otherwise.
++ */
++function views_bulk_operations_multipage_enabled($vbo) {
++  return !empty($vbo->view->result) && isset($vbo->view->total_rows) &&
++    !$vbo->get_vbo_option('force_single') && $vbo->get_vbo_option('multipage') &&
++    ($vbo->view->total_rows > count($vbo->view->result) || views_bulk_operations_multipage_get_normalized_exposed_filters($vbo->view));
++}
++
++/**
++ * Returns the VBO selection identifier for the specified view.
++ *
++ * @param view $view
++ *   A VBO-enabled view.
++ *
++ * @return string
++ *   An identifier string.
++ */
++function views_bulk_operations_multipage_get_selection_id($view) {
++  // Make sure all related views have a common prefix, to make it possible to
++  // clear related data.
++  $id_parts = array(
++    views_bulk_operations_multipage_get_view_id($view),
++  );
++  // Unless we are in "global" selection mode, we need a different identifier
++  // for each set of exposed filter values.
++  /** @var views_bulk_operations_handler_field_operations $vbo */
++  $vbo = _views_bulk_operations_get_field($view);
++  if (!$vbo->get_vbo_option('multipage_ignore_exposed_filters')) {
++    $exposed_filters = views_bulk_operations_multipage_get_normalized_exposed_filters($view);
++    $id_parts[] = hash('sha256', serialize($exposed_filters));
++  }
++  return implode(':', $id_parts);
++}
++
++/**
++ * Returns an identifier prefix to be shared among all the view instances.
++ *
++ * @param view $view
++ *   A VBO-enabled view.
++ *
++ * @return string
++ *   An identifier string.
++ */
++function views_bulk_operations_multipage_get_view_id($view) {
++  /** @var view $view */
++  $id_parts = array(
++    $view->name,
++    $view->current_display,
++  );
++  $id_parts = array_merge($id_parts, $view->args);
++  return implode(':', $id_parts);
++}
++
++/**
++ * Normalizes the exposed filters.
++ *
++ * This is needed to make sure equivalent sets of exposed filters share the same
++ * selection data.
++ *
++ * @param view $view
++ *   A VBO-enabled view.
++ *
++ * @return array
++ */
++function views_bulk_operations_multipage_get_normalized_exposed_filters($view) {
++  // Collect only exposed filters. Other types of exposed input will not affect
++  // the selection domain.
++  $exposed_filters = array();
++  /** @var views_handler_filter $filter */
++  foreach ($view->filter as $name => $filter) {
++    if ($filter->is_exposed()) {
++      $exposed_filters[$filter->options['expose']['identifier']] = $name;
++    }
++  }
++  // Normalize the exposed filter values.
++  $exposed_input = array_intersect_key($view->get_exposed_input(), $exposed_filters);
++  $exposed_input = array_filter($exposed_input, function ($value) {
++    return $value !== 'All';
++  });
++  ksort($exposed_input);
++  return $exposed_input;
++}
++
++/**
++ * Returns selection data matching the specified identifier.
++ *
++ * @param string $vbo_id
++ *   A VBO selection identifier.
++ *
++ * @return bool[]
++ *   A reference to an associative array of selection statuses keyed by their
++ *   item identifiers. Changes to the selection data will be automatically
++ *   persisted.
++ */
++function &views_bulk_operations_multipage_get_selection_data($vbo_id) {
++  $data = &$_SESSION['views_bulk_operations_multipage'][$vbo_id];
++  if (!isset($data)) {
++    $data = array();
++  }
++  return $data;
++}
++
++/**
++ * Clears all selection data matching the specified prefix.
++ *
++ * @param string $prefix
++ *   A VBO selection identifier prefix. A full identifier can be specified to
++ *   clear only the related selection data.
++ */
++function views_bulk_operations_multipage_clear_selection_data($prefix) {
++  $data = &$_SESSION['views_bulk_operations_multipage'];
++  foreach ($data as $key => $selection_data) {
++    if (strpos($key, $prefix) === 0) {
++      unset($data[$key]);
++    }
++  }
++}
++
++/**
++ * Return all selected items.
++ *
++ * @param string $vbo_id
++ *   A VBO selection identifier.
++ *
++ * @return bool[]
++ *   An associative array of selection statuses keyed by their item identifiers.
++ */
++function views_bulk_operations_multipage_get_selected($vbo_id) {
++  $data = views_bulk_operations_multipage_get_selection_data($vbo_id);
++  return array_filter($data);
++}
++
++/**
++ * Return all unselected items.
++ *
++ * @param string $vbo_id
++ *   A VBO selection identifier.
++ *
++ * @return bool[]
++ *   An associative array of selection statuses keyed by their item identifiers.
++ */
++function views_bulk_operations_multipage_get_unselected($vbo_id) {
++  $selection_data = views_bulk_operations_multipage_get_selection_data($vbo_id);
++  $unselected = array_filter($selection_data, function ($selected) { return !$selected; });
++  unset($unselected['all_rows']);
++  return $unselected;
++}
++
++/**
++ * Checks whether an item is selected.
++ *
++ * @param bool[] $selection_data
++ *   The selection data to be checked.
++ * @param string $item_id
++ *   An item identifier.
++ *
++ * @return bool
++ *   TRUE if the item is selected, FALSE otherwise.
++ */
++function views_bulk_operations_multipage_is_item_selected($selection_data, $item_id) {
++  return !empty($selection_data[$item_id]) || (!isset($selection_data[$item_id]) && !empty($selection_data['all_rows']));
++}
++
++/**
++ * Returns the number of selected items for the specified view.
++ *
++ * @param view $view
++ *   A VBO-enabled view, already executed.
++ *
++ * @return int
++ *   The total amount of selected items.
++ */
++function views_bulk_operations_multipage_get_total($view) {
++  $total = 0;
++  $vbo_id = views_bulk_operations_multipage_get_selection_id($view);
++  $selected = views_bulk_operations_multipage_get_selected($vbo_id);
++  if (!empty($selected['all_rows'])) {
++    $view = views_bulk_operations_multipage_get_adjusted_view($view);
++    $total = (int) $view->total_rows;
++    $unselected = views_bulk_operations_multipage_get_unselected($vbo_id);
++    if ($unselected) {
++      $total -= count($unselected);
++    }
++  }
++  elseif ($selected) {
++    $total = count($selected);
++  }
++  return $total;
++}
++
++/**
++ * Retrieves an adjusted version of the specified view.
++ *
++ * When ignoring exposed filters, the currently executed view may not be useful
++ * as its result count may be influenced by exposed filters. This adjusts the
++ * original view, if needed, by removing exposed filters and executing the view
++ * again.
++ *
++ * @param view $view
++ *   The view to be adjusted.
++ *
++ * @return view
++ *   The adjusted (and executed) view.
++ */
++function views_bulk_operations_multipage_get_adjusted_view(view $view) {
++  $adjusted_view = $view;
++  $exposed_filters = isset($view->views_bulk_operations['multipage']['normalized_exposed_filters']) ?
++    $view->views_bulk_operations['multipage']['normalized_exposed_filters'] : views_bulk_operations_multipage_get_normalized_exposed_filters($view);
++  /** @var views_bulk_operations_handler_field_operations $vbo */
++  if ($exposed_filters && ($vbo = _views_bulk_operations_get_field($view)) && $vbo->get_vbo_option('multipage_ignore_exposed_filters')) {
++    /** @var view $adjusted_view */
++    $adjusted_view = views_get_view($view->name);
++    $adjusted_view->set_exposed_input(array('__views_bulk_operations_multipage' => NULL));
++    $adjusted_view->set_arguments($view->args);
++    $adjusted_view->set_display($view->current_display);
++    $adjusted_view->build();
++    $adjusted_view->execute($view->current_display);
++  }
++  return $adjusted_view;
++}
+diff --git a/views_bulk_operations.api.php b/views_bulk_operations.api.php
+index 4554602..c5138cc 100644
+--- a/views_bulk_operations.api.php
++++ b/views_bulk_operations.api.php
+@@ -33,3 +33,22 @@ function hook_views_bulk_operations_form_alter(&$form, &$form_state, $vbo) {
+     // Alter the confirmation step of the VBO form.
+   }
+ }
++
++/**
++ * Allow other modules to notify VBO that the selection needs to be adjusted.
++ *
++ * @param bool $adjust_selection
++ *   Flag determining whether selection should be adjusted.
++ * @param array $selection
++ *   An array in the form of $row_index => $entity_id representing the submitted
++ *   selection.
++ * @param views_bulk_operations_handler_field_operations $vbo
++ *   The current VBO field.
++ *
++ * @see views_bulk_operations_multipage_views_bulk_operations_adjust_selection_alter()
++ */
++function hook_views_bulk_operations_adjust_selection_alter(&$adjust_selection, $selection, $vbo) {
++  if (!$adjust_selection && !empty($vbo->view->my_module_key) && count($selection) > 1) {
++    $adjust_selection = TRUE;
++  }
++}
+diff --git a/views_bulk_operations.module b/views_bulk_operations.module
+index ca1f895..cc114ca 100644
+--- a/views_bulk_operations.module
++++ b/views_bulk_operations.module
+@@ -118,7 +118,7 @@ function views_bulk_operations_theme() {
+       'variables' => array('view' => NULL, 'enable_select_all_pages' => TRUE),
+     ),
+     'views_bulk_operations_confirmation' => array(
+-      'variables' => array('rows' => NULL, 'vbo' => NULL, 'operation' => NULL, 'select_all_pages' => FALSE),
++      'variables' => array('rows' => NULL, 'vbo' => NULL, 'operation' => NULL, 'select_all_pages' => FALSE, 'more_count' => NULL),
+     ),
+   );
+   $files = views_bulk_operations_load_action_includes();
+@@ -614,10 +614,21 @@ function views_bulk_operations_confirm_form($form, &$form_state, $view, $output)
+   $rows = $form_state['selection'];
+   $query = drupal_get_query_parameters($_GET, array('q'));
+   $title = t('Are you sure you want to perform %operation on the selected items?', array('%operation' => $operation->label()));
++
++  $variables = array(
++    'rows' => $rows,
++    'vbo' => $vbo,
++    'operation' => $operation,
++    'select_all_pages' => $form_state['select_all_pages'],
++  );
++  if ($form_state['select_all_pages']) {
++    $variables['more_count'] = $vbo->view->total_rows - count($vbo->view->result);
++  }
++
+   $form = confirm_form($form,
+     $title,
+     array('path' => $view->get_url(), 'query' => $query),
+-    theme('views_bulk_operations_confirmation', array('rows' => $rows, 'vbo' => $vbo, 'operation' => $operation, 'select_all_pages' => $form_state['select_all_pages']))
++    theme('views_bulk_operations_confirmation', $variables)
+   );
+   // Add VBO's submit handler to the Confirm button added by config_form().
+   $form['actions']['submit']['#submit'] = array('views_bulk_operations_form_submit');
+@@ -648,9 +659,8 @@ function theme_views_bulk_operations_confirmation($variables) {
+     $items[] = check_plain(entity_label($entity_type, $entity));
+   }
+   // All rows on all pages have been selected, so show a count of additional items.
+-  if ($select_all_pages) {
+-    $more_count = $vbo->view->total_rows - count($vbo->view->result);
+-    $items[] = t('...and %count more.', array('%count' => $more_count));
++  if ($variables['more_count']) {
++    $items[] = t('...and %count more.', array('%count' => $variables['more_count']));
+   }
+ 
+   $count = format_plural(count($entities), 'item', '@count items');
+@@ -783,8 +793,16 @@ function views_bulk_operations_execute($vbo, $operation, $selection, $select_all
+   $skip_batching = $vbo->get_vbo_option('skip_batching');
+   $force_single = $vbo->get_vbo_option('force_single');
+   $execute_directly = ($aggregate || $skip_batching || $force_single);
+-  // Try to load all rows without a batch if needed.
+-  if ($execute_directly && $select_all_pages) {
++  $adjust_selection = $select_all_pages;
++  if ($adjust_selection && !$execute_directly) {
++    $adjust_selection = $vbo->view->query->pager->has_more_records();
++  }
++
++  // Check whether other modules need to adjust the selection.
++  drupal_alter('views_bulk_operations_adjust_selection', $adjust_selection, $selection, $vbo);
++
++  // Try to load all the selected rows without a batch if needed.
++  if ($execute_directly && $adjust_selection) {
+     views_bulk_operations_direct_adjust($selection, $vbo);
+   }
+ 
+@@ -846,9 +864,9 @@ function views_bulk_operations_execute($vbo, $operation, $selection, $select_all
+     'title' => t('Performing %operation on the selected items...', array('%operation' => $operation->label())),
+   );
+ 
+-  // All items on all pages should be selected, add a batch job to gather
+-  // and enqueue them.
+-  if ($select_all_pages && $vbo->view->query->pager->has_more_records()) {
++  // We need to adjust the selection, so we add a batch job to gather and
++  // enqueue the selected items.
++  if ($adjust_selection) {
+     $total_rows = $vbo->view->total_rows;
+ 
+     $batch['operations'][] = array(
+@@ -902,6 +920,7 @@ function views_bulk_operations_adjust_selection($queue_name, $operation, $option
+ 
+   $view_info = $options['view_info'];
+   $view = views_get_view($view_info['name']);
++  $view->views_bulk_operations = array('adjust_selection' => TRUE);
+   $view->set_exposed_input($view_info['exposed_input']);
+   $view->set_arguments($view_info['arguments']);
+   $view->set_display($view_info['display']);
+@@ -1134,6 +1153,7 @@ function views_bulk_operations_queue_item_process($queue_item_data, &$log = NULL
+ function views_bulk_operations_direct_adjust(&$selection, $vbo) {
+   // Adjust selection to select all rows across pages.
+   $view = views_get_view($vbo->view->name);
++  $view->views_bulk_operations = array('adjust_selection' => TRUE);
+   $view->set_exposed_input($vbo->view->get_exposed_input());
+   $view->set_arguments($vbo->view->args);
+   $view->set_display($vbo->view->current_display);

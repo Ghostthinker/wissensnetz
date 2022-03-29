@@ -1,0 +1,96 @@
+@import "../node_modules/@fortawesome/fontawesome-free/less/fontawesome";
+@import "../node_modules/@fortawesome/fontawesome-free/less/solid";
+
+@import "../../../less/variables";
+
+@accordion-bg-color: #ffffff;
+@accordion-font-size: 14px;
+
+.accordion-container {
+  margin: 0.7em 0 0;
+  padding: 0 0.5em;
+  box-shadow: @card-background-shadow;
+  border-radius: @card-border-radius;
+  background-color: @accordion-bg-color;
+
+  .accordion-button {
+    background-color: white;
+    border: none;
+    color: @dosb-orange;
+    cursor: pointer;
+    padding: 15px;
+    width: 100%;
+    text-align: left;
+    outline: none;
+    font-family: inherit;
+    font-size: @accordion-font-size;
+    transition: 0.4s;
+    font-weight: bold;
+
+    &:after {
+      .fa-icon;
+      .fas;
+      content: @fa-var-chevron-down;
+      color: @dosb-light-grey;
+      font-weight: bold;
+      font-family: 'Font Awesome 5 Free';
+      float: right;
+      margin-left: 5px;
+    }
+    &.right:after {
+      .fa-icon;
+      .fas;
+      content: @fa-var-chevron-right;
+    }
+    label {
+      font-size: inherit;
+    }
+  }
+
+  /*.active,*/
+  .accordion-button:hover {
+    //background-color: darken(@accordion-bg-color, 10%);
+  }
+
+  .accordion-button.active:after {
+    content: @fa-var-chevron-up;
+  }
+
+  .accordion-panel {
+    //padding: 0 18px;
+    background-color: @accordion-bg-color;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+    div, form {
+      background-color: @accordion-bg-color;
+      margin-bottom: 0;
+    }
+    a div {
+      background-color: transparent;
+    }
+
+    div.tooltip .tooltip-inner {
+      background-color: black;
+    }
+    .panel-heading {
+      display: none;
+    }
+    .panel-body {
+      padding: 1.3em;
+      .file-usage-label {
+        font-weight: 600;
+      }
+      .pane-content-separator {
+        margin: 0.5em 0;
+      }
+    }
+  }
+
+  :not(.form-autocomplete) .field-name-field-user-picture img {
+    border-radius: 8em;
+    width: @card-user-image-width;
+    height: inherit;
+    max-width: 100%;
+  }
+}

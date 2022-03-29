@@ -1,0 +1,113 @@
+<?php
+
+function salto_comment_preprocess_node($variables) {
+  drupal_add_js(drupal_get_path('module', 'salto_comment') . "/js/salto_comment.js");
+  drupal_add_css(drupal_get_path('module', 'salto_comment') . "/css/salto_comment.css");
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function salto_comment_menu_alter(&$items) {
+  $items['ajax_comment/%/delete']['page callback'] = 'salto_comment_comments_delete';
+  $items['ajax_comment/%/delete']['access callback'] = 'salto_comment_access';
+  $items['ajax_comment/%/delete']['access arguments'] = [1];
+}
+
+function salto_comment_access($cid) {
+  $comment = comment_load($cid);
+  return comment_access('edit', $comment);
+}
+
+function salto_comment_comments_delete($cid) {
+  if (!($comment = comment_load($cid))) {
+    return MENU_NOT_FOUND;
+  }
+
+  $query = db_select('comment', 'c');
+  $query->addField('c', 'cid');
+  $query->condition('c.pid', $comment->cid);
+  $query->condition('c.nid', $comment->nid);
+  $query->condition('c.thread', substr($comment->thread, 0, -1) . '.%', 'LIKE')
+    ->addTag('node_access');
+
+  $cids = $query->execute()->fetchCol();
+  if (sizeof($cids) < 1) {
+    salto_comment_clean_heartbeat_activity($comment);
+
+    comment_delete($cid);
+
+    cache_clear_all();
+
+    return salto_comments_delete_commands($comment, TRUE);
+  }
+
+  $comment->subject = t('Comment delete.');
+  $comment->uid = 0;
+  $comment->name = 'Gast';
+  $comment->comment_body[LANGUAGE_NONE][0]['value'] = $comment->subject;
+  $comment->comment_body[LANGUAGE_NONE][0]['safe_value'] = '<p>' . $comment->subject . '</p>';
+  comment_save($comment);
+  salto_comment_clean_heartbeat_activity($comment);
+
+  return salto_comments_delete_commands($comment);
+}
+
+function salto_comment_clean_heartbeat_activity($comment) {
+  db_delete('heartbeat_activity')
+    ->condition('message_id', 'heartbeat_add_comment')
+    ->condition('nid', $comment->nid)
+    ->condition('cid', $comment->cid)
+    ->execute();
+}
+
+/**
+ * Removes the comment.
+ *
+ * @param $comment
+ * @param bool $isLast
+ *
+ * @return array
+ */
+function salto_comments_delete_commands($comment, $isLast = FALSE) {
+
+  ajax_comments_remove_status();
+  $notify_text = variable_get('ajax_comments_notify', '') ? theme('ajax_comments_notify_text', [
+    'type' => 'delete',
+    'comment' => $comment,
+  ]) : '';
+
+  $commands[] = ajax_command_remove('.messages.status');
+  $commands[] = ajax_command_remove('.messages.warning');
+  $commands[] = ajax_command_replace('.comment-wrapper-' . $comment->cid, $notify_text);
+
+  if ($isLast) {
+    $commands[] = ajax_command_remove('a#comment-' . $comment->cid);
+    $commands[] = ajax_command_remove('.comment-wrapper-' . $comment->cid);
+  }
+  return ['#type' => 'ajax', '#commands' => $commands];
+}
+
+function salto_comment_comment_view_alter(&$build) {
+  if ($build['#comment']->uid == 0) {
+    $build['links']['comment']['#links']['comment-reply'] = [];
+    $build['links']['comment']['#links']['comment-edit'] = [];
+  }
+
+  if (salto_comment_access($build['#comment']->cid)) {
+    $classes = [
+      'use-ajax-comments',
+      'ajax-comments-delete',
+      'ajax-comments-delete-' . $build['#comment']->cid,
+    ];
+    $commentDelete = [
+      'type' => 'link',
+      'title' => t('Delete'),
+      'href' => 'ajax_comment/' . $build['#comment']->cid . '/delete',
+      'html' => TRUE,
+    ];
+    $build['links']['comment']['#links']['comment-delete'] = $commentDelete;
+    $build['links']['comment']['#links']['comment-delete']['attributes']['class'] = $classes;
+    array_multisort($build['links']['comment']['#links'], SORT_DESC);
+  }
+}

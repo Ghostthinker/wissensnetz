@@ -1,0 +1,247 @@
+div.date-year {
+  display: none
+}
+
+#edit-field-online-meeting-date {
+  .time-wrapper {
+    display: flex;
+    align-items: center;
+
+    > span {
+      margin-right: 4px;
+    }
+  }
+}
+
+#edit-field-online-meeting-date-und-0-value {
+  padding: 0;
+
+  .help-block {
+    display: none;
+  }
+}
+
+#edit-field-online-meeting-date-und-0-value2,
+.date-no-float.end-date-wrapper.container-inline-date {
+  display: none;
+}
+
+.group-online-meeting-timegroup {
+  padding-bottom: 50px;
+}
+
+
+#edit-field-start-time {
+  width: 30%;
+  margin-top: -132px;
+  margin-left: 205px;
+  margin-bottom: -8%;
+
+  fieldset {
+    border-bottom: none;
+  }
+
+  legend {
+    margin-bottom: unset;
+    margin-left: 9px;
+  }
+}
+
+#edit-field-end-time {
+  width: 70%;
+  margin-left: 57%;
+  margin-bottom: -7%;
+  margin-top: -136px;
+
+  fieldset {
+    border-bottom: none;
+  }
+
+  legend {
+    margin-bottom: unset;
+    margin-left: 9px;
+  }
+}
+
+#edit-field-start-date {
+  margin-bottom: -7%;
+
+  fieldset {
+    border-bottom: none;
+  }
+}
+
+.date-processed {
+  border-bottom: none;
+}
+
+.field-name-field-start-date {
+  legend {
+    display: none;
+  }
+}
+
+.online-meetings-items-icon {
+  zoom: 4;
+  margin-left: 2px;
+  z-index: 1;
+}
+
+
+.online-meetings-item-status.online {
+  width: 15px;
+  height: 15px;
+  border-radius: 10px;
+  -moz-border-radius: 5px;
+  background-color: #64c464 !important;
+  float: right;
+  margin: -10px 10px 0 0;
+  z-index: 2;
+  position: relative;
+}
+
+button.btn.btn-success.form-submit.online-meeting-button-form,
+a.btn.btn-primary.online-meeting-button-form {
+  padding: 0px !important;
+  height: 25px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-flow: column;
+  width: 85%;
+}
+
+a.btn.btn-primary.online-meeting-button-form {
+  color: white;
+}
+
+.icon-calendar-recurring::before,
+.icon-calendar-completed::before,
+.icon-calendar::before {
+  margin-left: unset !important;
+}
+
+.online-meeting-border-form {
+  border-bottom: 1px dotted #fff;
+  padding-bottom: 5%;
+  display: flex;
+  flex-direction: row;
+}
+
+.online-meeting-border-form-items {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 2;
+  word-break: break-word;
+}
+
+.online-meeting-border-form:last-child {
+  border: none;
+}
+
+#field-online-meeting-date-add-more-wrapper {
+
+  .date-combo {
+    border-bottom: none;
+    padding-bottom: unset;
+    margin-bottom: unset;
+
+    .panel-heading {
+      display: none;
+    }
+  }
+}
+
+.header {
+  .icon-calendar,
+  .icon-calendar-completed,
+  .icon-calendar-recurring {
+    zoom: 4;
+    padding-left: unset;
+    margin-top: -3%;
+    color: #FCB131;
+  }
+
+  .icon-group {
+    margin-bottom: 16%;
+  }
+
+  .card-online-meeting-title {
+    color: #FCB131;
+    min-width: 330px;
+  }
+
+  .card-online-meeting-date {
+    padding-bottom: 5%;
+  }
+
+}
+
+
+.group-closed {
+  color: #fff;
+  padding: 5px 10px 5px 15px;
+  font-weight: bold;
+  display: block;
+  background-color: #878787;
+}
+
+.dialog-status-pane .pane-content {
+  padding: unset !important;
+  text-align-last: center;
+}
+
+.dialog-status-pane-wrapper .panel-body {
+  padding: 0 12px 0 !important;
+}
+
+a.action_start_meeting:before,
+a.action_join_meeting:before {
+  margin-right: 10px !important;
+}
+
+.node-online-meeting {
+  .node-readmore a:before {
+    content: none !important;
+  }
+
+  .group-footer .foo-left .list-inline {
+    display: flex;
+    flex-direction: column;
+
+    .node-readmore {
+      margin-bottom: 10px;
+
+      a {
+        color: #ee334e !important;
+      }
+    }
+  }
+
+  .card-content {
+    .header,
+    .group-content {
+      padding: 5px !important;
+    }
+  }
+}
+
+@media only screen and (max-width: 1023px) {
+  #dialog_status {
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    z-index: 99;
+    position: -webkit-sticky;
+    position: sticky;
+
+    .alert {
+      float: none;
+    }
+
+    .pane-action-links {
+      margin: 0;
+    }
+  }
+
+}

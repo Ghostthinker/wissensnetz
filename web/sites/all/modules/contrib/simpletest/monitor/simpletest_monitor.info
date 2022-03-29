@@ -1,0 +1,13 @@
+
+name = Testing API Monitor
+description = Ensure that 2.x style tests are removed when core API is being used.
+package = Testing
+core = 7.x
+files[] = simpletest_monitor.module
+
+; Information added by drupal.org packaging script on 2011-03-15
+version = "7.x-2.0"
+core = "7.x"
+project = "simpletest"
+datestamp = "1300166168"
+

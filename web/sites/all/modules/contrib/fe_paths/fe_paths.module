@@ -1,0 +1,903 @@
+<?php
+/**
+ * @file
+ * Contains functions for the File Entity Paths module.
+ */
+
+/**
+ * Override existing processed files, if a new config matches, or something is
+ * changed in the existing source data. (eg node->title changed)
+ */
+define('FE_PATHS_OVERRIDE_NEVER', 0); // The file will be never overridden.
+define('FE_PATHS_OVERRIDE_WITHIN_ENTITY_TYPE', 1); // The file will be overridden, if new data based on the same entity type.
+define('FE_PATHS_OVERRIDE_WITHIN_ENTITY', 2); // The file will be overridden, if new data based on the same entity.
+define('FE_PATHS_OVERRIDE_ALWAYS', 3); // // The file will be overridden under every circumstanses.
+
+
+
+/**
+ * Implements hook_permission().
+ */
+function fe_paths_permission() {
+  return array(
+    'administer_fe_paths' => array(
+      'title' => t('Administer File Entity Paths'),
+      'description' => t('Adminsiter File Entity Paths configuration.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function fe_paths_menu() {
+  $items['admin/config/media/fe-paths'] = array(
+    'title' => 'File Entity Paths settings',
+    'description' => 'Configure custom paths for file entities',
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('administer_fe_paths'),
+    'page callback' => 'fe_paths_global_page',
+    'file' => 'fe_paths.admin.inc',
+  );
+  $items['admin/config/media/fe-paths/global'] = array(
+    'title' => 'Global',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -1,
+  );
+  $items['admin/config/media/fe-paths/add'] = array(
+    'title' => 'Add config',
+    'type' => MENU_LOCAL_TASK,
+    'access arguments' => array('administer_fe_paths'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fe_paths_entity_edit_form'),
+    'file' => 'fe_paths.admin.inc',
+  );
+  $items['admin/config/media/fe-paths/%fe_paths_config/edit'] = array(
+    'title' => 'Edit configuration',
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('administer_fe_paths'),
+    'page callback' => 'fe_paths_config_edit_page',
+    'page arguments' => array(4),
+    'file' => 'fe_paths.admin.inc',
+  );
+  $items['admin/config/media/fe-paths/%fe_paths_config/delete'] = array(
+    'title' => 'Edit configuration',
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('administer_fe_paths'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fe_paths_config_delete_confirm', 4),
+    'file' => 'fe_paths.admin.inc',
+  );
+  return $items;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function fe_paths_form_alter(&$form, &$form_state, $form_id) {
+  //dsm($form_id);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function fe_paths_theme() {
+  return array(
+    'fe_paths_config_table' => array(
+      'render element' => 'element',
+      'file' => 'fe_paths.admin.inc',
+    ),
+    'fe_paths_config_data' => array(
+      'variables' => array('config' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function fe_paths_entity_info() {
+  $return = array(
+    'fe_paths_config' => array(
+      'label' => t('File entity paths configuration'),
+      'entity class' => 'Entity',
+      'controller class' => 'EntityAPIControllerExportable',
+      'base table' => 'fe_paths_config',
+      'fieldable' => FALSE,
+      'entity keys' => array(
+        'id' => 'id',
+        'name' => 'machine_name',
+        'label' => 'label',
+      ),
+      'module' => 'fe_paths',
+      'exportable' => TRUE,
+      'label callback' => 'entity_class_label',
+      'uri callback' => 'entity_class_uri',
+    ),
+  );
+
+  if (module_exists('entitycache')) {
+    $return['fe_paths_config']['entity cache'] = TRUE;
+  }
+
+  return $return;
+}
+
+/**
+ * Implements hook_file_presave().
+ */
+function fe_paths_entity_presave($entity, $type) {
+  if ($type == 'file') {
+    // Store original filename in the database.
+    if (empty($entity->origname)) {
+      $entity->origname = $entity->filename;
+    }
+    if (!isset($entity->fe_paths_processed) && isset($entity->fid)) {
+      drupal_register_shutdown_function('fe_paths_file_process', $entity->fid, $entity, $type);
+      $entity->fe_paths_processed = TRUE;
+    }
+  }
+  // Only passed to process, if entity was not processed before, and
+  // and the entity is fieldable.
+  if (!isset($entity->fe_paths_processed) && array_key_exists($type, fe_paths_get_fieldable_entities())) {
+    $entity_info = entity_get_info($type);
+    // Get all fields of the saved entity.
+    $bundle = NULL;
+
+    if (!empty($entity_info['entity keys']['bundle'])) {
+      $bundle = $entity->{$entity_info['entity keys']['bundle']};
+    }
+    else {
+      $bundle = $type;
+    }
+
+    $fields = field_info_instances($type, $bundle);
+    // Get all allowed widgets, which need to be processed
+    $allowed_types = fe_paths_get_allowed_widget_types($entity);
+    // Let's collect all processable fields, and add it to register_shutdown
+    // for processing.
+    foreach ($fields as $field) {
+      if (in_array($field['widget']['type'], $allowed_types) && $files = field_get_items($type, $entity, $field['field_name'])) {
+        foreach ($files as $file) {
+          // Just for testing, in _registershutdown hard to debug.
+          //fe_paths_file_process(file_load($file['fid']), $entity, $type);
+          drupal_register_shutdown_function('fe_paths_file_process', $file['fid'], $entity, $type, $field['field_name']);
+        }
+      }
+      // Searching in textfields for possibly embed files by media wysiwsg.
+      if (!empty($field['settings']['text_processing']) && $field_items = field_get_items($type, $entity, $field['field_name'])) {
+        foreach ($field_items as $field_item) {
+          preg_match_all('/\[\[.*?\]\]/s', $field_item['value'], $matches);
+          foreach ($matches[0] as $tag) {
+            $tag = str_replace(array('[[', ']]'), '', $tag);
+            $tag_info = drupal_json_decode($tag);
+            if (isset($tag_info['fid'])) {
+              drupal_register_shutdown_function('fe_paths_file_process', $tag_info['fid'], $entity, $type, $field['field_name']);
+            }
+          }
+        }
+      }
+    }
+    $entity->fe_paths_processed = TRUE;
+  }
+}
+
+/**
+ * Implements hook_file_delete().
+ */
+function fe_paths_file_delete($file) {
+  fe_paths_usage_delete($file->fid);
+}
+
+/********************************
+ *    Main process functions    *
+ * ******************************/
+
+/**
+ * Actually pre processes the files. Set a $file->fe_paths_processed flag on
+ * the file entity, then add to process queue. The file will be processed
+ * on drupal_register_shutdown.
+ *
+ * @see fe_paths_file_presave()
+ * @see fe_paths_file_process()
+ */
+function fe_paths_file_process($fid, $entity, $type, $field_name = NULL) {
+  $file = file_load($fid);
+  if ($file !== FALSE && fe_paths_file_process_available($file)) {
+    $configs = fe_paths_config_load_multiple();
+    fe_paths_add_global_settings_to_config($configs, $file);
+    $entity_info = entity_get_info($type);
+    $match = FALSE; // Variable to track, if we reach the correct config.
+    $fe_paths_usage = fe_paths_usage($file->fid);
+    $file_config = FALSE;
+    $entity_key = $entity_info['entity keys']['id'];
+    $entity_id = $entity->$entity_key;
+    $bundle_key = isset($entity_info['entity keys']['bundle']) ? $entity_info['entity keys']['bundle'] : 'type';
+    // Like user, it hasn't bundle keys, but 'user' is a bundle.
+    $bundle = isset($entity->$bundle_key) ? $entity->$bundle_key : $type;
+
+    // If we have valid usage, we have some chance to quit immediatly.
+    if ($fe_paths_usage) {
+      $file_config = $configs[$fe_paths_usage->id];
+      // We only have chances, when 'Override by other configuration' is
+      // not checked in this configuration.
+      if (!$file_config->data['other_config']) {
+        // If "Never" is set, no more questions..
+        if ($file_config->data['override_options'] === FE_PATHS_OVERRIDE_NEVER) {
+          return;
+        }
+        // If 'Within the same entity type' overridden enabled, but the usage
+        // and the processed entity's type is different, just leave.
+        if ($file_config->data['override_options'] === FE_PATHS_OVERRIDE_WITHIN_ENTITY_TYPE && $fe_paths_usage->entity_type != $type) {
+          return;
+        }
+
+        // If 'Within the same entity' is checked, and the usage and entity id
+        // is different, leave again.
+        if ($file_config->data['override_options'] === FE_PATHS_OVERRIDE_WITHIN_ENTITY && $fe_paths_usage->entity_id != $entity_id) {
+          return;
+        }
+
+        // This stay here, if in the future bundle investigation is necessary.
+        //if (fe_paths_have_valid_bundle($type)) {
+        // If still here need to load it for further investigation.
+        //  $usage_entity = entity_load_single($fe_paths_usage->entity_type, $fe_paths_usage->entity_id);
+        //}
+      }
+    }
+
+    // If we are here, start to work with all configs.
+    foreach ($configs as $config) {
+      // If we have match, no need to check more config, we have result.
+      if ($match) {
+        break;
+      }
+      // If $this_file_config is TRUE, means, the $config is the same, like
+      // previously processed on this file.
+      $this_file_config = $config == $file_config;
+      $data = $config->data;
+
+      // If override by other configuration is not allowed, and doesn't reach
+      // own config, skip to the next config.
+      if ($file_config && !$file_config->data['other_config'] && !$this_file_config) {
+        continue;
+      }
+
+      // We reach the existing used config, no more config need to visit.
+      // Step to the next config means, the file would be processed by a HEIGHER
+      // weight configuration, than previously was processed.
+      if ($this_file_config) {
+        $match = TRUE;
+
+        // Let's see, how can we escape here. We can check the conditions used
+        // sooner, but can't escape because the config can be overridden by
+        // lighter config.
+        if ($file_config->data['override_options'] === FE_PATHS_OVERRIDE_NEVER) {
+          return;
+        }
+        if ($file_config->data['override_options'] === FE_PATHS_OVERRIDE_WITHIN_ENTITY_TYPE && $fe_paths_usage->entity_type != $type) {
+          return;
+        }
+        if ($file_config->data['override_options'] === FE_PATHS_OVERRIDE_WITHIN_ENTITY && $fe_paths_usage->entity_id != $entity_id) {
+          return;
+        }
+      }
+
+      // First, step to the next, if the file types of config doesn't match.
+      if (isset($data['file_entity'][$file->type]) && $data['file_entity'][$file->type] !== $file->type) {
+        continue;
+      }
+      // If the processed entity has different type then this config, or the
+      // config settings is not global skip.
+      if (isset($data['entity']) && $data['entity'] != $type && $data['entity'] != 'global') {
+        continue;
+      }
+
+      // If bundle doesn't match, skip, but only if bundle is set.
+      if (isset($data['bundle'])  && !isset($data['bundle'][$bundle])) {
+        continue;
+      }
+
+      // Only need field investigation, if field name was passed to this
+      // function.
+      if (!is_null($field_name)) {
+        // If the field name doesn't exists, skip.
+        if (!isset($data['bundle'][$bundle][$field_name])) {
+          continue;
+        }
+
+        // If the field name isn't checked in config, skip
+        if (!$data['bundle'][$bundle][$field_name]) {
+          continue;
+        }
+      }
+
+      //$fields = fe_paths_get_available_fields($type, $bundle);
+
+      if (fe_paths_move_file($file, $config->path, $config->filename, $type, $data, $entity)) {
+        $match = TRUE;
+        // Store, which configuration with which entity moves the file.
+        fe_paths_usage_add($file->fid, $type, $entity->$entity_key, $config->id);
+      }
+      // If something is wrong with the file_move, continue until fallback.
+      else {
+        $match = FALSE;
+      }
+    }
+  }
+}
+
+/**
+ * Build new filename and path based on settings, and move file, if necessary.
+ *
+ * @param $file
+ *   The original file object.
+ * @param $replace_path
+ *   Path pattern will be used as replacement pattern.
+ * @param $replace_filename
+ *   Filename pattern will be used as replacement pattern.
+ * @param $token_type
+ *   Originally the parent entity type, determine, which tokens is used in
+ *   transformation.
+ * @param $config_data
+ *   The additional data of actaul File Entity Paths configuration.
+ * @param null $entity
+ *   The parent entity.
+ *
+ * @return mixed
+ *   The file, if transformation and file moving was success, otherwise FALSE.
+ */
+function fe_paths_move_file($file, $replace_path, $replace_filename, $token_type, $config_data, $entity = NULL) {
+  $scheme = file_uri_scheme($file->uri);
+  $old_dir_uri = str_replace('/' . $file->filename, '', $file->uri);
+
+  $path = token_replace($replace_path, array(
+    $token_type => $entity,
+    $token_type,
+    'file' => $file,
+    'file'
+  ), array('clear' => TRUE));
+
+  $filename = token_replace($replace_filename, array(
+    $token_type => $entity,
+    $token_type,
+    'file' => $file,
+    'file'
+  ), array('clear' => TRUE));
+
+  // Modify text by transliteration.
+  if (isset($config_data['transliteration']) && $config_data['transliteration'] && module_exists('transliteration')) {
+    // The path need some vudu to clean, because transliteration remove the
+    // slashes.
+    $parts = array();
+    foreach (explode('/', $path) as $part) {
+      $parts[] = transliteration_clean_filename($part);
+    }
+    $path = implode('/', $parts);
+    $filename = transliteration_clean_filename($filename);
+  }
+
+  // Modify text by pathauto.
+  if (isset($config_data['pathauto']) && $config_data['pathauto'] && module_exists('pathauto')) {
+    module_load_include('inc', 'pathauto');
+
+    $parts = array();
+    foreach (explode('/', $path) as $part) {
+      $parts[] = pathauto_cleanstring($part);
+    }
+    $path = implode('/', $parts);
+    // The same vudu, as in the transliteration, but here is because of
+    // punctuation.
+    $parts = array();
+    foreach (explode('.', $filename) as $part) {
+      $parts[] = pathauto_cleanstring($part);
+    }
+    $filename = implode('.', $parts);
+  }
+
+  $new_uri = $scheme . '://' . $path . '/' . $filename;
+  $directory = $scheme . '://' . $path;
+
+  // Only do file_move, if the new uri is different than old. But need
+  // to return with the file, because without this, no config match happen
+  // in fe_paths_file_process.
+  if ($new_uri == $file->uri) {
+    return $file;
+  }
+
+  // Create directory, if necessary.
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+  if (file_move($file, $new_uri)) {
+    // Check, if directory is empty, and delete it, if yes, remove it.
+    $files = file_scan_directory($old_dir_uri, '/.*/');
+    if (file_exists($old_dir_uri) && empty($files)) {
+      drupal_rmdir($old_dir_uri);
+    }
+    // Because of file_move works with a cloned $file object, need to update
+    // this $file object.
+    $file->filename = $filename;
+    $file->uri = $new_uri;
+    return $file;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Function to decide, if a file is available for File Entity Paths processing.
+ *
+ * @param $file
+ *
+ * @return bool
+ */
+function fe_paths_file_process_available($file) {
+  $return = TRUE;
+  // Get a static of processed files to prevent infinite processing.
+  $processed = &drupal_static(__FUNCTION__, array());
+
+  // Critical return conditions. These files never must be processed.
+  if (!file_entity_file_is_local($file)) {
+    return FALSE;
+  }
+
+  // @todo: is this exists in this structure? We just try it.
+  if (!isset($file->type)) {
+    watchdog('File Entity devel helper', '<em>!isset($file->type)</em> condition was marked as removable in File Entity Paths module. If you still see this message in log, please let me know in <a href="http://drupal.org/node/1783934">Check whether all condition need in the fe_paths_file_process_available()</a> issue.');
+    return FALSE;
+  }
+
+  if (!array_key_exists($file->origname, $processed)) {
+    $processed[$file->origname] = TRUE;
+  }
+  else {
+    $return = FALSE;
+  }
+  // Clone the original file to pass as none alterable argument
+  $clone = clone($file);
+  // Let other modules to set $return to FALSE.
+  drupal_alter('fe_paths_file_process_available', $return, $clone);
+  return $return;
+}
+
+/********************************
+ *       Entity functions       *
+ *      (fe_paths_config)       *
+ * ******************************/
+
+/**
+ * Load multiple File Entity Paths config entities based on certain conditions.
+ *
+ * @param $ids
+ *   An array of entity IDs.
+ *   If $ids contains 'all', every config will be loaded.
+ * @param $conditions
+ *   An array of conditions to match against the {entity} table.
+ * @param bool $reset
+ *   A boolean indicating that the internal cache should be reset.
+ *
+ * @return
+ *   An array of File Entity Paths config object objects, indexed by id.
+ */
+function fe_paths_config_load_multiple($ids = array('all'), $conditions = array(), $reset = FALSE) {
+
+  if (in_array('all', $ids)) {
+    $ids = array();
+    $result = db_select('fe_paths_config', 'fe')
+      ->fields('fe', array('machine_name', 'id'))
+      ->execute()
+      ->fetchAllAssoc('id');
+    foreach ($result as $key => $value) {
+      $ids[] = $key;
+    }
+  }
+
+  // Load entities
+  $entities = entity_load('fe_paths_config', $ids, $conditions, $reset);
+
+  // Prepare an empty array to short
+  $weights = array();
+  // Build sort index.
+  foreach ($entities as $id => $config) {
+    $weights[$id] = $config->weight;
+  }
+
+  asort($weights);
+
+  // Sort entities by weight.
+  $return = array();
+  foreach ($weights as $key => $weight) {
+    $return[$key] = $entities[$key];
+  }
+
+  return $return;
+}
+
+/**
+ * Load File Entity Paths config entity by own id.
+ *
+ * @param $id
+ *   The id of the File Entity Paths config
+ * @param bool $reset
+ *   A boolean indicating that the internal cache should be reset.
+ *
+ * @return mixed
+ *   The File Entity Paths config if loaded successful else FALSE.
+ */
+function fe_paths_config_load($id, $reset = FALSE) {
+  $object = fe_paths_config_load_multiple(array($id), array(), $reset);
+  return isset($object[$id]) ? $object[$id] : FALSE;
+}
+
+/**
+ * Delete multiple File Entity Paths config entities.
+ *
+ * @param $ids
+ *   An array of File Entity Paths config entity IDs.
+ */
+function fe_paths_config_delete_multiple(array $ids) {
+  return entity_delete_multiple('fe_paths_config', $ids);
+}
+
+/**
+ * Delete File Entity Paths config entity.
+ *
+ * @param $id
+ *   The File Entity Paths config entity IDs.
+ */
+function fe_paths_config_delete($id) {
+  return fe_paths_config_delete_multiple(array($id));
+}
+
+/**
+ * Save a File Entity Paths config entity.
+ *
+ * @param $config
+ *   The configuration object or array
+ *
+ * @return mixed
+ *   The saved entity or FALSE, if something is wrong.
+ */
+function fe_paths_config_save($config) {
+  if (is_array($config)) {
+    $config = (object) $config;
+  }
+
+  return entity_save('fe_paths_config', $config);
+}
+
+/**
+ * Prepare configuration entity to save.
+ *
+ * @param $config
+ */
+function fe_paths_prepare_config(&$config) {
+  $info = entity_get_info('fe_paths_config');
+
+  // Remove all unnecessary values from the config.
+  foreach ($config as $key => $value) {
+    if (!in_array($key, $info['schema_fields_sql']['base table'])) {
+      unset($config[$key]);
+    }
+  }
+
+  // Make an object
+  $config = (object) $config;
+  // Set status, if necessary.
+  if (!isset($config->status)) {
+    $config->status = 1;
+  }
+}
+
+/********************************
+ * File Entity Path usage CRUD  *
+ * ******************************/
+
+/**
+ * Add or update a fe_paths usage record to the database.
+ *
+ * @param null $fid
+ * @param $entity_type
+ * @param $entity_id
+ * @param $id
+ */
+function fe_paths_usage_add($fid = NULL, $entity_type, $entity_id, $id) {
+  $data = array(
+    'fid' => $fid,
+    'entity_type' => $entity_type,
+    'entity_id' => $entity_id,
+    'id' => $id,
+  );
+
+
+  if (!fe_paths_usage($fid)) {
+    drupal_write_record('fe_paths_usage', $data);
+  }
+
+  else {
+    db_update('fe_paths_usage')
+      ->fields(
+        array(
+          'entity_type' => $entity_type,
+          'entity_id' => $entity_id,
+          'id' => $id,
+        )
+      )
+      ->condition('fid', $fid)
+      ->execute();
+  }
+}
+
+/**
+ * Delete a record from the fe_paths_usage table.
+ * @param $fid
+ *
+ * @return DatabaseStatementInterface
+ */
+function fe_paths_usage_delete($fid) {
+  db_delete('fe_paths_usage')
+    ->condition('fid', $fid)
+    ->execute();
+}
+
+/**
+ * Get a file File Entity Paths configuration usage. It determine, which
+ * configuration, by which entity is applied on the file.
+ *
+ * @param $fid
+ * @param bool $reset
+ *
+ * @return bool
+ */
+function fe_paths_usage($fid, $reset = FALSE) {
+  $usage = drupal_static(__FUNCTION__);
+
+  if (isset($usage[$fid]) && !$reset) {
+    return $usage[$fid];
+  }
+
+  $result = db_select('fe_paths_usage', 'fep')
+    ->fields('fep')
+    ->condition('fid', $fid)
+    ->execute()
+    ->fetchAllAssoc('fid');
+
+  if (!$result) {
+    return FALSE;
+  }
+  else {
+    $usage[$fid] = $result[$fid];
+  }
+  return $usage[$fid];
+}
+
+/********************************
+ *        Theme functions       *
+ * ******************************/
+
+function theme_fe_paths_config_data($vars) {
+  $data = $vars['config']->data;
+  $items = array();
+
+  if (isset($data['file_entity'])) {
+    $enabled_types = array();
+    foreach ($data['file_entity'] as $key => $val) {
+      if ($key === $val) {
+        $enabled_types[] = $val;
+      }
+    }
+    $items[] = t('File types processed: @types', array('@types' => !empty($enabled_types) ? implode(', ', $enabled_types) : ' - '));
+  }
+
+  if (isset($data['entity'])) {
+    $entities = fe_paths_get_fieldable_entities();
+    $bundles = fe_paths_get_bundle_names($data['entity']);
+    $items[] = t('Entity: @entity', array('@entity' => $entities[$data['entity']]));
+    $fields_text = array();
+
+    if (isset($data['bundle'])) {
+      foreach ($data['bundle'] as $bundle_key => $bundle) {
+        foreach ($bundle as $field_name => $field) {
+          if ($bundle[$field_name]) {
+            $fields_text[] = $bundles[$bundle_key] . ': ' . $field_name;
+          }
+        }
+      }
+      if (!empty($fields_text)) {
+        $items[] = t('In fields: !bundle', array('!bundle' => theme('item_list', array('items' => $fields_text))));
+      }
+    }
+  }
+  return theme('item_list', array('items' => $items));
+}
+
+/********************************
+ *       Helper functions       *
+ * ******************************/
+
+/**
+ * Get all allowed file schemes to be processed.
+ * @return array
+ */
+function fe_paths_get_allowed_schemes() {
+  //@todo make it altereble
+  return array(
+    'public',
+    'private'
+  );
+}
+
+/**
+ * @param $entity
+ *
+ * @return array
+ */
+function fe_paths_get_allowed_widget_types($entity = NULL) {
+  $allowed = array(
+    'image_image',
+    'file_file',
+    'media_generic',
+  );
+
+  drupal_alter($allowed, $entity);
+
+  return $allowed;
+}
+
+/**
+ * Get all variables defined by File Entity Paths
+ *
+ * @param $file_type
+ *   The bundle name of file, eg. image, application
+ *
+ * @return $settings
+ *   An array of variables.If $file_type set, only returns the settings of
+ *   $file_type
+ */
+function fe_paths_get_settings($file_type = NULL) {
+  $settings = &drupal_static(__FUNCTION__);
+
+  if (!isset($settings[$file_type])) {
+    $entity_info = entity_get_info('file');
+    foreach ($entity_info['bundles'] as $type => $bundle_info) {
+      $defaults = array();
+      if (isset($bundle_info['admin'])) {
+        foreach (file_get_stream_wrappers() as $scheme => $wrapper) {
+          $defaults[$scheme] = array(
+            'path' => '',
+            'filename' => '[file:name-only-original].[file:extension-original]',
+          );
+        }
+        $settings[$type] = variable_get("fep_$type", $defaults);
+      }
+    }
+  }
+
+  return is_null($file_type) ? $settings : $settings[$file_type];
+}
+
+/**
+ * Add default configuration based on file to the end of the loaded
+ * configurations.
+ *
+ * @param $config
+ * @param $file
+ */
+function fe_paths_add_global_settings_to_config(&$config, $file) {
+  $settings = fe_paths_get_settings($file->type);
+  $scheme = file_uri_scheme($file->uri);
+  $object = new stdClass();
+  $object->id = 0;
+  $object->path = $settings[$scheme]['path'];
+  $object->filename = $settings[$scheme]['filename'];
+  $object->data = array(
+    // Always enable to override the defaults!
+    'other_config' => 1,
+  );
+  $config[0] = $object;
+}
+
+/**
+ * Check, if machine name of settings is exists.
+ *
+ * @param $machine_name
+ *   The machine name to check
+ *
+ * @return mixed
+ *  The number of rows, in which the machine name is being. Normally it could
+ *  be 0 or 1.
+ */
+function fe_paths_check_machine_name($machine_name) {
+  return db_select('fe_paths_config', 'fe')
+    ->fields('fe', array('machine_name'))
+    ->condition('machine_name', $machine_name)
+    ->execute()
+    ->rowCount();
+}
+
+/**
+ * Get all fieldable entities. Use to build options for form elements, or
+ * check, wether the saved entity is processable by File Entity Paths.
+ *
+ * @return array
+ *   An array of fieldable entities, keyed by machine name, value is the label.
+ */
+function fe_paths_get_fieldable_entities() {
+  $return = array();
+  foreach (entity_get_info() as $name => $entity) {
+    // Only works with fieldable entities.
+    if ($entity['fieldable']) {
+      $return[$name] = $entity['label'];
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Get all bundle of an entity type.
+ * @param $entity_tyoe
+ *
+ * @return mixed
+ */
+function fe_paths_get_bundle_names($entity_type) {
+  $entity = entity_get_info($entity_type);
+  $bundles = array();
+  foreach ($entity['bundles'] as $key => $bundle) {
+    $bundles[$key] = $bundle['label'];
+  }
+  return $bundles;
+}
+
+/**
+ * Get all predefined override options in the configuration.
+ *
+ * @return array
+ */
+function fe_paths_get_override_options() {
+  return array(
+    FE_PATHS_OVERRIDE_NEVER => t('Never'),
+    FE_PATHS_OVERRIDE_WITHIN_ENTITY_TYPE => t('Within the same entity type'),
+    FE_PATHS_OVERRIDE_WITHIN_ENTITY => t('Within the same entity'),
+    FE_PATHS_OVERRIDE_ALWAYS => t('Always')
+  );
+}
+
+function fe_paths_have_valid_bundle($entity_type) {
+  $bundles = fe_paths_get_bundle_names($entity_type);
+  return !(count($bundles) == 1 && array_key_exists($entity_type, $bundles));
+}
+
+/**
+ * Helper function to get, which fields can be choosen in a configuration.
+ *
+ * @param $entity_type
+ * @param $bundle
+ *
+ * @return array
+ *   The available fields for an entity bundle, keyed by the field's machine
+ *   name.
+ */
+function fe_paths_get_available_fields($entity_type = NULL, $bundle = NULL) {
+  $instances = field_info_instances();
+  $allowed_types = fe_paths_get_allowed_widget_types();
+  $return = array();
+
+  foreach ($instances as $entity_name => $type_bundles) {
+    if (is_null($entity_type) || $entity_name == $entity_type) {
+      foreach ($type_bundles as $bundle_name => $bundle_instances) {
+        if (is_null($bundle) || $bundle_name == $bundle) {
+          foreach ($bundle_instances as $field_name => $instance) {
+            if (in_array($instance['widget']['type'], $allowed_types) || !empty($instance['settings']['text_processing'])) {
+              $return[$field_name] = $instance['label'] . ' (' . $field_name . ')';
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return $return;
+}
+

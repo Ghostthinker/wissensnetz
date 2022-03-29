@@ -1,0 +1,1792 @@
+<?php
+
+define('SALTO_OG_ROLE_MANAGER_RID', 3);
+define('SALTO_OG_ROLE_MANAGER_NAME', 'Manager');
+define('SALTO_OG_ROLE_MEMBER_NAME', 'Mitglied');
+define('SALTO_OG_ROLE_FOUNDER_NAME', 'Gründer');
+
+define("SALTO_OG_ROLE_LICENSE_MANAGER", "license manager");
+define("SALTO_OG_ROLE_LICENSE_MANAGER_NAME", t("License manager"));
+define("SALTO_OG_ROLE_LICENSE_MANAGER_PERMISSION", t("Manage licenses"));
+define("SALTO_OG_ROLE_LICENSE_MANAGER_RID", 7);
+
+define("SALTO_OG_ROLE_TRAINER", "og role trainer");
+define("SALTO_OG_ROLE_TRAINER_NAME", t("og role trainer"));
+define("SALTO_OG_ROLE_TRAINER_PERMISSION", t("Manage organisation"));
+define("SALTO_OG_ROLE_TRAINER_RID", 8);
+
+define("SALTO_OG_ROLE_EXTERN_TRAINER", "og role extern trainer");
+define("SALTO_OG_ROLE_EXTERN_TRAINER_NAME", t("og role extern trainer"));
+define("SALTO_OG_ROLE_EXTERN_TRAINER_RID", 9);
+
+define("SALTO_OG_ROLE_LICENSE_OWNER", "og role license owner");
+define("SALTO_OG_ROLE_LICENSE_OWNER_NAME", t("og role license owner"));
+define("SALTO_OG_ROLE_LICENSE_OWNER_RID", 10);
+
+define("SALTO_OG_ROLE_FURTHER_MEMBER", "og role further member");
+define("SALTO_OG_ROLE_FURTHER_MEMBER_NAME", t("og role further member"));
+define("SALTO_OG_ROLE_FURTHER_MEMBER_RID", 11);
+
+define("SALTO_ROLE_LICENSE_MANAGER", "license manager");
+define("SALTO_ROLE_LICENSE_MANAGER_RID", 7);
+
+define('SALTO_OG_AVAILABLE_USERS_QUERY_LIMIT', 10);
+
+/**
+ * Implements hook_menu().
+ */
+function salto_og_menu() {
+  $items = [];
+  $items['salto_og/js/%/%'] = [
+    'page callback' => 'salto_og_invite_ajax_callback',
+    'page arguments' => [2, 3],
+    'access callback' => 'salto_og_user_access_group',
+    'file' => 'salto_og.pages.inc',
+    'access arguments' => [2, 3],
+    'weight' => -4,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['salto_og/manage/%/%/%'] = [
+    'page callback' => 'salto_og_manage_ajax_callback',
+    'page arguments' => [2, 3, 4],
+    'access callback' => 'salto_og_manage_access',
+    'access arguments' => [2, 3, 4],
+    'file' => 'salto_og.pages.inc',
+    'weight' => -4,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['salto_og/autocomplete/%'] = [
+    'title' => 'Salto OG Reference Autocomplete',
+    'page callback' => 'salto_og_autocomplete_callback',
+    'page arguments' => [2, 3],
+    'access arguments' => ['access content'],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['organisation/invite'] = [
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_og_invite_form', NULL, FALSE, TRUE],
+    'file' => 'salto_og.pages.inc',
+    'access arguments' => ['manage people in any organisation'],
+    'weight' => -4,
+    'type' => MENU_CALLBACK,
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_ctools_plugin_directory()
+ */
+function salto_og_ctools_plugin_directory($module, $plugin) {
+  return "plugins/$plugin";
+}
+
+/**
+ * Add group permissions.
+ */
+function salto_og_og_permission() {
+  return [
+    'invite existing users' => [
+      'title' => t('Invite existing users'),
+      'description' => t("Send salto invites to existing users."),
+      'roles' => [OG_AUTHENTICATED_ROLE],
+      'default role' => [OG_AUTHENTICATED_ROLE],
+    ],
+    'invite new users' => [
+      'title' => t('Invite new users'),
+      'description' => t("Send salto invites to new users."),
+      'roles' => [OG_AUTHENTICATED_ROLE],
+      'default role' => [OG_AUTHENTICATED_ROLE],
+    ],
+    'manage all members' => [
+      'title' => t('Manage all members'),
+      'description' => t("Manage all members"),
+      'roles' => [OG_AUTHENTICATED_ROLE],
+      'default role' => [OG_AUTHENTICATED_ROLE],
+    ],
+    'manage membership fields' => [
+      'title' => t('Manage all memberships'),
+      'description' => t("Allow user to edit all memebrships of an og"),
+      'roles' => [OG_AUTHENTICATED_ROLE],
+      'default role' => [OG_AUTHENTICATED_ROLE],
+    ],
+    'manage own membership' => [
+      'title' => t('Manage own membership and responsibilites'),
+      'description' => t("Allow user to manage own membership memebrship fields"),
+      'roles' => [OG_AUTHENTICATED_ROLE],
+      'default role' => [OG_AUTHENTICATED_ROLE],
+    ],
+    'cancel own membership' => [
+      'title' => t('Cancel own membership'),
+      'description' => t("Allow users to cancel their memberships."),
+      'roles' => [OG_AUTHENTICATED_ROLE],
+      'default role' => [OG_AUTHENTICATED_ROLE],
+    ],
+  ];
+}
+
+/**
+ * Access function for management actions
+ *
+ * @param $op
+ * @param $gid
+ * @param null $uid
+ *
+ * @return bool
+ */
+function salto_og_manage_access($op, $gid, $uid = NULL) {
+  //Access is managed directly in the json callback salto_og_manage_ajax_callback()
+  return TRUE;
+}
+
+
+/**
+ * Menu access; Check if entity is a group, and user has permission.
+ */
+function salto_og_user_access_group($gid, $action) {
+  $group = entity_load_single('node', $gid);
+  if (!$group || !og_is_group('node', $group)) {
+    return FALSE;
+  }
+
+  [, , $bundle] = entity_extract_ids('node', $group);
+  if (!og_roles('node', $bundle, $gid)) {
+    return FALSE;
+  }
+
+  $entity_info = entity_get_info('node');
+  if (!$entity_info) {
+    return FALSE;
+  }
+
+  switch ($action) {
+    case 'render':
+    case 'validate':
+    case 'search':
+    case 'search_api':
+      $perm = "manage all members";
+      break;
+    default:
+      $perm = $action;
+  }
+
+  if ($group->type == 'organisation' && user_access('manage people in any organisation')) {
+    return TRUE;
+  }
+  return og_user_access('node', $gid, $perm);
+}
+
+/**
+ *  Menu access for canceling a group membership
+ *
+ * @param $gid
+ * @param $uid
+ * @param null $account
+ *
+ * @return bool
+ */
+function salto_og_user_cancel_access($gid, $uid, $account = NULL) {
+
+  if (!$account) {
+    global $user;
+    $account = clone $user;
+  }
+
+  $group = node_load($gid);
+
+  if ($uid == $group->uid) {
+    return FALSE;
+  }
+
+  if ($account->uid == $uid) {
+    return og_user_access('node', $gid, "cancel own membership", $account);
+  }
+
+  return salto_og_user_access_group($gid, "manage all members", $account);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function salto_og_theme($existing, $type, $theme, $path) {
+  return [
+    'og_invite_selector' => [
+      'arguments' => ['group' => NULL],
+      'template' => 'tmpl/og_invite_selector',
+    ],
+    'og_users_invite_row' => [
+      'template' => 'tmpl/og_users_invite_row',
+    ],
+    'og_users_selector_item_row' => [
+      'template' => 'tmpl/og_users_selector_item_row',
+    ],
+    'og_manage_action_links' => [
+      'template' => 'tmpl/og_manage_action_links',
+      'arguments' => ['og' => NULL, 'account', NULL],
+    ],
+  ];
+}
+
+/**
+ * Form to create invites
+ * The $invite_existing_users paramezers are actuelly not used at the moment
+ */
+function salto_og_invite_form($form, &$form_state, $gid, $invite_existing_users = TRUE, $invite_new_users = TRUE) {
+
+  $group = entity_load_single('node', $gid);
+
+  $breadcrumb = [];
+  $breadcrumb[] = l(t('Home'), '<front>');
+  $breadcrumb[] = l(t('People'), 'people');
+  $breadcrumb[] = l(t('Organisations'), 'organisations');
+  if ($gid === NULL) {
+    $group = NULL;
+
+    drupal_set_title(t('Invite people to an organisation (DOSB)'));
+  }
+  else {
+    $breadcrumb[] = l($group->title, 'node/' . $gid);
+  }
+
+  drupal_set_breadcrumb($breadcrumb);
+
+  ctools_include('dependent');
+
+  $form['#group'] = $group;
+
+  $form['selector'] = [
+    '#markup' => theme("og_invite_selector", ['group' => $group]),
+  ];
+
+  $form['accounts'] = [
+    '#type' => 'hidden',
+    '#title' => t('This should be the serialized string of all users to add'),
+    '#default_value' => "[]",
+  ];
+
+  $form['invite'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Custom invite message'),
+    '#default_value' => FALSE,
+    '#attributes' => ["id" => "edit-invite"],
+  ];
+
+  $form['invite_message'] = [
+    '#type' => 'textarea',
+    '#required' => FALSE,
+    '#process' => ['ctools_dependent_process'],
+    '#dependency' => ["edit-invite" => [1]],
+    '#rows' => 10,
+    '#description' => t('You can append a custom message to all invites. New users will additionally receive login informations.'),
+    '#prefix' => '<div id="invite-message-wrap">',
+    '#suffix' => '</div>',
+  ];
+
+  drupal_add_js(drupal_get_path('theme', 'salto2014') . '/assets/md/src/toggle.show.invite.js', ['scope' => 'footer']);
+
+  $form['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Invite users'),
+    '#attributes' => ['class' => ['btn', 'btn-primary', 'btn-submit']],
+  ];
+  return $form;
+}
+
+/**
+ * Validate the og invite form
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_og_invite_form_validate($form, &$form_state) {
+
+  $group = $form['#group'];
+  $accounts = json_decode($form_state['values']['accounts']);
+  if (sizeof($accounts) < 1) {
+    watchdog('salto_og_invite_form_validate', 'No user added in form (og-nid: %nid).', ['%nid' => $group->nid]);
+    form_set_error('salto_og_invite_form-accounts', t('Invite list is empty. You must added a person via plus icon!'));
+  }
+}
+
+/**
+ * Submit the user administration update form.
+ */
+function salto_og_invite_form_submit($form, &$form_state) {
+
+  global $language, $user;
+
+  $message = !empty($form_state['values']['invite_message']) ? $form_state['values']['invite_message'] : " "; //set this so the token is replaced
+
+  $accounts = json_decode($form_state['values']['accounts']);
+  $group = $form['#group'];
+  $groupType = $group->type;
+  if ($group === NULL) {
+    $groupType = NULL;
+  }
+
+  foreach ($accounts as $id => $data) {
+
+    if (strpos($id, "new-") === 0) {
+
+      $userdata = [];
+      $userdata['firstname'] = check_plain($data->name_first);
+      $userdata['lastname'] = check_plain($data->name_last);
+      $userdata['mail'] = check_plain($data->email);
+      $userdata['language'] = $language->language;
+      $userdata['roles'] = $data->roles;
+
+      switch ($groupType) {
+        case 'organisation':
+          $oid = $group->nid;
+          break;
+        case NULL:
+        case 'group':
+          $organisation_string = check_plain($data->organisation);
+          $oid = $organisation_string;
+          break;
+      }
+
+      $errors = [];
+      if (!og_user_access('node', $oid, 'invite new users', $user)) {
+        $error = "User tried to invite new user but doesn't have the needed permission. Form manipulation possible.";
+        watchdog('salto_og', $error);
+        $errors[] = $error;
+      }
+
+      if (in_array(SALTO_OG_ROLE_LICENSE_MANAGER_RID, $userdata['roles'])) {
+        if (!og_user_access('node', $oid, 'grant license managers', $user)) {
+          $error = "User tried to grant a non valid og role. Form manipulation possible.";
+          watchdog('salto_og', $error);
+          $errors[] = $error;
+        }
+      }
+
+      if (in_array(SALTO_OG_ROLE_TRAINER_RID, $userdata['roles'])) {
+        if (!og_user_access('node', $oid, 'grant og role trainer', $user)) {
+          $error = "User tried to grant a non valid og role. Form manipulation possible.";
+          watchdog('salto_og', $error);
+          $errors[] = $error;
+        }
+      }
+
+      if (!empty($errors)) {
+        foreach ($errors as $error) {
+          drupal_set_message($error, 'error');
+          return;
+        }
+        drupal_set_message("Invitation process aborted.", 'error');
+      }
+
+      switch ($groupType) {
+        case NULL:
+          $group->nid = $oid;
+          salto_og_create_new_user_invite($userdata, $group, $message);
+          break;
+        case 'organisation':
+          salto_og_create_new_user_invite($userdata, $group, $message);
+          break;
+        case 'group':
+          if (empty($data->organisation)) {
+            watchdog('salto_og', 'tried to invite a  new user to a group but no organisation was set.');
+            drupal_set_message(t("%name could not be invited because no organisation has been specified!", ["%name" => $userdata['firstname'] . " " . $userdata['lastname']]));
+          }
+          else {
+            if ($organisation = node_load($oid)) {
+              $userdata['group'] = $group;
+              salto_og_create_new_user_invite($userdata, $organisation, $message);
+            }
+            else {
+              drupal_set_message(t("%name could not be invited because no organisation has been specified!", ["%name" => $userdata['firstname'] . " " . $userdata['lastname']]));
+            }
+          }
+      }
+    }
+    else {
+      $uid = $data->id;
+
+      if ($account = user_load($uid)) {
+
+        // We now decide what to do:
+        // * In organisations, we just put people in the og as member
+        // * In groups, we send invites to people. They must accept to become members
+        switch ($groupType) {
+          case 'organisation':
+            //add users to group, create a normal membership
+            $og_membership = og_membership_create('node', $group->nid, 'user', $uid, 'field_user_organisations', ['state' => 1]);
+            $og_membership->save();
+            foreach ($data->roles as $role_id) {
+              og_role_grant('node', $group->nid, $uid, $role_id);
+            }
+            og_invalidate_cache();
+
+            drupal_set_message(t('%user has been added to the group %group-title.', [
+              '%user' => format_username($account),
+              '%group-title' => entity_label('node', $group),
+            ]));
+            break;
+          case 'group':
+            //create a new group invite
+            $data_group_invite = [];
+            $data_group_invite['uid'] = $uid;
+            if (!og_is_member('node', $group->nid, 'user', $account, [
+                OG_STATE_ACTIVE,
+                OG_STATE_BLOCKED,
+                OG_STATE_PENDING,
+              ]) && !salto_og_has_invite($group->nid, $uid)
+            ) {
+              salto_og_create_accept_invite($data_group_invite, $group, $message);
+            }
+            else {
+              drupal_set_message(t('%name was already invited!', ['%name' => format_username($account)]), 'error');
+            }
+
+            drupal_set_message(t('%user has been added to the group %group-title.', [
+              '%user' => format_username($account),
+              '%group-title' => entity_label('node', $group),
+            ]));
+            break;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Form to create invites
+ * The $invite_existing_users paramezers are actuelly not used at the moment
+ */
+function salto_og_invite_api_form($form, &$form_state, $gid) {
+
+  $group = entity_load_single('node', $gid);
+
+  $breadcrumb = [];
+  $breadcrumb[] = l(t('Home'), '<front>');
+  $breadcrumb[] = l(t('People'), 'people');
+  $breadcrumb[] = l(t('Organisations'), 'organisations');
+  $breadcrumb[] = l($group->title, 'node/' . $gid);
+
+  drupal_set_breadcrumb($breadcrumb);
+
+  ctools_include('dependent');
+
+  $form['#group'] = $group;
+
+  $form['selector'] = [
+    '#markup' => theme("og_invite_selector", ['group' => $group, 'api' => 1]),
+  ];
+
+  $form['accounts'] = [
+    '#type' => 'hidden',
+    '#title' => t('This should be the serialized string of all users to add'),
+    '#default_value' => "[]",
+  ];
+
+  $form['invite'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Info for LiMS-Team'),
+    '#default_value' => FALSE,
+    '#attributes' => ["id" => "edit-invite"],
+  ];
+
+  $form['invite_message'] = [
+    '#type' => 'textarea',
+    '#required' => FALSE,
+    '#process' => ['ctools_dependent_process'],
+    '#dependency' => ["edit-invite" => [1]],
+    '#rows' => 10,
+    '#description' => t('You can append a custom message to all invites. New users will additionally receive login informations.'),
+    '#prefix' => '<div id="invite-message-wrap">',
+    '#suffix' => '</div>',
+  ];
+
+  drupal_add_js(drupal_get_path('theme', 'salto2014') . '/assets/md/src/toggle.show.invite.js', ['scope' => 'footer']);
+
+  $form['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Invite users'),
+    '#attributes' => ['class' => ['btn', 'btn-primary', 'btn-submit']],
+  ];
+
+  return $form;
+}
+
+/**
+ * Submit the user administration update form.
+ */
+function salto_og_invite_api_form_submit($form, &$form_state) {
+
+  global $language, $user;
+
+  $lims_team_message = !empty($form_state['values']['invite_message']) ? $form_state['values']['invite_message'] : " ";
+  $lims_team_message_user_data = [];
+  $message = "";
+
+  $accounts = json_decode($form_state['values']['accounts']);
+
+  $organisation = $form['#group'];
+  $api_group = node_load(SALTO_GROUP_API_USERS_NID);
+
+  foreach ($accounts as $id => $data) {
+
+    if (strpos($id, "new-") === 0) {
+
+      $userdata = [];
+      $userdata['firstname'] = check_plain($data->name_first);
+      $userdata['lastname'] = check_plain($data->name_last);
+      $userdata['mail'] = check_plain($data->email);
+      $userdata['language'] = $language->language;
+      $userdata['roles'] = [];
+
+      $oid = $organisation->nid;
+
+      $errors = [];
+      if (!og_user_access('node', $oid, 'invite new users', $user)) {
+        $error = "User tried to invite new user but doesn't have the needed permission. Form manipulation possible.";
+        watchdog('salto_og', $error);
+        $errors[] = $error;
+      }
+
+      if (!empty($errors)) {
+        foreach ($errors as $error) {
+          drupal_set_message($error, 'error');
+          return;
+        }
+        drupal_set_message("Invitation process aborted.", 'error');
+      }
+
+      $userdata['group'] = $api_group;
+
+      $lims_team_message_user_data["Meldung"] = "API Zugriff für einen neuen Nutzer";
+      $lims_team_message_user_data["Vorname"] = $userdata['firstname'];
+      $lims_team_message_user_data["Nachname"] = $userdata['lastname'];
+      $lims_team_message_user_data["E-Mail"] = $userdata['mail'];
+      $lims_team_message_user_data["Zielorganisation"] = $organisation->title;
+      $lims_team_message_user_data["Zielorganisation ID"] = $organisation->nid;
+      $lims_team_message_user_data["Anfrage von"] = $user->uid;
+      $lims_team_message_user_data["Anfrage von (link)"] = l($user->name, "user/" . $user->uid);
+
+      salto_og_create_new_user_invite($userdata, $organisation, $message);
+
+    }
+    else {
+      $uid = $data->id;
+
+      if ($account = user_load($uid)) {
+        // * In groups, we send invites to people. They must accept to become members
+        //create a new group invite
+        if (!og_is_member('node', $api_group->nid, 'user', $account, [
+            OG_STATE_ACTIVE,
+            OG_STATE_BLOCKED,
+            OG_STATE_PENDING,
+          ]) && !salto_og_has_invite($api_group->nid, $uid)
+        ) {
+          $data_group_invite = [];
+          $data_group_invite['uid'] = $uid;
+
+          $lims_team_message_user_data["Meldung"] = "API Zugriff für einen vorhandenen Nutzer";
+          $lims_team_message_user_data["Name"] = format_username($account);
+          $lims_team_message_user_data["UID"] = $account->uid;
+          $lims_team_message_user_data["E-Mail"] = $account->mail;
+          $lims_team_message_user_data["Rollen"] = implode(",", $account->roles);
+          $lims_team_message_user_data["Zielorganisation"] = $organisation->title;
+          $lims_team_message_user_data["Zielorganisation ID"] = $organisation->nid;
+          $lims_team_message_user_data["Anfrage von"] = $user->uid;
+          $lims_team_message_user_data["Anfrage von (link)"] = l($user->name, "user/" . $user->uid);
+
+          if (!og_is_member('node', $organisation->nid, 'user', $account, [
+            OG_STATE_ACTIVE,
+            OG_STATE_BLOCKED,
+            OG_STATE_PENDING,
+          ])) {
+
+            $og_membership = og_membership_create('node', $organisation->nid, 'user', $uid, 'field_user_organisations', ['state' => 1]);
+
+            $og_membership->save();
+            foreach ($data->roles as $role_id) {
+              og_role_grant('node', $organisation->nid, $uid, $role_id);
+            }
+
+            og_invalidate_cache();
+
+            drupal_set_message(t('%user has been added to the organisation %group-title.', [
+              '%user' => format_username($account),
+              '%group-title' => entity_label('node', $organisation),
+            ]));
+          }
+
+          salto_og_create_accept_invite($data_group_invite, $api_group, $message);
+
+          drupal_set_message(t('%user has been added to the group %group-title.', [
+            '%user' => format_username($account),
+            '%group-title' => entity_label('node', $api_group),
+          ]));
+
+        }
+        else {
+          $error = t('%name was already invited!', ['%name' => format_username($account)]);
+          drupal_set_message($error, 'error');
+
+          $errors[] = $error;
+        }
+      }
+    }
+  }
+
+  if (empty($errors)) {
+    $lims_team_mail = variable_get("salto_og_lims_team_mail", SALTO_LICENSES_LIMS_TEAM_MAIL);
+
+    $lims_team_message = nl2br($lims_team_message) . "<br/><br/>";
+
+    foreach ($lims_team_message_user_data as $key => $value) {
+      $lims_team_message .= $key . ": " . $value . "<br/>";
+    }
+
+    $params = [
+      'key' => 'regcode_invite',
+      'to' => $lims_team_mail,
+      'from' => variable_get('site_mail', ''),
+      'subject' => "[API Request] - " . $lims_team_message_user_data["Meldung"],
+      'body' => $lims_team_message,
+    ];
+
+    drupal_mail('salto_core', $params['key'], $params['to'], user_preferred_language($user), $params);
+  }
+
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function salto_og_preprocess_og_invite_selector(&$variables) {
+  global $user;
+
+  $account = clone $user;
+
+  drupal_add_js(drupal_get_path('theme', 'salto2014') . '/assets/md/src/accordion.js', ['scope' => 'footer']);
+  drupal_add_js(drupal_get_path('module', 'salto_og') . '/js/og_invite_selector.js');
+  drupal_add_css(drupal_get_path('module', 'salto_og') . '/css/og_invite_selector.css');
+
+  $field_info_first = field_info_field('field_profile_name_first');
+  $field_info_last = field_info_field('field_profile_name_last');
+
+  $variables['max_len_fist'] = $field_info_first['settings']['max_length'];
+  $variables['max_len_last'] = $field_info_last['settings']['max_length'];
+
+  $variables['gid'] = $variables['group']->nid;
+
+  $users = salto_og_get_available_users($variables['group']->nid, 250);
+
+  if (salto_og_user_access_group($variables['group']->nid, 'invite new users') || user_access('manage people in any organisation')) {
+    $variables['show_add_form'] = TRUE;
+    $variables['showExistUsers'] = FALSE;
+
+    if ($variables['group']->type == "group" || $variables['group']->type == "organisation") {
+      $variables['showExistUsers'] = TRUE;
+    }
+
+    if ($variables['group']->type != "organisation") {
+      $lib_path = libraries_get_path('chosen');
+      drupal_add_js($lib_path . '/chosen.jquery.min.js');
+      drupal_add_css($lib_path . '/chosen.min.css');
+
+      $options = _salto_og_get_invite_organisation_options($account);
+
+      $element = [
+        'element' =>
+          [
+            '#options' => $options,
+            '#attributes' =>
+              [
+                'id' => 'organisation-select',
+                'data-placeholder' => ' ',
+              ],
+          ],
+      ];
+      if (empty($options)) {
+        //do not show the form, if user can not invite in any organisation
+        $variables['add_form_disabled'] = 'disabled';
+        $element['element']['#attributes']['disabled'] = 'disabled';
+
+        drupal_set_message(t('You do not have the permission to invite new users.'), 'warning');
+      }
+
+      $variables['organisation_field'] = theme('select', $element);
+
+      drupal_add_js(
+        drupal_get_path('module', 'salto_og') . '/js/og_selector_chosen.js',
+        ['scope' => 'footer']
+      );
+    }
+
+    if (!empty($variables['add_form_disabled'])) {
+      $variables['add_form_disabled'] = 'disabled';
+      $element['element']['#attributes']['disabled'] = 'disabled';
+    }
+
+
+  }
+
+  //filter users
+  $variables['users'] = $users;
+
+  $variables['floating_button']['is-submit'] = TRUE;
+  $variables['floating_button']['links'] = [];
+  $variables['floating_button']['links'][] = [
+    'icon' => 'angle-right',
+    'title' => t('Send'),
+  ];
+  $variables['content']['floating_button'] = salto2014_floating_button($variables);
+}
+
+/**
+ * build organisation select options for user invitation (from group context)
+ *
+ * @param $account
+ *
+ * @return array
+ */
+function _salto_og_get_invite_organisation_options($account) {
+
+  $users_organisation = salto_user_get_organisations_and_suborganisations($account);
+  return _salto_og_get_organisation_options_recursion($users_organisation, $account);;
+}
+
+/**
+ * build suborganisation options recursively respection permissions
+ *
+ * @param $users_organisation
+ * @param $account
+ * @param int $level
+ *
+ * @return array
+ */
+function _salto_og_get_organisation_options_recursion($users_organisation, $account, $level = 0) {
+  //permission needs to be checked here
+  $options = [];
+
+  $prefix = "";
+  $i = 0;
+  while ($i < $level) {
+    $prefix .= '-';
+    $i++;
+  }
+
+  ++$level;
+
+  foreach ($users_organisation as $nid => $org) {
+    if (og_user_access('node', $nid, 'invite new users', $account)) {
+      $options[$nid] = $prefix . $org['title'];
+      if (!empty($org['suborganisations'])) {
+        $options += _salto_og_get_organisation_options_recursion($org['suborganisations'], $account, $level);
+      }
+    }
+  }
+  return $options;
+}
+
+/**
+ * give all organisations in list by level (suborginastions with prefix)
+ *
+ * HINT: No access check
+ *
+ * @param     $organisations
+ * @param int $level
+ *
+ * @return array
+ */
+function _salto_og_get_organisation_options_recursion_without_access($organisations, $level = 0) {
+  $options = [];
+
+  $prefix = "";
+  $i = 0;
+  while ($i < $level) {
+    $prefix .= '-';
+    $i++;
+  }
+
+  ++$level;
+
+  foreach ($organisations as $nid => $org) {
+    if (array_key_exists($nid, $options)) {
+      continue;
+    }
+    $options[$nid] = $prefix . $org['title'];
+    if (!empty($org['suborganisations'])) {
+      $options += _salto_og_get_organisation_options_recursion_without_access($org['suborganisations'], $level);
+    }
+  }
+  return $options;
+}
+
+/**
+ * get organisation roles
+ * rid => name
+ *
+ * @param bool|TRUE $short
+ *
+ * @return array
+ */
+function salto_og_organisation_get_roles($short = FALSE) {
+  $options = [];
+  $options[SALTO_OG_ROLE_TRAINER_RID] = SALTO_OG_ROLE_TRAINER_NAME;
+  $options[SALTO_OG_ROLE_LICENSE_MANAGER_RID] = SALTO_OG_ROLE_LICENSE_MANAGER_NAME;
+  $options[SALTO_OG_ROLE_FURTHER_MEMBER_RID] = SALTO_OG_ROLE_FURTHER_MEMBER_NAME;
+  $options[SALTO_OG_ROLE_EXTERN_TRAINER_RID] = SALTO_OG_ROLE_EXTERN_TRAINER_NAME;
+
+  if ($short === TRUE) {
+    $options[SALTO_OG_ROLE_TRAINER_RID] .= " " . t("of the organisation");
+    $options[SALTO_OG_ROLE_LICENSE_MANAGER_RID] .= " " . t("of the organisation");
+    $options[SALTO_OG_ROLE_FURTHER_MEMBER_RID] .= " " . t("of the organisation");
+  }
+
+  return $options;
+}
+
+
+/**
+ * get organisation permissions
+ * rid => name
+ *
+ * @return array
+ */
+function salto_og_organisation_get_permissions() {
+  $options = [];
+  $options[SALTO_OG_ROLE_TRAINER_RID] = [];
+  $options[SALTO_OG_ROLE_TRAINER_RID]['permission'] = SALTO_OG_ROLE_TRAINER_PERMISSION;
+  $options[SALTO_OG_ROLE_TRAINER_RID]['tooltip'] = t('Permission to manage organisation');
+  $options[SALTO_OG_ROLE_TRAINER_RID]['icon'] = '<i class="icon glyphicon glyphicon-home" style="font-size:15px;"></i>';
+  $options[SALTO_OG_ROLE_LICENSE_MANAGER_RID] = [];
+  $options[SALTO_OG_ROLE_LICENSE_MANAGER_RID]['permission'] = SALTO_OG_ROLE_LICENSE_MANAGER_PERMISSION;
+  $options[SALTO_OG_ROLE_LICENSE_MANAGER_RID]['tooltip'] = t('Permission to manage licenses');
+  $options[SALTO_OG_ROLE_LICENSE_MANAGER_RID]['icon'] = '<i class="icon glyphicon glyphicon-license"></i>';
+
+  return $options;
+}
+
+/**
+ * Theme function for the existing users
+ *
+ * @param  [type] $context_og [description]
+ *
+ * @return [type]             [description]
+ */
+function salto_og_preprocess_og_users_invite_row(&$vars) {
+
+  $context_og = $vars['group'];
+  $style = isset($vars['style']) ? $vars['style'] : 'user_30x30';
+
+  $uid = $vars['uid'];
+  if (!empty($uid)) {
+    if ($account = user_load($uid)) {
+      $vars['id'] = $uid;
+      $vars['account'] = $account;
+      $vars['image'] = theme('user_picture', [
+        'account' => $account,
+        'style' => $style,
+      ]);
+      $vars['name'] = format_username($account);
+    }
+  }
+  else {
+    if (!empty($vars['mail'])) {
+      $vars['id'] = $vars['guid'];
+    }
+    $vars['name'] = $vars['firstname'] . " " . $vars['lastname'] . "<p>" . t("new user") . "</p>";
+
+
+    if ($picture = variable_get('user_picture_default', FALSE)) {
+      $vars['image'] = theme('image_style', [
+        'style_name' => $style,
+        'path' => $picture,
+      ]);
+    }
+  }
+
+  $permissions = NULL;
+
+  //permissions may be set in organisations only not in groups
+  if ($context_og->type != "group") {
+    $permissions = salto_og_organisation_get_permissions();
+
+    if (!og_user_access('node', $context_og->nid, 'grant og role trainer')) {
+      unset($permissions[SALTO_OG_ROLE_TRAINER_RID]);
+    }
+
+    if (!module_exists('dosb_license') || !og_user_access('node', $context_og->nid, 'grant license managers')) {
+      unset($permissions[SALTO_ROLE_LICENSE_MANAGER_RID]);
+    }
+  }
+
+  $vars['permissions'] = $permissions;
+}
+
+/**
+ * Theme function for single rows in users_selector
+ *
+ * @param  [type] $context_og [description]
+ *
+ * @return [type]             [description]
+ */
+function salto_og_preprocess_og_users_selector_item_row(&$vars) {
+
+  if (empty($vars['uid']) && isset($vars['account'])) {
+    $vars['uid'] = $vars['account']->uid;
+  }
+
+  if (!empty($vars['uid'])) {
+    if (empty($vars['account'])) {
+      $account = user_load($vars['uid']);
+      $vars['account'] = $account;
+    }
+    $vars['image'] = theme('user_picture', [
+      "account" => $vars['account'],
+      'style' => 'user_30x30',
+    ]);
+    $vars['name'] = format_username($vars['account']);
+  }
+}
+
+function salto_og_get_available_users($gid, $limit = 0, $search = '', $exclude_uids = [-1], $api = FALSE) {
+
+  $query = "SELECT DISTINCT u.uid, ru.realname
+            FROM {users} u
+            LEFT JOIN {realname} ru ON ru.uid=u.uid";
+
+  $args = [':uids' => $exclude_uids];
+
+  $query .= "
+            WHERE u.uid NOT in (
+              SELECT m.etid
+              FROM {og_membership} m
+              WHERE m.group_type='node'
+              AND m.gid=:gid
+              AND m.entity_type = 'user'
+            )";
+
+  if (!$api) {
+
+    $args += [':gid' => $gid];
+  }
+  else {
+    $query .= "
+            AND u.uid NOT in (
+              SELECT ur1.uid
+              FROM {users_roles} ur1
+              WHERE ur1.uid = u.uid
+              AND ur1.rid = :api_rid
+            )";
+
+    $args += [':api_rid' => ROLE_API_USER_RID];
+    $args += [':gid' => SALTO_GROUP_API_USERS_NID];
+  }
+
+  if (!empty($search)) {
+    $query .= "AND (ru.realname LIKE :search OR u.mail LIKE :search) ";
+    $args += [':search' => "%" . db_like($search) . "%"];
+  }
+
+  $query .= "
+            AND u.uid NOT in ( SELECT ur.uid FROM {users_roles} ur WHERE ur.rid=3)
+            AND u.uid NOT IN (:uids)
+            AND u.status = 1
+            ORDER BY ru.realname";
+
+  if ($limit > 0 || $limit == -1) {
+    $limit = ($limit == -1) ? SALTO_OG_AVAILABLE_USERS_QUERY_LIMIT : $limit;
+    $users = db_query_range($query, 0, $limit, $args)->fetchAllKeyed();
+  }
+  else {
+    $users = db_query($query, $args)->fetchAllKeyed();
+  }
+
+  return $users;
+}
+
+/**
+ * Ajax callback to render a user in invite list. . DO NOT CALL THIS YOURSELF,
+ * its just a refactored functioon
+ *
+ * @param  [type] $gid [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_og_ajax_render_membership($gid, $uid) {
+  $data = [];
+
+  $group = node_load($gid);
+
+  $out = theme("og_users_invite_row", [
+    'uid' => $uid,
+    'group' => $group,
+  ]);
+
+  $data['out'] = $out;
+  return $data;
+}
+
+/**
+ * Validate a new user. DO NOT CALL THIS DIRECTLY, its just a refactored
+ * function
+ *
+ * @param  [type] $userdata [description]
+ *
+ * @return [type]           [description]
+ */
+function salto_og_ajax_validate_new_user($userdata, $gid) {
+  $data = [];
+
+  $group = node_load($gid);
+
+  foreach ($userdata as $d) {
+
+    $vars = [];
+
+    if (!empty($d['email'])) {
+      $mail = check_plain($d['email']);
+      $firstname = check_plain($d['name_first']);
+      $lastname = check_plain($d['name_last']);
+      $guid = check_plain($d['guid']);
+      $roles_plain = array_map('check_plain', $d['roles']);
+      $roles = $roles_plain;
+
+      if (empty($guid)) {
+        return drupal_json_output_error(t("Error, sorry :("), 403);
+      }
+
+      $field_info_first = field_info_field('field_profile_name_first');
+      $field_info_last = field_info_field('field_profile_name_last');
+
+      if ($account = user_load_by_mail($mail)) {
+
+        if (!empty($account->field_user_organisations[LANGUAGE_NONE])) {
+          foreach ($account->field_user_organisations[LANGUAGE_NONE] as $ug) {
+            if ($ug['target_id'] == $gid) {
+              drupal_json_output_error(t("User is already a member of this group"), 403);
+              drupal_exit();
+              return;
+            }
+          }
+        }
+        $is_new = FALSE;
+        $guid = $account->uid;
+        $vars['uid'] = $guid;
+      }
+      else {
+        $errors = salto_user_validate_mail($mail);
+
+        if (drupal_strlen($firstname) > $field_info_first['settings']['max_length']) {
+          $errors['name_length'] = t('Firstname must not exceed @num characters!', ["@num" => $field_info_first['settings']['max_length']]);
+        }
+
+        if (drupal_strlen($lastname) > $field_info_last['settings']['max_length']) {
+          $errors['name_length'] = t('Lastname must not exceed @num characters!', ["@num" => $field_info_last['settings']['max_length']]);
+        }
+
+        if (drupal_strlen($firstname . " " . $lastname) > 129) {
+          $errors['name_length'] = t('Names should not exceed @num characters!', ["@num" => 128]);
+        }
+        if (drupal_strlen($firstname . $lastname) < 5) {
+          $errors['name_length'] = t('Names should have at least @num characters!', ["@num" => 5]);
+        }
+
+        if (isset($d['organisation']) && salto_og_user_access_group($group->nid, 'invite new users')) {
+
+          $organisation_string = check_plain($d['organisation']);
+
+          $id = $organisation_string;
+
+          $organisation = node_load($id);
+
+          if (empty($organisation)) {
+
+            drupal_json_output_error(t("The organisation !name does not exist!", ['!name' => $organisation_string]), 403);
+            drupal_exit();
+          }
+        }
+
+        if (!empty($errors)) {
+          drupal_json_output_error(implode("<br>", $errors), 403);
+          drupal_exit();
+        }
+
+        $is_new = TRUE;
+      }
+
+      $vars['mail'] = $mail;
+      $vars['firstname'] = $firstname;
+      $vars['lastname'] = $lastname;
+      $vars['guid'] = $guid;
+      $vars['group'] = $group;
+      $vars['roles'] = $roles;
+
+      if ($organisation) {
+        $vars['organisation'] = $organisation;
+      }
+
+      $out = theme("og_users_invite_row", $vars);
+
+      $data['out'][$guid] = $out;
+      $data['is_new'] = $is_new;
+      $data['id'] = $guid;
+
+    }
+  }
+  return $data;
+}
+
+/**
+ * ajax search list callback
+ *
+ * @param type $search
+ */
+function salto_og_ajax_search($gid, $limit = 10, $search = NULL, $exclude_search_uids = NULL, $api = FALSE) {
+
+  $context_og = node_load($gid);
+
+  if (empty($exclude_search_uids)) {
+    $exclude_search_uids = [-1];
+  }
+
+  $users = salto_og_get_available_users($context_og->nid, $limit, $search, $exclude_search_uids, $api);
+
+  $output = "";
+  foreach ($users as $uid => $userdata) {
+
+    $output .= theme('og_users_selector_item_row', ["uid" => $uid]);
+  }
+
+  return $output;
+}
+
+/**
+ * Create an invite for a user
+ *
+ * @param  [type] $data [description]
+ *
+ * @return [type]       [description]
+ */
+function salto_og_create_accept_invite($data, $group, $custom_message) {
+
+  global $user;
+
+  try {
+    $invite = new SaltoInvite();
+    $invite->type = 'accept_invite';
+    $invite->code = salto_invite_create_regcode(10, 'alphanum');
+    $invite->created = time();
+    $invite->changed = time();
+    $invite->used = FALSE;
+    $invite->language = $data['language'];
+    $invite->field_salto_invite_og[LANGUAGE_NONE][0]['target_id'] = $group->nid;
+    $invite->field_salto_invite_account[LANGUAGE_NONE][0]['target_id'] = $data['uid'];
+    $invite->uid = $user->uid;
+    $invite->data['invite'] = check_plain($custom_message);
+
+    salto_invite_save($invite);
+    module_invoke_all('salto_invite_created', $invite);
+
+    return $invite;
+
+  } catch (Exception $e) {
+  }
+}
+
+/**
+ * Create an invite for a user
+ *
+ * @param  [type] $data [description]
+ *
+ * @return [type]       [description]
+ */
+function salto_og_create_new_user_invite($data, $group, $custom_message) {
+
+  global $user;
+
+  $account = clone $user;
+
+  try {
+    $invite = new SaltoInvite();
+    $invite->type = 'organisation_invite';
+    $invite->code = salto_invite_create_regcode(10, 'alphanum');
+    $invite->created = time();
+    $invite->changed = time();
+    $invite->used = FALSE;
+    $invite->language = $data['language'];
+    $invite->field_profile_name_first[LANGUAGE_NONE][0]['value'] = $data['firstname'];
+    $invite->field_profile_name_last[LANGUAGE_NONE][0]['value'] = $data['lastname'];
+    $invite->field_profile_contact_email[LANGUAGE_NONE][0]['value'] = $data['mail'];
+    $invite->field_salto_invite_organisations[LANGUAGE_NONE][0]['target_id'] = $group->nid;
+    $invite->uid = $account->uid;
+    $invite->data['invite'] = check_plain($custom_message);
+
+    $mail = $invite->field_profile_contact_email[LANGUAGE_NONE][0]['value'];
+
+    if ($group->nid === NULL) {
+      $invite->field_salto_invite_organisations[LANGUAGE_NONE][0]['target_id'] = $group;
+    }
+    if ($data['group']) {
+      $invite->field_salto_invite_groups[LANGUAGE_NONE][0]['target_id'] = $data['group']->nid;
+    }
+
+    foreach ($data['roles'] as $role) {
+      $invite->field_salto_invite_og_role[LANGUAGE_NONE][] = ['value' => check_plain($role)];
+    }
+
+    salto_invite_save($invite);
+
+    if (!empty($invite->salto_invite_id)) {
+      salto_og_new_user_invite_send_mail($invite);
+
+      drupal_set_message(t("An !invite has been sent to the e-mail-adress %email", [
+        '%email' => $mail,
+        '!invite' => l(t('Invite'), 'salto_invite/' . $invite->salto_invite_id),
+      ]));
+    }
+    else {
+      drupal_set_message(t("Error creating invite for %email!", ['%email' => $data['mail']]), 'error');
+    }
+  } catch (Exception $e) {
+  }
+}
+
+/**
+ * @param $invite
+ */
+function salto_og_new_user_invite_send_mail($invite) {
+  global $user, $language;
+
+  $account = clone $user;
+
+  $message['subject'] = variable_get('email_salto_invite_new_user_subject', '');
+
+  $message_text = variable_get('email_salto_invite_new_user_body', '');
+
+  $variables['invite'] = $invite;
+  $variables['user'] = $account;
+
+  $message_text = token_replace($message_text, $variables, [
+    'language' => $language,
+    'callback' => 'salto_invite_mail_tokens',
+    'sanitize' => FALSE,
+    'clear' => TRUE,
+  ]);
+
+  $message_text = nl2br($message_text);
+
+  $message['body'] = $message_text;
+
+  $mail = $invite->field_profile_contact_email[LANGUAGE_NONE][0]['value'];
+
+  drupal_mail('salto_core', 'regcode_invite', $mail, $language, $message);
+
+}
+
+/**
+ * React to the use of an invite
+ *
+ * @param  [type] $invite [description]
+ * @param  [type] $op     [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_og_salto_invite_used($invite, $op) {
+
+  if ($invite->type == 'accept_invite') {
+
+    $wrapper = entity_metadata_wrapper('salto_invite', $invite);
+    $account = $wrapper->field_salto_invite_account->value();
+    $og = $wrapper->field_salto_invite_og->value();
+
+
+    if ($op == 'accept') {
+      og_group('node', $og->nid, ['entity' => $account]);
+      drupal_set_message(t("You are now a member of %group", ['%group' => $og->title]));
+    }
+    else {
+      drupal_set_message(t("You declined the membership to %group", ['%group' => $og->title]));
+    }
+  }
+}
+
+/**
+ * Check if a user has an invite in a group
+ *
+ * @param  [type] $gid [description]
+ * @param  [type] $uid [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_og_has_invite($gid, $uid) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'salto_invite')
+    ->propertyCondition('type', 'accept_invite')
+    ->fieldCondition('field_salto_invite_account', 'target_id', $uid, '=')
+    ->fieldCondition('field_salto_invite_og', 'target_id', $gid, '=');
+
+  $result = $query->execute();
+  return (!empty($result['salto_invite']));
+}
+
+/**
+ * Content preview for comments
+ *
+ * @param  [type] $entity [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_og_onsite_notification_content_preview($message) {
+  if (!empty($message->field_notification_invite_ref[LANGUAGE_NONE][0]['target_id'])) {
+    $invite = salto_invite_load($message->field_notification_invite_ref[LANGUAGE_NONE][0]['target_id']);
+    $output = $invite->data['invite'];
+    return $output;
+  }
+}
+
+/**
+ * Get all the users with certain roles in a group.
+ *
+ * @param $gid
+ *   The group unique ID.
+ * @param $roles
+ *   Array with the role IDs to query.
+ *
+ * @return
+ *   Array with the user IDs.
+ */
+function salto_og_get_users_by_roles($gid, $rids = []) {
+  if (empty($rids)) {
+    return [];
+  }
+
+  $query = db_select('og_users_roles', 'og_users_roles');
+  return $query->fields('og_users_roles', ['uid'])
+    ->condition('gid', $gid)
+    ->condition('rid', $rids, 'IN')
+    ->execute()
+    ->fetchAll();
+}
+
+/**
+ * Get an array with uids by og nid
+ *
+ * @param $gid
+ *   teh nid of the group
+ * @param array $states
+ *   limit to group states -  default is only active users
+ *
+ * @return mixed
+ */
+function salto_og_get_users_by_og($gid, $states = [OG_STATE_ACTIVE]) {
+  $query = db_select("og_membership", "ogm");
+  $query->addField("ogm", 'etid', 'uid');
+  $query->addField("ogm", 'etid', 'uid');
+  $query->condition("ogm.gid", $gid, "=")
+    ->condition("ogm.state", $states, "IN")
+    ->condition("ogm.entity_type", 'user', "=");
+
+  $result = $query->execute()->fetchAllKeyed();
+  return $result;
+}
+
+/**
+ * Get the rid of teh admin role in ogs
+ *
+ * @param  [type] $gid [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_og_get_admin_rid($gid) {
+  $roles = og_roles('node', NULL, $gid);
+
+  $rid = array_search('administrator member', $roles);
+
+  return $rid;
+}
+
+/**
+ * Set breadcrumbs according to a given group.
+ *
+ * @param $group_nid
+ *   The entity ID.
+ * @param $path
+ *   (optional) The path to append to the breadcrumb.
+ */
+function salto_og_set_breadcrumb($group_nid, $path = []) {
+  $og = node_load($group_nid);
+
+  $label = $og->title;
+  $uri = entity_uri('node', $og);
+
+  $bc = [];
+  $bc[] = l(t('Home'), '<front>');
+
+  if ($og->type == "organisation") {
+    $bc[] = l(t('People'), 'people');
+    $bc[] = l(t('Organisations'), 'organisations');
+  }
+  elseif ($og->type == "group") {
+    $bc[] = $bc[] = l(t('Groups'), 'groups');
+  }
+
+  $bc[] = l($label, $uri['path']);
+
+  drupal_set_breadcrumb(array_merge($bc, $path));
+}
+
+function salto_og_unsubscribe_form($form, &$form_state, $gid, $uid) {
+
+  $group_type = 'node';
+
+  $account = user_load($uid);
+
+  $group = entity_load_single($group_type, $gid);
+  if (!$group || !og_is_group($group_type, $group)) {
+    // Not a valid entity, or not a group.
+    drupal_not_found();
+    return;
+  }
+
+  if ($group->uid != $account->uid) {
+    if (og_is_member($group_type, $gid, 'user', $account, [
+      OG_STATE_ACTIVE,
+      OG_STATE_PENDING,
+      OG_STATE_BLOCKED,
+    ])) {
+      return drupal_get_form('salto_og_confirm_unsubscribe', $group_type, $group, $account);
+    }
+    drupal_access_denied();
+    return;
+  }
+  else {
+    $label = entity_label($group_type, $group);
+    drupal_set_message(t('As the manager of %group, you can not leave the group.', ['%group' => $label]));
+  }
+}
+
+/**
+ * Confirm unsubscribe form.
+ */
+function salto_og_confirm_unsubscribe($form, &$form_state, $group_type, $group, $account) {
+  $form['group_type'] = ['#type' => 'value', '#value' => $group_type];
+  $form['group'] = ['#type' => 'value', '#value' => $group];
+  $form['account'] = ['#type' => 'value', '#value' => $account];
+
+  $label = entity_label($group_type, $group);
+
+  global $user;
+
+  $description = '<h2>' . t('Confirmation of cancelation') . '</h2>';
+
+  if ($account->uid == $user->uid) {
+    $description .= t("Are you sure you want to cancel your membership for !type !og_name?", ['!og_name' => $label]);
+    $cancel_url = entity_uri($group_type, $group);
+  }
+  else {
+    $types = node_type_get_names();
+    $description .= t("Are you sure you want to cancel the membership of !username for !type !og_name?", [
+      '!og_name' => $label,
+      '!username' => format_username($account),
+      "!type" => $types[$group->type],
+    ]);
+    $cancel_url = salto_og_membership_page($group);
+  }
+
+  if ($group->type == "group") {
+    $warning = "<p>" . t('Your participation in this group will be lost and cannot be restored when You reenter the group.') . "</p>";
+  }
+
+  $title = t("Cancel membership");
+  $form = confirm_form($form, $title, $cancel_url, NULL, t('Cancel membership'), t('Cancel'));
+
+  $form['description']['#markup'] = '<div class="confirmation-message">' . $description . '</div>';
+  $form['warning']['#markup'] = '<div class="confirmation-warning">' . $warning . '</div>';
+
+  return $form;
+}
+
+/**
+ * Submit handler; Confirm OG unsubscription.
+ */
+function salto_og_confirm_unsubscribe_submit($form, &$form_state) {
+  $group_type = $form_state['values']['group_type'];
+  $group = $form_state['values']['group'];
+  $account = $form_state['values']['account'];
+
+  if ($account->uid != $group->uid) {
+    og_ungroup('node', $group->nid, 'user', $account->uid);
+
+    module_invoke_all('salto_group_membership_removed', $group, $account);
+    drupal_set_message(t('Membership has been canceled.'), 'status', FALSE);
+  }
+
+  if (entity_access('view', $group_type, $group)) {
+    $form_state['redirect'] = salto_og_membership_page($group);
+  }
+  else {
+    $form_state['redirect'] = 'groups';
+  }
+}
+
+/**
+ * Get the membetship url per type
+ * ATM only group implemented
+ *
+ * @param  [type] $og [description]
+ *
+ * @return [type]     [description]
+ */
+function salto_og_membership_page($og) {
+  if ($og->type == 'group') {
+    return 'groups/' . $og->nid . '/people';
+  }
+}
+
+/**
+ * Preprocess function for managing salto og memberships
+ *
+ * @param $vars
+ */
+function salto_og_preprocess_og_manage_action_links(&$vars) {
+
+  drupal_add_js(drupal_get_path('module', 'salto_og') . "/js/og_manage.js");
+
+  $actions = module_invoke_all('salto_og_member_actions', $vars['og'], $vars['account']);
+
+  $vars['actions'] = $actions;
+}
+
+/**
+ * Check if a user has a role in this group by role name or rid
+ *
+ * @param $gid
+ * @param $uid
+ * @param $role role name or rid
+ *
+ * @return bool
+ */
+function salto_og_user_has_role($gid, $uid, $role) {
+
+  $user_roles = og_get_user_roles('node', $gid, $uid);
+
+  if (!is_numeric($role)) {
+    $user_roles = array_flip($user_roles);
+  }
+
+  return !empty($user_roles[$role]);
+}
+
+/**
+ *
+ * @param $gid_hv
+ *   The gid of the root organisation
+ * @param $uid
+ *   The users id
+ * @param $role
+ *   The role to check
+ *
+ * @return bool
+ */
+function salto_og_user_has_permission_in_dv_recursive($gid_hv, $permission_string, $account = NULL, $exclude_gids = []) {
+
+  $target_ogs = [];
+  $target_ogs[$gid_hv] = $gid_hv;
+  $target_ogs += salto_organisation_get_untergliederungen($gid_hv);
+
+  $target_ogs = array_diff($target_ogs, $exclude_gids);
+
+  foreach ($target_ogs as $gid) {
+    if (og_user_access('node', $gid, "edit dosb_license", $account)) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Check if a user has a role and needed EA in an DV or its UV
+ *
+ * @param $gid_hv
+ *   The gid of the root organisation
+ * @param $uid
+ *   The users id
+ * @param $role
+ *   The role to check
+ *
+ * @return bool
+ */
+function salto_og_user_has_permission_and_ea_in_dv_recursive($gid_hv, $permission_string, $account = NULL, $exclude_gids = [], $ea_nid) {
+
+  $cache = &drupal_static(__FUNCTION__);
+
+  $target_ogs = [];
+
+  if (empty($cache[$gid_hv]['uvs'])) {
+    $target_ogs[$gid_hv] = $gid_hv;
+    $target_ogs += salto_organisation_get_ids_by_ea_nid($ea_nid);
+    $cache[$gid_hv]['uvs'] = $target_ogs;
+  }
+  else {
+    $target_ogs = $cache[$gid_hv]['uvs'];
+  }
+
+  $target_ogs = array_diff($target_ogs, $exclude_gids);
+
+  $key = implode($target_ogs, ';');
+  if (!empty($cache[$key][$ea_nid])) {
+    return $cache[$key][$ea_nid];
+  }
+
+  foreach ($target_ogs as $gid) {
+
+    if (og_user_access('node', $gid, "edit dosb_license", $account)) {
+      $organisation = node_load($gid);
+
+      $organisation_ea_nids = [];
+      if (!empty($organisation->field_organisation_earemotes[LANGUAGE_NONE])) {
+        foreach ($organisation->field_organisation_earemotes[LANGUAGE_NONE] as $eid) {
+          $organisation_ea_nids[] = $eid['target_id'];
+        }
+      }
+      if (in_array($ea_nid, $organisation_ea_nids)) {
+        $cache[$key][$ea_nid] = TRUE;
+        return TRUE;
+      }
+    }
+  }
+  $cache[$key][$ea_nid] = FALSE;
+  return FALSE;
+}
+
+/**
+ * Autocomplete callback for all organisations and groups
+ *
+ * @param $type
+ * @param $query
+ */
+function salto_og_autocomplete_callback($type, $search) {
+
+  $matches = [];
+
+  if ($type != 'organisation') {
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  if (strlen($search) < 3) {
+    drupal_json_output($matches);
+    return;
+  }
+
+  $result = db_query('SELECT n.nid, n.title
+FROM {node} n WHERE n.type = \'organisation\' AND n.status=1 AND n.title LIKE :pattern ', [':pattern' => '%' . db_like($search) . '%'])->fetchAllAssoc('nid');
+
+  $prefix = '';
+
+  foreach ($result as $e) {
+
+    $entity_id = $e->nid;
+    $label = $e->title;
+
+    $key = "$label ($entity_id)";
+    $key = preg_replace('/\s\s+/', ' ', str_replace("\n", '', trim(decode_entities(strip_tags($key)))));
+    // Names containing commas or quotes must be wrapped in quotes.
+    if (strpos($key, ',') !== FALSE || strpos($key, '"') !== FALSE) {
+      $key = '"' . str_replace('"', '""', $key) . '"';
+    }
+    $matches[$prefix . $key] = '<div class="reference-autocomplete">' . $label . '</div>';
+  }
+  drupal_json_output($matches);
+}
+
+/**
+ * assign user to fallback organisation
+ *
+ * @param \OgMembership $og_membership
+ *
+ * @throws \OgException
+ */
+function salto_og_og_membership_delete(OgMembership $og_membership) {
+
+  if ($og_membership->type != "organisation_membership") {
+    return;
+  }
+
+  $uid = $og_membership->etid;
+  $account = user_load($uid, TRUE);
+
+  $organisation_count = !empty($account->field_user_organisations[LANGUAGE_NONE]) ? count($account->field_user_organisations[LANGUAGE_NONE]) : 0;
+
+  $fallback_nid = variable_get('salto_organisation_fallback_nid');
+
+  if ($organisation_count == 1 && $og_membership->gid != $fallback_nid) {
+
+    $fallback_node = node_load($fallback_nid);
+
+    $og_membership = og_membership_create('node', $fallback_nid, 'user', $account->uid, 'field_user_organisations', ['state' => 1]);
+    $og_membership->save();
+
+    watchdog('salto_og', 'User <em>%name</em> has been assigned to fallback organisation <em>%fallback_title</em>.', [
+      '%name' => $account->realname,
+      '%fallback_title' => $fallback_node->title,
+    ], WATCHDOG_INFO);
+  }
+}
+
+/**
+ * enforce to use og_membership->delete method when calling
+ * og_membership_delete_multiple
+ *
+ * @param $entity_info
+ */
+function salto_og_entity_info_alter(&$entity_info) {
+  if (!empty($entity_info['og_membership']) && empty($entity_info['og_membership']['deletion callback'])) {
+    $entity_info['og_membership']['deletion callback'] = "salto_og_og_membership_delete_entity_delete_callback";
+  }
+}
+
+/**
+ *enforce to use og_membership->delete method when calling og_membership_delete_multiple
+ *
+ * @param $id
+ */
+function salto_og_og_membership_delete_entity_delete_callback($id) {
+  $og_membership = og_membership_load($id);
+  $og_membership->delete();
+}
+
+/**
+ * remove user from fallback organisation, if other organisation is set
+ *
+ * @param \OgMembership $og_membership
+ *
+ * @throws \Exception
+ */
+function salto_og_og_membership_insert(OgMembership $og_membership) {
+  $uid = $og_membership->etid;
+  $account = user_load($uid, TRUE);
+  $fallback_nid = variable_get('salto_organisation_fallback_nid');
+
+  if ($og_membership->type != "organisation_membership") {
+    return;
+  }
+
+  $organisation_count = !empty($account->field_user_organisations[LANGUAGE_NONE]) ? count($account->field_user_organisations[LANGUAGE_NONE]) : 0;
+
+  if ($organisation_count > 0) {
+    $fallback_node = node_load($fallback_nid);
+    foreach ($account->field_user_organisations[LANGUAGE_NONE] as $og_item) {
+      if ($og_item['target_id'] == $fallback_nid) {
+        $og_membership = og_get_membership('node', $fallback_nid, 'user', $uid);
+        og_membership_delete($og_membership->id);
+
+        watchdog('salto_og', 'User <em>%name</em> has been removed from fallback organisation <em>%fallback_title</em>.', [
+          '%name' => $account->realname,
+          '%fallback_title' => $fallback_node->title,
+        ], WATCHDOG_INFO);
+      }
+    }
+  }
+}

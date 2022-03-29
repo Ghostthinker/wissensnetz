@@ -1,0 +1,122 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: stefan
+ * Date: 29.01.2015
+ * Time: 10:08
+ */
+
+/**
+ * delete old fields and menu items
+ */
+function salto_group_update_9000() {
+
+  $fields_to_delete = [
+    "field_default_access_articles",
+    "field_field_default_access_q_r",
+  ];
+
+  foreach ($fields_to_delete as $field_name) {
+    field_delete_field($field_name);
+  }
+
+  //delete menu items in groups
+  menu_link_delete(1239);
+  menu_link_delete(1237);
+  menu_link_delete(1235);
+}
+
+
+/**
+ * delete old fields and menu items
+ */
+function salto_group_update_24000() {
+
+  $fields_to_delete = [
+    "field_group_target_audience_role",
+  ];
+
+  foreach ($fields_to_delete as $field_name) {
+    field_delete_field($field_name);
+  }
+
+}
+
+/**
+ *  rename Kategorie (Gruppe)
+ */
+function salto_group_update_28001() {
+
+  //UPDATE `taxonomy_vocabulary` SET `name`= 'Struktur (Gruppe)'  WHERE `name` = 'Kategorie (Gruppe)'
+  db_update('taxonomy_vocabulary')
+    ->fields(['name' => 'Struktur (Gruppe)'])
+    ->condition('name', 'Kategorie (Gruppe)', '=')
+    ->execute();
+
+}
+
+
+/**
+ * create group materials vocabs
+ *
+ */
+function salto_group_update_28002() {
+
+  $groups = node_load_multiple([], ['type' => 'group']);
+  foreach ($groups as $group) {
+    try {
+      //create materials vocabulary
+      $options_materials = [
+        "voc_prefix" => "group_category_materials_",
+        "voc_name" => "Struktur (Gruppe)",
+        "voc_desc" => "OG Vocabulary (Materials) for group ",
+        //last whitespace is purpose
+        "voc_entity_type" => "file",
+      ];
+      salto_group_create_og_vocabulary($group, $options_materials);
+    } catch (Exception $e) {
+
+    }
+  }
+
+}
+
+/**
+ * resave group nodes
+ *
+ */
+function salto_group_update_28003() {
+
+  $result = db_select('node', 'n')
+    ->fields('n', ['nid', 'nid'])
+    ->condition('type', 'group')
+    ->execute()
+    ->fetchAllKeyed();
+
+  $nodes = node_load_multiple($result);
+  foreach ($nodes as $node) {
+    node_save($node);
+  }
+
+}
+
+/**
+ * delete menu item shared posts in groups
+ */
+function salto_group_update_32000() {
+  //delete menu item shared posts in groups
+  menu_link_delete(1236);
+}
+
+/**
+ *  rename Kategorie (Gruppe)
+ */
+function salto_group_update_32001() {
+
+  //UPDATE `taxonomy_vocabulary` SET `name`= 'Struktur (Gruppe)'  WHERE `name` = 'Kategorie (Gruppe)'
+  db_update('taxonomy_vocabulary')
+    ->fields(['name' => 'Struktur (Gruppe)'])
+    ->condition('name', 'Strukur (Gruppe)', '=')
+    ->execute();
+
+}

@@ -1,0 +1,113 @@
+@import "../../../less/variables";
+
+/* checkbox with inline box and border (rounded) */
+.checkbox-block[type="checkbox"] {
+  display: none;
+}
+.checkbox-block[type="checkbox"] + label::before {
+  width: 15px;
+  height: 15px;
+  border: 2px solid @dosb-orange;/*#8cad2d;*/
+  background-color: #fff;
+  display: block;
+  content: "";
+  float: left;
+  margin-right: 5px;
+}
+.checkbox-block.rounded[type="checkbox"] + label::before {
+  border-radius: 15px;
+}
+.checkbox-block[type="checkbox"]:checked + label::before {
+  box-shadow: inset 0 0 0 3px #fff;
+  background-color: @dosb-orange;/*#8cad2d;*/
+}
+
+.checkbox-check[type="checkbox"] {
+  display:none;
+}
+.checkbox-check[type="checkbox"] + label::before {
+  width: 22px;
+  height: 18px;
+  background-image: url("https://boolie.org/wp-content/uploads/2017/11/unchecked.png");
+  display: block;
+  content: "";
+  float: left;
+  margin-right: 5px;
+}
+.checkbox-check[type="checkbox"]:checked+label::before {
+  background-image: url("https://boolie.org/wp-content/uploads/2017/11/checked.png");
+}
+
+.checkbox-mark {
+  padding: 0;
+
+  /* The container */
+  .container {
+    display: block;
+    position: relative;
+    padding-left: 35px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    font-size: inherit;
+    font-weight: normal;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    width: 100%;
+  }
+
+  /* Hide the browser's default checkbox */
+  .container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+  }
+
+  /* Create a custom checkbox */
+  .checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 21px;
+    width: 21px;
+    background-color: #ccc;
+  }
+
+  /* On mouse-over, add a grey background color */
+  .container:hover input ~ .checkmark {
+    background-color: #ccc;
+  }
+
+  /* When the checkbox is checked, add a blue background */
+  .container input:checked ~ .checkmark {
+    background-color: @dosb-grey;
+  }
+
+  /* Create the checkmark/indicator (hidden when not checked) */
+  .checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+  }
+
+  /* Show the checkmark when checked */
+  .container input:checked ~ .checkmark:after {
+    display: block;
+  }
+
+  /* Style the checkmark/indicator */
+  .container .checkmark:after {
+    left: 9px;
+    top: 5px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 3px 3px 0;
+    -webkit-transform: rotate(45deg);
+    -ms-transform: rotate(45deg);
+    transform: rotate(45deg);
+  }
+}

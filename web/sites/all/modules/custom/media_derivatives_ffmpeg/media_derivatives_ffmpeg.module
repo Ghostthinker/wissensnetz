@@ -1,0 +1,775 @@
+<?php
+
+/**
+ * Implements hook_media_derivatives_engine_info().
+ */
+function media_derivatives_ffmpeg_media_derivatives_engine_info() {
+  return [
+    'name' => t('Simple ffmpeg engine'),
+    'type' => 'video',
+    'ui_callback' => 'media_derivatives_ffmpeg_ui_callback',
+  ];
+}
+
+function media_derivatives_ffmpeg_ui_callback() {
+  $form = [];
+  $form['ffmpeg_options'] = [
+    '#type' => 'textfield',
+    '#title' => t('Ffmpeg options'),
+    '#description' => t('Enter ffmpeg attributes between command and an input file.' .
+      'Example: <em>ffmpeg [options] -i input.avi [output-options] output.avi</em> ([options] is content of this field)'),
+  ];
+
+  $form['ffmpeg_out_options'] = [
+    '#type' => 'textfield',
+    '#maxlength' => 256,
+    '#title' => t('Ffmpeg output options'),
+    '#description' => t('Enter ffmpeg command attributes between an input and an output file.' .
+      'Example: <em>ffmpeg [options] -i input.avi [output-options] output.avi</em> ([output-options] is content of this field)'),
+  ];
+
+  $form['ffmpeg_extension'] = [
+    '#type' => 'textfield',
+    '#title' => t('Derivative extension'),
+    '#description' => t('File extension for derivative file (without dot). Examples: mp4, avi, ...'),
+  ];
+  return $form;
+}
+
+function media_derivatives_ffmpeg_media_derivatives_create_derivative($file, $derivative) {
+  // Get path to url and test if exists.
+  $ffmpeg_path = media_derivatives_ffmpeg_get_executable();
+
+
+  if (!file_exists($ffmpeg_path)) {
+    $ex = new MediaDerivativesException($derivative->mdid, t('Unable to find ffmpeg executable'));
+    throw $ex;
+  }
+
+  // Get real path of source file.
+  $path = drupal_realpath($file->uri);
+
+  // Build derivative filename.
+  $pos = strrpos($file->filename, '.');
+
+  //create dir in case it was not there yet
+  $dir = variable_get('media_derivatives_derivative_path', 'private://media_converted');
+  file_prepare_directory($dir, FILE_CREATE_DIRECTORY);
+
+  $new_file = $dir . "/" . $file->filename;//substr($file->filename, 0, $pos);
+  $new_file .= '-' . $derivative->preset->machine_name;
+  $new_file .= '.' . $derivative->preset->engine_settings['ffmpeg_extension'];
+  $new_file = file_destination($new_file, FILE_EXISTS_RENAME);
+
+  $log_file = $dir . "/" . $file->filename;//substr($file->filename, 0, $pos);
+  $log_file .= '-' . $derivative->preset->machine_name;
+  $log_file .= '.log';
+  $log_file = file_destination($log_file, FILE_EXISTS_RENAME);
+
+  $new_path = drupal_realpath($new_file);
+  $log_file = drupal_realpath($log_file);
+
+  $derivative->unmanaged_uri = $new_path;
+  media_derivatives_save($derivative);
+
+  $output = $ret_val = '';
+  $a = exec(
+    $ffmpeg_path . ' ' .
+    $derivative->preset->engine_settings['ffmpeg_options'] .
+    ' -i "' . $path . '" ' .
+    $derivative->preset->engine_settings['ffmpeg_out_options'] . ' "' .
+    $new_path . '" 2> "' . $log_file . '"',
+    $output,
+    $ret_val
+  );
+
+  if ($ret_val) {
+    $ex = new MediaDerivativesException($derivative->mdid, t('Ffmpeg ended with an error (exit code !code).' . print_r($output, TRUE), ['!code' => $ret_val]));
+    throw $ex;
+  }
+  return $new_file;
+}
+
+function media_derivatives_ffmpeg_permission() {
+  return [
+    'administer media_derivatives_ffmpeg' => [
+      'title' => t('Administer simple ffmpeg engine'),
+      'description' => t('Administer media derivatives API simple ffmpeg engine.'),
+    ],
+  ];
+}
+
+function media_derivatives_ffmpeg_menu() {
+  return [
+    'admin/config/media/media_derivatives_ffmpeg' => [
+      'title' => 'ffmpeg engine',
+      'description' => 'Configure media derivatives ffmpeg engine.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => ['media_derivatives_ffmpeg_config'],
+      'access arguments' => ['administer media_derivatives_ffmpeg'],
+    ],
+    'admin/config/media/media_derivatives_ffmpeg/sample' => [
+      'title' => 'Simple ffmpeg engine',
+      'description' => 'Configure media derivatives simple ffmpeg engine.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => ['media_derivatives_ffmpeg_config'],
+      'access arguments' => ['administer media_derivatives_ffmpeg'],
+    ],
+  ];
+}
+
+/**
+ * Admin config page
+ *
+ * @param  [type] $form       [description]
+ * @param  [type] $form_state [description]
+ *
+ * @return [type]             [description]
+ */
+function media_derivatives_ffmpeg_config($form, &$form_state) {
+  $form['media_derivatives_derivative_path'] = [
+    '#type' => 'textfield',
+    '#title' => t('Derivative path'),
+    '#description' => t('URI to where the derivatives are stored.'),
+    '#default_value' => variable_get('media_derivatives_derivative_path', 'private://media_converted'),
+  ];
+
+  $handle = popen(media_derivatives_ffmpeg_get_executable() . ' 2>&1', 'r');
+  $output = '';
+  while ($read = fread($handle, 2096)) {
+    $output .= $read;
+  }
+  pclose($handle);
+
+  $form['ffmpeg_output_wrapper'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Ffmpeg command output'),
+  ];
+
+  $form['ffmpeg_output_wrapper']['ffmpeg_output'] = [
+    '#type' => 'markup',
+    '#markup' => '<pre>' . $output . '</pre>',
+  ];
+
+  return system_settings_form($form);
+}
+
+/**
+ * Get the system executable
+ *
+ * @return [type] [description]
+ */
+function media_derivatives_ffmpeg_get_executable() {
+  if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+    return realpath(drupal_get_path('module', 'media_derivatives_ffmpeg') . '/bin/win/bin/ffmpeg.exe');
+  }
+  else {
+    return realpath(drupal_get_path('module', 'media_derivatives_ffmpeg') . '/bin/nix/ffmpeg');
+  }
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ *
+ * Used to define the video and audio file type players
+ */
+function media_derivatives_ffmpeg_field_formatter_info() {
+
+  $info['file_audio_derivative'] = [
+    'label' => t('Audio (converted)'),
+    'description' => t('Bildungsnetz: Render the file using an HTML5 audio tag.'),
+    'field types' => ['file'],
+    'settings' => [
+      'controls' => TRUE,
+      'autoplay' => FALSE,
+      'loop' => FALSE,
+      'multiple_file_behavior' => 'tags',
+      'thumbnail_only' => FALSE,
+      'show_status' => FALSE,
+      'width' => NULL,
+      'height' => NULL,
+    ],
+    'file formatter' => [
+      'mime types' => ['audio/*'],
+    ],
+  ];
+  $info['file_video_derivative'] = [
+    'label' => t('Video (converted)'),
+    'description' => t('Bildungsnetz: Render the file using an HTML5 video tag.'),
+    'field types' => ['file'],
+    'settings' => [
+      'controls' => TRUE,
+      'autoplay' => FALSE,
+      'loop' => FALSE,
+      'muted' => FALSE,
+      'width' => NULL,
+      'height' => NULL,
+      'multiple_file_behavior' => 'tags',
+      'thumbnail_only' => FALSE,
+      'show_status' => FALSE,
+      'thumbnail_preset' => NULL,
+    ],
+    'file formatter' => [
+      'mime types' => ['video/*'],
+    ],
+  ];
+  return $info;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function media_derivatives_ffmpeg_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $settings = $display['settings'];
+  $element = [];
+
+  if ($display['type'] == 'file_audio_derivative') {
+    $multiple_file_behavior = $settings['multiple_file_behavior'];
+
+    // Prevent 'empty' fields from causing a WSOD.
+    $items = array_filter($items);
+
+    // Build an array of sources for each <audio> element.
+    $source_lists = [];
+    if ($multiple_file_behavior == 'tags') {
+      foreach ($items as $delta => $item) {
+        if ($item['type'] == 'audio') {
+          $source_lists[] = [$item];
+        }
+      }
+    }
+    else {
+      foreach ($items as $delta => $item) {
+        if ($item['type'] == 'audio') {
+          $source_lists[0][] = $item;
+        }
+      }
+    }
+
+
+    // Render each source list as an <audio> element.
+    foreach ($source_lists as $delta => $sources) {
+      $element[$delta] = [
+        '#theme' => 'media_derivatives_ffmpeg_audio',
+        '#files' => $sources,
+        '#controls' => $settings['controls'],
+        '#autoplay' => $settings['autoplay'],
+        '#loop' => $settings['loop'],
+        '#width' => ($width) ? $width : NULL,
+        '#height' => ($height) ? $height : NULL,
+        '#thumbnail_only' => (bool) $settings['thumbnail_only'],
+        '#show_status' => (bool) $settings['show_status'],
+      ];
+    }
+  }
+  elseif ($display['type'] == 'file_video_derivative') {
+    $multiple_file_behavior = $settings['multiple_file_behavior'];
+
+    // Prevent 'empty' fields from causing a WSOD.
+    $items = array_filter($items);
+
+    // Build an array of sources for each <video> element.
+    $source_lists = [];
+    if ($multiple_file_behavior == 'tags') {
+      foreach ($items as $delta => $item) {
+        if ($item['type'] == 'video') {
+          $source_lists[] = [$item];
+        }
+      }
+    }
+    else {
+      foreach ($items as $delta => $item) {
+        if ($item['type'] == 'video') {
+          $source_lists[0][] = $item;
+        }
+      }
+    }
+    // Render each source list as an <video> element.
+    foreach ($source_lists as $delta => $sources) {
+      $width = $settings['width'];
+      $height = $settings['height'];
+      $element[$delta] = [
+        '#theme' => 'media_derivatives_ffmpeg_video',
+        '#files' => $sources,
+        '#controls' => $settings['controls'],
+        '#autoplay' => $settings['autoplay'],
+        '#loop' => $settings['loop'],
+        '#muted' => $settings['muted'],
+        '#width' => ($width) ? $width : NULL,
+        '#height' => ($height) ? $height : NULL,
+        '#thumbnail_only' => (bool) $settings['thumbnail_only'],
+        '#thumbnail_preset' => $settings['thumbnail_preset'],
+        '#show_status' => (bool) $settings['show_status'],
+      ];
+    }
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function media_derivatives_ffmpeg_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $element = [];
+
+  if ($display['type'] == 'file_audio_derivative') {
+    $element['thumbnail_only'] = [
+      '#title' => t('Show only thumbnail'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['thumbnail_only'],
+    ];
+    $element['show_status'] = [
+      '#title' => t('Show status'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['show_status'],
+      '#description' => t('Show theerror or converting status messages when derivative stats is not ok.'),
+    ];
+    $element['controls'] = [
+      '#title' => t('Show audio controls'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['controls'],
+    ];
+    $element['autoplay'] = [
+      '#title' => t('Autoplay'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['autoplay'],
+    ];
+    $element['width'] = [
+      '#type' => 'textfield',
+      '#title' => t('Width'),
+      '#default_value' => $settings['width'],
+      '#size' => 5,
+      '#maxlength' => 5,
+      '#field_suffix' => t('pixels'),
+    ];
+    $element['height'] = [
+      '#type' => 'textfield',
+      '#title' => t('Height'),
+      '#default_value' => $settings['height'],
+      '#size' => 5,
+      '#maxlength' => 5,
+      '#field_suffix' => t('pixels'),
+    ];
+
+    $element['loop'] = [
+      '#title' => t('Loop'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['loop'],
+    ];
+    $element['multiple_file_behavior'] = [
+      '#title' => t('Display of multiple files'),
+      '#type' => 'radios',
+      '#options' => [
+        'tags' => t('Use multiple @tag tags, each with a single source', ['@tag' => '<audio>']),
+        'sources' => t('Use multiple sources within a single @tag tag', ['@tag' => '<audio>']),
+      ],
+      '#default_value' => $settings['multiple_file_behavior'],
+      '#access' => !empty($field),
+    ];
+  }
+  elseif ($display['type'] == 'file_video_derivative') {
+    $element['thumbnail_only'] = [
+      '#title' => t('Show only thumbnail'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['thumbnail_only'],
+    ];
+
+    $element['show_status'] = [
+      '#title' => t('Show status'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['show_status'],
+      '#description' => t('Show theerror or converting status messages when derivative stats is not ok.'),
+    ];
+
+    $element['thumbnail_preset'] = [
+      '#title' => t('thumbnail image style preset'),
+      '#type' => 'select',
+      '#default_value' => $settings['thumbnail_preset'],
+      '#options' => image_style_options(),
+    ];
+
+    $element['controls'] = [
+      '#title' => t('Show video controls'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['controls'],
+    ];
+    $element['autoplay'] = [
+      '#title' => t('Autoplay'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['autoplay'],
+    ];
+    $element['loop'] = [
+      '#title' => t('Loop'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['loop'],
+    ];
+    $element['width'] = [
+      '#type' => 'textfield',
+      '#title' => t('Width'),
+      '#default_value' => $settings['width'],
+      '#size' => 5,
+      '#maxlength' => 5,
+      '#field_suffix' => t('pixels'),
+    ];
+    $element['height'] = [
+      '#type' => 'textfield',
+      '#title' => t('Height'),
+      '#default_value' => $settings['height'],
+      '#size' => 5,
+      '#maxlength' => 5,
+      '#field_suffix' => t('pixels'),
+    ];
+    $element['multiple_file_behavior'] = [
+      '#title' => t('Display of multiple files'),
+      '#type' => 'radios',
+      '#options' => [
+        'tags' => t('Use multiple @tag tags, each with a single source', ['@tag' => '<video>']),
+        'sources' => t('Use multiple sources within a single @tag tag', ['@tag' => '<video>']),
+      ],
+      '#default_value' => $settings['multiple_file_behavior'],
+      '#access' => !empty($field),
+    ];
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function media_derivatives_ffmpeg_theme($existing, $type, $theme, $path) {
+  return [
+    'media_derivatives_ffmpeg_audio' => [
+      'variables' => [
+        'files' => [],
+        'controls' => TRUE,
+        'autoplay' => FALSE,
+        'thumbnail_only' => FALSE,
+        'show_status' => FALSE,
+        'loop' => FALSE,
+        'width' => NULL,
+        'height' => NULL,
+      ],
+      'template' => 'player_audio',
+    ],
+    'media_derivatives_ffmpeg_video' => [
+      'variables' => [
+        'files' => [],
+        'controls' => TRUE,
+        'autoplay' => FALSE,
+        'loop' => FALSE,
+        'muted' => FALSE,
+        'width' => NULL,
+        'height' => NULL,
+        'thumbnail_only' => FALSE,
+        'show_status' => FALSE,
+        'thumbnail_preset' => NULL,
+      ],
+      'template' => 'player_video',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function media_derivatives_ffmpeg_preprocess_media_derivatives_ffmpeg_video(&$variables) {
+  $variables['sources'] = [];
+
+  $video_attributes = [];
+  if ($variables['controls']) {
+    $video_attributes['controls'] = 'controls';
+  }
+  if ($variables['autoplay']) {
+    $video_attributes['autoplay'] = 'autoplay';
+  }
+  if ($variables['loop']) {
+    $video_attributes['loop'] = 'loop';
+  }
+  if ($variables['muted']) {
+    $video_attributes['muted'] = 'muted';
+  }
+  if ($variables['width'] || $variables['height']) {
+  }
+
+  if (!empty($variables['files'][0]['override']['attributes'])) {
+    $video_attributes += $variables['files'][0]['override']['attributes'];
+  }
+  else {
+    $video_attributes['style'] = "max-width:100%";
+  }
+
+  foreach ($variables['files'][0]['media_derivatives']['derivatives_list'] as $type => $value) {
+    if ($type == 'video_mp4') {
+      switch ($value->status) {
+        case MEDIA_DERIVATIVE_TYPE_WAITING:
+        case MEDIA_DERIVATIVE_TYPE_PROCESSING:
+          $variables['status'] = 'converting';
+          $variables['status_message'] = t('Video is still being prepared. Please wait a few minutes and reload this page.');
+          $variables['status_classes'] = 'alert-info';
+          break;
+        case MEDIA_DERIVATIVE_TYPE_ERROR:
+          $variables['status'] = 'error';
+          $variables['status_message'] = t('There is a problem with this video, most probably because of a corrupted original video file.');
+          $variables['status_classes'] = 'alert-danger';
+          break;
+        case MEDIA_DERIVATIVE_TYPE_FINISHED:
+          $variables['status'] = 'ok';
+          break;
+      }
+      $source = url('file/' . $variables['files'][0]['fid'] . '/stream');
+      $variables['sources'][$value->filemime] = $source;
+    }
+
+    $bs_attributes = [];
+    if ($variables['status'] != "ok" && $variables['show_status']) {
+      $bs_attributes = [
+        'data-toggle' => "popover",
+        'data-trigger' => 'hover',
+        'data-content' => $variables['status_message'],
+        'data-html' => TRUE,
+      ];
+    }
+
+    if ($type == 'video_thumbnail') {
+      $variables['preview_url'] = $value->unmanaged_uri;
+
+      $thumbnail = theme('image_style', [
+        'style_name' => $variables['thumbnail_preset'],
+        'path' => $value->unmanaged_uri,
+        'attributes' => $bs_attributes,
+      ]);
+      $video_attributes['poster'] = image_style_url('videdeoplayer_708x398', $value->unmanaged_uri);
+      $variables['thumbnail'] = $thumbnail;
+    }
+  }
+
+  if ($variables['thumbnail_only'] && $thumbnail) {
+    $variables['status'] = 'ok';
+    unset($variables['status_message']);
+    unset($variables['status_classes']);
+
+    $file = $variables['files'][0];
+    $variables['thumbnail_link'] = l($thumbnail, 'file/' . $file['fid'], [
+      'attributes' => $bs_attributes + ['title' => $file['filename']],
+      'html' => TRUE,
+    ]);
+  }
+  $variables['video_attributes'] = drupal_attributes($video_attributes);
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function media_derivatives_ffmpeg_preprocess_media_derivatives_ffmpeg_audio(&$variables) {
+  $variables['sources'] = [];
+
+  $audio_attributes = [];
+  $container_style = [];
+  if ($variables['controls']) {
+    $audio_attributes['controls'] = 'controls';
+  }
+  if ($variables['autoplay']) {
+    $audio_attributes['autoplay'] = 'autoplay';
+  }
+  if ($variables['loop']) {
+    $audio_attributes['loop'] = 'loop';
+  }
+
+  if (!empty($variables['files'][0]['override']['attributes'])) {
+    $audio_attributes += $variables['files'][0]['override']['attributes'];
+
+    if (!empty($variables['files'][0]['override']['attributes']['width'])) {
+      $style['width'] = $variables['files'][0]['override']['attributes']['width'] . "px";
+    }
+
+    if (!empty($variables['files'][0]['override']['attributes']['height'])) {
+      $style['height'] = $variables['files'][0]['override']['attributes']['height'] . "px";
+    }
+
+    foreach ($style as $key => $value) {
+      $container_style[] = "$key: $value";
+    }
+  }
+
+  $container_style[] = "min-width: 120px";
+  $container_style[] = "min-height: 100px";
+  $container_style[] = "text-align: center";
+
+  if (!empty($variables['files'][0]['override'])) {
+    $overrides = $variables['files'][0]['override'];
+    if (isset($overrides['attributes']['style'])) {
+      $container_style[] = $overrides['attributes']['style'];
+    }
+    else {
+      $container_style[] = "width: 108px";
+    }
+  }
+
+  foreach ($variables['files'][0]['media_derivatives']['derivatives_list'] as $type => $value) {
+    if ($type == 'audio_mp3') {
+      switch ($value->status) {
+        case MEDIA_DERIVATIVE_TYPE_WAITING:
+        case MEDIA_DERIVATIVE_TYPE_PROCESSING:
+          $variables['status'] = 'converting';
+          $variables['status_message'] = t('Audio file is still being prepared. Please wait a few minutes and reload this page.');
+          $variables['status_classes'] = 'alert-info';
+          break;
+        case MEDIA_DERIVATIVE_TYPE_ERROR:
+          $variables['status'] = 'error';
+          $variables['status_message'] = t('There is a problem with this audio file, most probably because of a corrupted original audio file.');
+          $variables['status_classes'] = 'alert-danger';
+          break;
+        case MEDIA_DERIVATIVE_TYPE_FINISHED:
+          $variables['status'] = 'ok';
+          break;
+      }
+      $variables['sources'][$value->filemime] = file_create_url($value->unmanaged_uri);
+
+    }
+  }
+
+  $bs_attributes = [];
+  if ($variables['status'] != "ok" && $variables['show_status']) {
+    $bs_attributes = [
+      'data-toggle' => "popover",
+      'data-trigger' => 'hover',
+      'data-content' => $variables['status_message'],
+      'data-html' => TRUE,
+    ];
+  }
+  //build the style for the containers and status bar
+  $variables['container_style'] = ' style="' . implode(";", $container_style) . '" ';
+  $variables['thumbnail_preset'] = !empty($variables['thumbnail_preset']) ? $variables['thumbnail_preset'] : 'media_140x140';
+
+  $thumbnail = theme('image', [
+    'style_name' => $variables['thumbnail_preset'],
+    'path' => 'sites/all/files/defaults/audio.png',
+    'attributes' => $bs_attributes,
+  ]);
+  $variables['thumbnail'] = $thumbnail;
+
+  if ($variables['thumbnail_only']) {
+    $file = $variables['files'][0];
+    $variables['thumbnail_link'] = l($thumbnail, 'file/' . $file['fid'], [
+      'attributes' => $bs_attributes + ["style" => "text-align:center"],
+      'html' => TRUE,
+    ]);
+  }
+  $variables['audio_attributes'] = drupal_attributes($audio_attributes);
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function media_derivatives_ffmpeg_requirements($phase) {
+
+  $requirements = [];
+  // Ensure translations don't break during installation.
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+
+    $error = FALSE;
+    $executable = media_derivatives_ffmpeg_get_executable();
+    if (!file_exists($executable)) {
+      $value = $t("FFmpeg executable not found at !path", ['!path' => $executable]);
+      $error = TRUE;
+    }
+    elseif (!is_executable($executable)) {
+      $value = $t("FFmpeg executable not executable at !path", ['!path' => $executable]);
+      $error = TRUE;
+    }
+
+    $requirements['ffmpeg_status'] = [
+      'title' => $t('ffmpeg status'),
+    ];
+
+    if ($error) {
+      $requirements['ffmpeg_status']['severity'] = REQUIREMENT_ERROR;
+    }
+    else {
+      $handle = popen(media_derivatives_ffmpeg_get_executable() . ' 2>&1', 'r');
+      $read = fread($handle, 2096);
+      pclose($handle);
+      $value = $read;
+    }
+
+    $requirements['ffmpeg_status']['description'] = "";
+    $requirements['ffmpeg_status']['value'] = $value;
+  }
+  return $requirements;
+}
+
+/**
+ * Implements hook_file_dowload
+ *
+ * @futureme -> this must change because it gives access to all private files...
+ *
+ * @param  [type] $uri [description]
+ *
+ * @return [type]      [description]
+ */
+function media_derivatives_file_download($uri) {
+  if ($info = media_derivatives_get_derivative_by_uri($uri)) {
+
+    $realpath = drupal_realpath($uri);
+    if (empty($realpath)) {
+      return -1;
+    }
+
+    $fp = @fopen($realpath, 'rb');
+
+    $size = filesize($realpath);
+    $length = $size;
+
+    $headers = [
+      'Content-Type' => $info->filemime,
+      'Content-Transfer-Encoding' => 'binary',
+      'content-length' => $length,
+      'awesome-factor' => 'high',
+    ];
+    return $headers;
+  }
+}
+
+/**
+ * Return
+ *
+ * @param $uri
+ *
+ * @return Media
+ */
+function media_derivatives_get_derivative_by_uri($uri) {
+
+  $derivative_id = db_select('media_derivatives_unmanaged', 'mu')
+    ->condition('uri', $uri)
+    ->fields('mu', ['mdid'])
+    ->execute()
+    ->fetchField();
+  if ($derivative_id) {
+    return media_derivatives_load($derivative_id);
+  }
+}
+
+/**
+ * @file
+ *   Implementation of some basic conditions.
+ */
+
+/**
+ * Implements hook_media_derivatives_conditions_info().
+ */
+function media_derivatives_ffmpeg_media_derivatives_conditions_info() {
+  $conditions = [];
+
+  $conditions['skip_background_process'] = [
+    'name' => t('Skip background processing'),
+    'description' => t('Checks file type.'),
+    'callback' => 'media_derivatives_type_support',
+    'ui_callback' => 'media_derivatives_type_support_ui',
+    'negatable' => FALSE,
+  ];
+  return $conditions;
+}

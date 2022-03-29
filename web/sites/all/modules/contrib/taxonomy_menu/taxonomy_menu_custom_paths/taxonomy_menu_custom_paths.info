@@ -1,0 +1,15 @@
+core           = 7.x
+dependencies[] = taxonomy_menu
+description    = Enables custom paths to Taxonomy Menu.
+name           = Taxonomy menu - Custom Paths
+package        = Taxonomy menu
+
+; Tests
+files[] = tests/tm_custom_paths.test
+
+; Information added by Drupal.org packaging script on 2016-11-23
+version = "7.x-2.0-alpha2+14-dev"
+core = "7.x"
+project = "taxonomy_menu"
+datestamp = "1479919814"
+

@@ -1,0 +1,421 @@
+<?php
+
+define('BILDUNGSNETZ_CONVERT_ENDPOINT', 'https://docker.ghostthinker.de/convert/');
+define('PRIVATE_MEDIA_DERIVATIVE_CONVERTED_PATH', 'private://media_converted_document');
+define('DOCUMENT_FILE_MIME_PDF', 'application/pdf');
+define('DOCUMENT_FILE_MIME_PPT', 'application/vnd.ms-powerpoint');
+define('DOCUMENT_FILE_MIME_WORD', 'application/msword');
+define('DOCUMENT_FILE_MIME_EXCEL', 'application/vnd.ms-excel');
+define('DOCUMENT_FILE_MIME_TEXT', 'text/plain');
+define('DOCUMENT_FILE_MIME_OPEN_TEXT', 'application/vnd.oasis.opendocument.text');
+define('DOCUMENT_FILE_MIME_OPEN_SHEET', 'application/vnd.oasis.opendocument.spreadsheet');
+define('DOCUMENT_FILE_MIME_OPEN_PT', 'application/vnd.oasis.opendocument.presentation');
+define('DOCUMENT_FILE_MIME_DOCX', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+define('DOCUMENT_FILE_MIME_XLSX', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+define('DOCUMENT_FILE_MIME_PPTX', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+
+/**
+ * Implements hook_media_derivatives_engine_info().
+ */
+function media_derivatives_document_media_derivatives_engine_info() {
+  return [
+    'name' => t('Simple document engine'),
+    'type' => 'document',
+    'ui_callback' => 'media_derivatives_document_ui_callback',
+  ];
+}
+
+function media_derivatives_document_ui_callback() {
+  $form = [];
+  $form['bildungsnetz_convert_endpoint'] = [
+    '#type' => 'textfield',
+    '#default_value' => BILDUNGSNETZ_CONVERT_ENDPOINT,
+    '#title' => t('document convert endpoint'),
+    '#description' => t('Url of file convert service for create preview image. Example: ' . BILDUNGSNETZ_CONVERT_ENDPOINT),
+  ];
+
+  $form['document_output'] = [
+    '#type' => 'textfield',
+    '#maxlength' => 256,
+    '#title' => t('document output dir'),
+    '#description' => t('Directory for the preview images.'),
+  ];
+
+  $form['document_extension'] = [
+    '#type' => 'textfield',
+    '#title' => t('Derivative extension'),
+    '#description' => t('File extension for derivative file (without dot). Examples: jpeg, ...'),
+  ];
+
+  return $form;
+}
+
+function media_derivatives_document_media_derivatives_create_derivative($file, $derivative) {
+
+  $file_name_with_full_path = drupal_realpath($file->uri);
+
+  if (!file_exists($file_name_with_full_path)) {
+    throw new MediaDerivativesException($derivative->mdid, t('Unable to find document'));
+  }
+  variable_set('media_derivatives_display_status_messages', FALSE);
+
+  //create dir in case it was not there yet
+  if (!empty($derivative->preset->engine_settings['document_output'])) {
+    $dir = $derivative->preset->engine_settings['document_output'];
+  }
+  else {
+    $dir = variable_get('media_derivatives_derivative_document_path', PRIVATE_MEDIA_DERIVATIVE_CONVERTED_PATH);
+  }
+  file_prepare_directory($dir, FILE_CREATE_DIRECTORY);
+
+  $extension = $derivative->preset->engine_settings['document_extension'];
+  $extension = isset($extension) ? $extension : 'jpg';
+
+  if (!empty($derivative->preset->engine_settings['bildungsnetz_convert_endpoint'])) {
+    $convert_endpoint = $derivative->preset->engine_settings['bildungsnetz_convert_endpoint'] . $extension;
+  }
+  else {
+    $convert_endpoint = variable_get("bildungsnetz_convert_endpoint", BILDUNGSNETZ_CONVERT_ENDPOINT) . $extension;
+  }
+
+  if (function_exists('curl_file_create')) { // php 5.5+
+    $cFile = curl_file_create($file_name_with_full_path);
+  }
+  else {
+    $cFile = '@' . realpath($file_name_with_full_path);
+  }
+
+  $post = ['file' => $cFile];
+  $curl = curl_init();
+  curl_setopt($curl, CURLOPT_URL, $convert_endpoint);
+  curl_setopt($curl, CURLOPT_POST, 1);
+  curl_setopt($curl, CURLOPT_POSTFIELDS, $post);
+  curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+
+  $contents = curl_exec($curl);
+  if (curl_errno($curl)) {
+    $info = curl_getinfo($curl);
+    $msg = 'Es wurden ' . $info['total_time'] . ' Sekunden benötigt für einen Request an ' . $info['url'];
+    throw new MediaDerivativesException($derivative->mdid, $msg);
+  }
+
+  $new_file = $dir . "/" . $file->filename;
+  $new_file .= '-' . $derivative->preset->machine_name;
+  $new_file .= '.' . $extension;
+  $new_file = file_destination($new_file, FILE_EXISTS_RENAME);
+
+  $fp = fopen($new_file, "w");
+
+  $size = fwrite($fp, $contents);
+  if ($size < 36500) {
+    $msg = t('File was successfully uploaded, unfortunately the preview image could not be generated from the source file.');
+    throw new MediaDerivativesException($derivative->mdid, $msg);
+  }
+
+  curl_close($curl);
+  fclose($fp);
+
+  return $new_file;
+}
+
+function media_derivatives_document_permission() {
+  return [
+    'administer media_derivatives_document' => [
+      'title' => t('Administer simple document engine'),
+      'description' => t('Administer media derivatives API simple document engine.'),
+    ],
+  ];
+}
+
+/**
+ * Get the file preview image
+ *
+ * @param $file
+ *
+ * @return null|string path
+ */
+function media_derivatives_document_get_preview_sample($file) {
+  switch ($file->filemime) {
+    case DOCUMENT_FILE_MIME_OPEN_TEXT:
+    case DOCUMENT_FILE_MIME_WORD:
+    case DOCUMENT_FILE_MIME_DOCX:
+      return realpath(drupal_get_path('module', 'media_derivatives_document') . '/samples/out/docx.jpg');
+    case DOCUMENT_FILE_MIME_PDF:
+      return realpath(drupal_get_path('module', 'media_derivatives_document') . '/samples/out/pdf.jpg');
+    case DOCUMENT_FILE_MIME_OPEN_PT:
+    case DOCUMENT_FILE_MIME_PPT:
+    case DOCUMENT_FILE_MIME_PPTX:
+      return realpath(drupal_get_path('module', 'media_derivatives_document') . '/samples/out/pptx.jpg');
+    case DOCUMENT_FILE_MIME_OPEN_SHEET:
+    case DOCUMENT_FILE_MIME_EXCEL:
+    case DOCUMENT_FILE_MIME_XLSX:
+      return realpath(drupal_get_path('module', 'media_derivatives_document') . '/samples/out/xlsx.jpg');
+    case DOCUMENT_FILE_MIME_TEXT:
+      return realpath(drupal_get_path('module', 'media_derivatives_document') . '/samples/out/rtf.jpg');
+    default:
+      return NULL;
+  }
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ *
+ * Used to define the document file type players
+ */
+function media_derivatives_document_field_formatter_info() {
+
+  $info['file_document_derivative'] = [
+    'label' => t('Document (converted)'),
+    'description' => t('Bildungsnetz: Render the file using an HTML5 document tag.'),
+    'field types' => ['file'],
+    'settings' => [
+      'multiple_file_behavior' => 'tags',
+      'thumbnail_only' => TRUE,
+      'show_status' => FALSE,
+      'thumbnail_preset' => NULL,
+    ],
+    'file formatter' => [
+      'mime types' => ['application/*'],
+    ],
+  ];
+  return $info;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function media_derivatives_document_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $settings = $display['settings'];
+  $element = [];
+
+  if ($display['type'] == 'file_document_derivative') {
+    $multiple_file_behavior = $settings['multiple_file_behavior'];
+
+    // Prevent 'empty' fields from causing a WSOD.
+    $items = array_filter($items);
+
+    // Build an array of sources for each element.
+    $source_lists = [];
+    if ($multiple_file_behavior == 'tags') {
+      foreach ($items as $delta => $item) {
+        if ($item['type'] == 'document') {
+          $source_lists[] = [$item];
+        }
+      }
+    }
+    else {
+      foreach ($items as $delta => $item) {
+        if ($item['type'] == 'document') {
+          $source_lists[0][] = $item;
+        }
+      }
+    }
+
+    foreach ($source_lists as $delta => $sources) {
+      $width = $settings['width'];
+      $height = $settings['height'];
+      $element[$delta] = [
+        '#theme' => 'media_derivatives_document_image',
+        '#files' => $sources,
+        '#width' => ($width) ? $width : NULL,
+        '#height' => ($height) ? $height : NULL,
+        '#thumbnail_only' => (bool) $settings['thumbnail_only'],
+        '#thumbnail_preset' => $settings['thumbnail_preset'],
+        '#show_status' => (bool) $settings['show_status'],
+      ];
+    }
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function media_derivatives_document_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $element = [];
+
+  if ($display['type'] == 'file_document_derivative') {
+    $element['thumbnail_only'] = [
+      '#title' => t('Show only thumbnail'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['thumbnail_only'],
+    ];
+    $element['show_status'] = [
+      '#title' => t('Show status'),
+      '#type' => 'checkbox',
+      '#default_value' => $settings['show_status'],
+      '#description' => t('Show theerror or converting status messages when derivative stats is not ok.'),
+    ];
+    $element['thumbnail_preset'] = [
+      '#title' => t('thumbnail image style preset'),
+      '#type' => 'select',
+      '#default_value' => $settings['thumbnail_preset'],
+      '#options' => image_style_options(),
+    ];
+
+    $element['multiple_file_behavior'] = [
+      '#title' => t('Display of multiple files'),
+      '#type' => 'radios',
+      '#options' => [
+        'tags' => t('Use multiple @tag tags, each with a single source', ['@tag' => '<image>']),
+        'sources' => t('Use multiple sources within a single @tag tag', ['@tag' => '<image>']),
+      ],
+      '#default_value' => $settings['multiple_file_behavior'],
+      '#access' => !empty($field),
+    ];
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function media_derivatives_document_theme($existing, $type, $theme, $path) {
+  return [
+    'media_derivatives_document_image' => [
+      'variables' => [
+        'files' => [],
+        'thumbnail_only' => TRUE,
+        'show_status' => FALSE,
+        'thumbnail_preset' => NULL,
+      ],
+      'template' => 'document_image',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function media_derivatives_document_preprocess_media_derivatives_document_image(&$variables) {
+  $variables['sources'] = [];
+
+  $attributes = [];
+  if (!empty($variables['files'][0]['override']['attributes'])) {
+    $attributes += $variables['files'][0]['override']['attributes'];
+  }
+  else {
+    $attributes['style'] = "max-width:100%";
+  }
+
+  $variables['thumbnail_preset'] = !empty($variables['thumbnail_preset']) ? $variables['thumbnail_preset'] : 'media_140x140';
+
+  foreach ($variables['files'][0]['media_derivatives']['derivatives_list'] as $type => $value) {
+    if ($type == 'document') {
+      switch ($value->status) {
+        case MEDIA_DERIVATIVE_TYPE_WAITING:
+        case MEDIA_DERIVATIVE_TYPE_PROCESSING:
+          $variables['status'] = 'converting';
+          $variables['status_message'] = t('Document is still being prepared. Please wait a few minutes and reload this page.');
+          $variables['status_classes'] = 'alert-info';
+          break;
+        case MEDIA_DERIVATIVE_TYPE_ERROR:
+          $variables['status'] = 'error';
+          $variables['status_message'] = t('There is a problem with this document, most probably because of a corrupted original document file.');
+          $variables['status_classes'] = 'alert-danger';
+          break;
+        case MEDIA_DERIVATIVE_TYPE_FINISHED:
+          $variables['status'] = 'ok';
+          break;
+      }
+
+      $variables['sources'][$value->filemime] = file_create_url($value->unmanaged_uri);
+
+      $bs_attributes = [];
+      if ($variables['status'] != "ok" && $variables['show_status']) {
+        $bs_attributes = [
+          'data-toggle' => "popover",
+          'data-trigger' => 'hover',
+          'data-content' => $variables['status_message'],
+          'data-html' => TRUE,
+        ];
+      }
+      if (!$value->unmanaged_uri) {
+        $file = file_load($variables['files'][0]['fid']);
+        $icon_dir = variable_get('media_icon_base_directory', 'public://media-icons') . '/' . variable_get('media_icon_set', 'default');
+        $icon_path = file_icon_path($file, $icon_dir);
+        $variables['preview_url'] = $icon_path;
+
+        $thumbnail = theme('image', [
+          'width' => 90,
+          'height' => 90,
+          'path' => $icon_path,
+          'attributes' => $bs_attributes,
+        ]);
+      }
+      else {
+        $variables['preview_url'] = $value->unmanaged_uri;
+
+        $thumbnail = theme('image_style', [
+          'style_name' => $variables['thumbnail_preset'],
+          'path' => $value->unmanaged_uri,
+          'attributes' => $bs_attributes,
+        ]);
+      }
+      $variables['thumbnail'] = $thumbnail;
+    }
+  }
+
+  if ($variables['thumbnail_only'] && $thumbnail) {
+    $variables['status'] = 'ok';
+    unset($variables['status_message']);
+    unset($variables['status_classes']);
+
+    $file = $variables['files'][0];
+    $variables['thumbnail_link'] = l($thumbnail, 'file/' . $file['fid'], [
+      'attributes' => $bs_attributes + ['title' => $file['filename']],
+      'html' => TRUE,
+    ]);
+  }
+  $variables['document_attributes'] = drupal_attributes($attributes);
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function media_derivatives_document_requirements($phase) {
+  $requirements = [];
+  // Ensure translations don't break during installation.
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+    // Test document status
+    $requirements['document_status'] = [
+      'title' => $t('document status'),
+    ];
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, variable_get("bildungsnetz_convert_endpoint", BILDUNGSNETZ_CONVERT_ENDPOINT));
+    curl_setopt($ch, CURLOPT_HEADER, FALSE);
+
+    $content = curl_exec($ch);
+    if ($content == 1) {
+      $requirements['document_status']['value'] = 'Endpoint is available';
+    }
+    else {
+      $requirements['document_status']['value'] = 'Endpoint is not available';
+      $requirements['document_status']['severity'] = REQUIREMENT_ERROR;
+    }
+
+    curl_close($ch);
+  }
+  return $requirements;
+}
+
+/**
+ * Implements hook_media_derivatives_conditions_info().
+ */
+function media_derivatives_document_media_derivatives_conditions_info() {
+  $conditions = [];
+
+  $conditions['skip_background_process'] = [
+    'name' => t('Skip background processing'),
+    'description' => t('Checks file type.'),
+    'callback' => 'media_derivatives_type_support',
+    'ui_callback' => 'media_derivatives_type_support_ui',
+    'negatable' => FALSE,
+  ];
+  return $conditions;
+}

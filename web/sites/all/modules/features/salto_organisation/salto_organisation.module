@@ -1,0 +1,2018 @@
+<?php
+
+define('SALTO_ORGANISATION_SUB_O_RECURSION_DEPTH', 2);
+define("SALTO_ORGANISATION_ACTION_GRANT_LICENSE_MANAGER", "grant_license_manager");
+define("SALTO_ORGANISATION_ACTION_REVOKE_LICENSE_MANAGER", "revoke_license_manager");
+define("SALTO_ORGANISATION_ACTION_GRANT_TRAINER", "grant_og_role_trainer");
+define("SALTO_ORGANISATION_ACTION_REVOKE_TRAINER", "revoke_og_role_trainer");
+define("SALTO_ORGANISATION_ACTION_GRANT_EXTERN_TRAINER", "grant_og_role_extern_trainer");
+define("SALTO_ORGANISATION_ACTION_REVOKE_EXTERN_TRAINER", "revoke_og_role_extern_trainer");
+define("SALTO_ORGANISATION_ACTION_GRANT_LICENSE_OWNER", "grant_og_role_license_owner");
+define("SALTO_ORGANISATION_ACTION_REVOKE_LICENSE_OWNER", "revoke_og_role_license_owner");
+define("SALTO_ORGANISATION_ACTION_REMOVE_FROM_ORGANISATION", "organisaton_remove_from_organisation");
+define("SALTO_ORGANISATION_ACTION_GRANT_FURTHER_MEMBER", "grant_og_role_further_member");
+define("SALTO_ORGANISATION_ACTION_REVOKE_FURTHER_MEMBER", "revoke_og_role_further_member");
+
+
+define("SALTO_ORGANISATION_OG_ROLE_LIZENZVERWALTER_RID", 7);
+define("SALTO_ORGANISATION_OG_ROLE_BILDUNGSREFERENT_RID", 8);
+
+
+/**
+ * @file
+ * Code for the salto_organisation feature.
+ */
+include_once 'salto_organisation.features.inc';
+
+/**
+ * Implements hook_menu().
+ */
+function salto_organisation_menu() {
+  $items = [];
+  // Edit membership.
+  $items['organisations/%/admin/membership/%og_membership'] = [
+    'title' => 'Edit membership',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => [
+      'salto_organisation_membership_form',
+      'node',
+      1,
+      4,
+    ],
+    'access callback' => 'salto_organisation_edit_membership_access',
+    'access arguments' => [4],
+    'file' => 'salto_organisation.pages.inc',
+  ];
+  //Invite user form
+  $items['organisations/%/invite'] = [
+    'title' => 'Invite user',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_og_invite_form', 1, TRUE, TRUE],
+    'access callback' => 'salto_og_user_access_group',
+    'access arguments' => [1, 'manage all members'],
+  ];
+
+  //Invite user form
+  $items['organisations/%/invite/api'] = [
+    'title' => 'Request API access',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_og_invite_api_form', 1],
+    'access callback' => 'salto_og_user_access_group',
+    'access arguments' => [1, 'invite api users'],
+  ];
+
+  //Invite users to one of my organisations
+  $items['organisations/invite'] = [
+    'title' => 'Invite users to one of my organisations',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'salto_organisation_invite_people',
+    'access callback' => 'salto_organisation_manage_people_in_organisations_access',
+  ];
+
+  //ajax callback for various validating and stuff
+  $items['organisations/%/admin/js/%action'] = [
+    'page callback' => 'salto_organisation_membership_ajax_callback',
+    'access callback' => 'salto_og_user_access_group',
+    'access arguments' => ['manage all members', 1],
+    'weight' => -4,
+    'file' => 'salto_organisation.pages.inc',
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['user/organisations'] = [
+    'title' => 'My organisation(s)',
+    'page callback' => 'salto_organisation_redirect_my_organisations',
+    'access callback' => 'salto_user_access_own_subpages',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -46,
+    'file' => 'salto_organisation.pages.inc',
+    'menu_name' => 'user-menu',
+  ];
+
+  $items['organisations/%/delete'] = [
+    'title' => 'Delete organisation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_organisation_node_delete_confirm', 1],
+    'access callback' => 'og_user_access',
+    'access arguments' => ['node', 1, 'delete suborganisation'],
+    'type' => MENU_CALLBACK,
+  ];
+
+  return $items;
+}
+
+/**
+ * render organisation optionslist
+ * organisation are linked directly to their invite form
+ *
+ * @return string
+ */
+function salto_organisation_invite_people() {
+  global $user;
+
+  $account = clone $user;
+
+  //set breadcrumb
+  $breadcrumb = [];
+  $breadcrumb[] = l(t('Home'), '<front>');
+  $breadcrumb[] = l(t('Organisations'), 'organisations');
+
+  $heading = t('Invite People');
+  $description_first_part = t('Please select an organisation you would like to invite new people to.');
+  $description_second_part = t('You will be redirected directly to the appropriate organisation.');
+
+  $output = '<h1>' . $heading . '</h1>';
+  $output .= '<p>' . $description_first_part . '</p>';
+  $output .= '<p>' . $description_second_part . '</p>';
+  $output .= '<br />';
+
+  drupal_set_breadcrumb($breadcrumb);
+
+  $users_organisations = salto_organisation_get_users_organisations($account, 'manage all members');
+
+  //check if there are more than 1 organisations
+  if (count($users_organisations) == 1) {
+    drupal_goto('organisations/' . $users_organisations[0]->nid . '/invite');
+  }
+
+  $items = [];
+  foreach ($users_organisations as $org) {
+    $items[] = [
+      'data' => l($org->title, 'organisations/' . $org->nid . '/invite'),
+    ];
+  }
+
+  $output .= theme_item_list([
+    'items' => $items,
+    'type' => 'ul',
+    'attributes' => [],
+  ]);
+
+  return $output;
+}
+
+/**
+ * get all organisations a user is in
+ *
+ * @param null $account
+ * @param null $req_permission if set, check filter organisations where user
+ *   has the required permission
+ *
+ * @return array
+ */
+function salto_organisation_get_users_organisations($account = NULL, $req_permission = NULL) {
+  if (!$account) {
+    global $user;
+
+    $account = clone $user;
+  }
+
+  $account = user_load($account->uid);
+
+  if (empty($account->field_user_organisations)) {
+    return [];
+  }
+
+  $result = [];
+  foreach ($account->field_user_organisations[LANGUAGE_NONE] as $org) {
+    //check permission, if argument was passed (permission string)
+    if ($req_permission) {
+      if (og_user_access('node', $org['target_id'], $req_permission, $account)) {
+        $result[] = node_load($org['target_id']);
+      }
+    }
+    else {
+      $result[] = node_load($org['target_id']);
+    }
+  }
+
+  return $result;
+}
+
+/**
+ * render add post and invite people action links for right sidebar in home
+ * section
+ */
+function salto_organisation_render_home_sidebar_action_links() {
+
+  //check required access first
+  if (!salto_organisation_manage_people_in_organisations_access()) {
+    $output = ' <div class="row">';
+    $output .= '    <div class="col-sm-12">';
+    $output .= '        <div class="row">';
+    $output .= '           <div class="col-sm-12">';
+    $output .= '                <div class="pane-action-links">';
+    $output .= '                    <div class="pane-content"><a href="/node/add/post" title="Starten Sie mit einem eigenen Beitrag!" class="action_link add_node add_article add_post">Beitrag erstellen</a></div>';
+    $output .= '                </div>';
+    $output .= '          </div>';
+    $output .= '        </div>';
+    $output .= '    </div>';
+    $output .= '</div>';
+    return $output;
+  }
+
+  $link = '';
+  $dim = 12;
+  if (drupal_valid_path('organisation/invite')) {
+    $link .= '            <div class="col-sm-6">';
+    $link .= '                <div class="pane-action-links">';
+    $link .= '                    <div class="pane-content"><a href="/organisation/invite" title="Laden Sie Personen in eine Ihrer Organisationen ein!" class="action_link membership membership_invite">Personen einladen</a></div>';
+    $link .= '                </div>';
+    $link .= '           </div>';
+    $dim = 6;
+  }
+
+  $output = ' <div class="row">';
+  $output .= '    <div class="col-sm-12">';
+  $output .= '        <div class="row">';
+  $output .= $link;
+  $output .= '           <div class="col-sm-' . $dim . '">';
+  $output .= '                <div class="pane-action-links">';
+  $output .= '                    <div class="pane-content"><a href="/node/add/post" title="Starten Sie mit einem eigenen Beitrag!" class="action_link add_node add_article add_post">Beitrag erstellen</a></div>';
+  $output .= '                </div>';
+  $output .= '          </div>';
+  $output .= '        </div>';
+  $output .= '    </div>';
+  $output .= '</div>';
+
+  return $output;
+}
+
+
+/**
+ * access callback
+ * TRUE if user has 'manage all members' permission in one of his group
+ *
+ * @return bool
+ */
+function salto_organisation_manage_people_in_organisations_access() {
+  global $user;
+  $account = clone $user;
+
+  $access_data = &drupal_static(__FUNCTION__);
+  if (!isset($access_data)) {
+    $users_organisations = salto_organisation_get_users_organisations($account, 'manage all members');
+
+    //check if user has at least 1 organisation where he can invite people to
+    if (count($users_organisations) == 0) {
+      $access_data = FALSE;
+    }
+    else {
+      $access_data = TRUE;
+    }
+  }
+
+  return $access_data;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function salto_organisation_permission() {
+  return [
+    'manage people in any organisation' => [
+      'title' => t('Manage people in any organisation.'),
+      'description' => t('Manage people in any organisation.'),
+    ],
+    'edit organisation meta fields' => [
+      'title' => t('Edit organisations meta fields.'),
+      'description' => t('Usually only the dosb my edit these fields.'),
+    ],
+  ];
+}
+
+
+/**
+ * Implements hook_ctools_plugin_directory()
+ */
+function salto_organisation_ctools_plugin_directory($module, $plugin) {
+  return "plugins/$plugin";
+}
+
+/**
+ * Alter the permissions of a user in a group.
+ *
+ * @param $perm
+ *   The permissions of a user, passed by reference.
+ * @param $context
+ *   Array with:
+ *   - string: The permission asked for the user.
+ *   - group_type: The entity type of the group.
+ *   - group: The group object.
+ *   - account: The user account.
+ */
+function salto_organisation_og_user_access_alter(&$perm, $context) {
+  $account = $context['account'];
+
+  $isDOSB = !empty($context['account']->roles[ROLE_GLOBAL_DOSB_RID]);
+
+  if ($isDOSB) {
+    $perm['manage all members'] = TRUE;
+    $perm['manage membership fields'] = TRUE;
+    $perm['create suborganisation'] = TRUE;
+    $perm['delete suborganisation'] = TRUE;
+    $perm['create organisation content'] = TRUE;
+    $perm['invite new users'] = TRUE;
+    $perm['invite existing users'] = TRUE;
+    $perm['invite api users'] = TRUE;
+    $perm['grant og role trainer'] = TRUE;
+    $perm['revoke og role trainer'] = TRUE;
+  }
+
+  if (!empty($context['group'])) {
+
+    $group = $context['group'];
+
+    if ($group->type !== 'organisation') {
+      return;
+    }
+
+    if (salto_og_user_has_role($group->nid, $account->uid, SALTO_OG_ROLE_TRAINER_RID)) {
+      $perm['grant og role trainer'] = TRUE;
+      $perm['revoke og role trainer'] = TRUE;
+    }
+
+    //check if the organisation has no parent and we have the global role for editing license managers
+    if (user_access('manage all root og license managers', $account) && empty($group->field_organisation_parent)) {
+      $perm['grant license managers'] = TRUE;
+      $perm['revoke license managers'] = TRUE;
+      $perm['grant og role trainer'] = TRUE;
+      $perm['revoke og role trainer'] = TRUE;
+    }
+
+    //user is license manager in parent organisation(s) and in current og
+    if (salto_organisation_recursive_role_check($group, SALTO_ORGANISATION_SUB_O_RECURSION_DEPTH, ['license manager'], $account)) {
+      $perm['view dosb_license'] = TRUE;
+      //$perm['create organisation content'] = TRUE;
+      $perm['grant license managers'] = TRUE;
+      $perm['revoke license managers'] = TRUE;
+      $perm['manage all members'] = TRUE;
+      $perm['invite new users'] = TRUE;
+      $perm['invite existing users'] = TRUE;
+      $perm['invite api users'] = TRUE;
+
+      if (!empty($group->field_org_dv_license_settings[LANGUAGE_NONE][0]['value'])) {
+        switch ($group->field_org_dv_license_settings[LANGUAGE_NONE][0]['value']) {
+          case 'read':
+            $perm['view dosb_license sensitive data'] = TRUE;
+            break;
+          case 'full':
+            $perm['view dosb_license sensitive data'] = TRUE;
+            $perm['edit dosb_license'] = TRUE;
+            $perm['create dosb_license'] = TRUE;
+            break;
+        }
+      }
+    }
+
+    $hasRoleInParent = FALSE;
+    if (!empty($group->field_organisation_parent)) {
+      $targetId = $group->field_organisation_parent[LANGUAGE_NONE][0]['target_id'];
+      $hasRoleInParent = salto_og_user_has_role($targetId, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID);
+    }
+    if (salto_og_user_has_role($group->nid, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID) && !$isDOSB && !$hasRoleInParent) {
+      $perm['grant license managers'] = FALSE;
+      $perm['revoke license managers'] = FALSE;
+    }
+
+    //user is trainer in parent organisation(s)
+    if (salto_organisation_recursive_role_check($group, SALTO_ORGANISATION_SUB_O_RECURSION_DEPTH, ['og role trainer'], $account)) {
+      $perm['grant og role trainer'] = TRUE;
+      $perm['revoke og role trainer'] = TRUE;
+      $perm['manage all members'] = TRUE;
+      $perm['invite new users'] = TRUE;
+      $perm['invite existing users'] = TRUE;
+    }
+
+
+    //add permision in relation to field setting for LSBs
+    if (!empty($group->field_org_lsb_inspection[LANGUAGE_NONE])) {
+      foreach ($group->field_org_lsb_inspection[LANGUAGE_NONE] as $lsb) {
+        $lsb_nid = $lsb['target_id'];
+
+        $tmp_node = entity_load_single("node", $lsb_nid);
+        if (empty($tmp_node)) {
+          continue;
+        }
+
+        if (!empty($lsb_nid)) {
+          if (salto_og_user_has_role($lsb_nid, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID)) {
+            $perm['view dosb_license sensitive data'] = TRUE;
+          }
+        }
+      }
+    }
+
+
+    //user is bildungsreferent in parent organisation(s)
+    if (salto_organisation_recursive_role_check($group, SALTO_ORGANISATION_SUB_O_RECURSION_DEPTH, ['og role trainer'], $account)) {
+      $perm['manage all members'] = TRUE;
+      $perm['invite new users'] = TRUE;
+      $perm['invite existing users'] = TRUE;
+
+    }
+
+    //user is bildungsreferent in parent organisation(s)
+    //other permission depth
+    if (salto_organisation_recursive_role_check($group, SALTO_ORGANISATION_SUB_O_RECURSION_DEPTH - 1, ['og role trainer'], $account)) {
+      $perm['create organisation content'] = TRUE;
+      $perm['delete suborganisation'] = TRUE;
+    }
+
+    $perm['request license by uuid'] = FALSE;
+    if (salto_organisation_request_uuid_enabled($group)) {
+      if (salto_og_user_has_role($group->nid, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID)) {
+        $perm['request license by uuid'] = TRUE;
+      }
+      if (empty($group->field_organisation_obscure[LANGUAGE_NONE][0]['value'])) {
+        $perm['request license by uuid'] = FALSE;
+      }
+    }
+  }
+}
+
+/**
+ * check if user is member of one of the parent groups and has required
+ * permissions
+ *
+ * @param $organisation_node
+ * @param int $depth
+ * @param array $permissions
+ * @param null $account
+ *
+ * @return bool|int
+ */
+function salto_organisation_recursive_member_check($organisation_node, $depth = 0, $permissions = [], $account = NULL) {
+
+  if (!$account) {
+    global $user;
+    $account = clone $user;
+  }
+
+  $result = FALSE;
+
+  if (!empty($organisation_node->field_organisation_parent)) {
+    //get head organisation
+    $head_organisation_node = node_load($organisation_node->field_organisation_parent[LANGUAGE_NONE][0]['target_id']);
+  }
+  else {
+    //no organisations above this
+    $depth = 0;
+  }
+
+  $is_member = og_is_member('node', $organisation_node->nid, 'user', $account);
+  //permissions check
+
+  if (!empty($is_member)) {
+
+    $perm_result = FALSE;
+    foreach ($permissions as $permission) {
+
+      if ($permission == 'grant license managers') {
+        if (salto_og_user_has_role($organisation_node->nid, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID)) {
+          $perm_result = TRUE;
+        }
+      }
+      else {
+        if ($permission == 'revoke license managers') {
+          if (salto_og_user_has_role($organisation_node->nid, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID)) {
+            $perm_result = TRUE;
+          }
+        }
+        else {
+          //skip alter
+          $perm_result = $perm_result || og_user_access('node', $organisation_node->nid, $permission, $account, TRUE);
+        }
+      }
+    }
+    $result = $perm_result;
+  }
+
+  if ($depth > 0 && !$result) {
+    $result = salto_organisation_recursive_member_check($head_organisation_node, $depth - 1, $permissions, $account);
+  }
+
+  return $result;
+}
+
+/**
+ * Get through parent organisation, as soon as user has a role in the parent,
+ * return TRUE
+ *
+ * @param $organisation_node
+ * @param int $depth
+ *   1 -> only the parent org
+ *    5 _> up to 5 parent orgs
+ * @param array $rids
+ * @param null $account
+ *
+ * @return bool
+ */
+function salto_organisation_recursive_role_check($organisation_node, $depth = 1, $rids = [], $account = NULL) {
+
+  if (!$account) {
+    global $user;
+    $account = clone $user;
+  }
+
+  foreach ($rids as $rid) {
+    //check self
+    if (salto_og_user_has_role($organisation_node->nid, $account->uid, $rid)) {
+      return TRUE;
+    }
+  }
+
+  if (empty($organisation_node->field_organisation_parent)) {
+    return FALSE;
+  }
+
+  //get head organisation
+  $parent_organisation_node = node_load($organisation_node->field_organisation_parent[LANGUAGE_NONE][0]['target_id']);
+
+  //also check in organisations above
+  if ($depth > 0) {
+    return salto_organisation_recursive_role_check($parent_organisation_node, $depth - 1, $rids, $account);
+  }
+  return FALSE;
+}
+
+/**
+ * unset default author on suborganisation create
+ *
+ * @param  [type] $node [description]
+ *
+ * @return [type]       [description]
+ */
+function salto_organisation_node_prepare($node) {
+
+  if ($node->type == 'organisation' && $_GET['field_organisation_parent']) {
+    $node->name = '';
+  }
+}
+
+/**
+ * Implements hook_action_links_info
+ */
+function salto_organisation_action_links_info() {
+  $items['organisation'] = t('Organisation');
+  return $items;
+}
+
+
+/**
+ * Implements hook_salto_action_links
+ *
+ * @param type $category
+ *
+ * @return type
+ */
+function salto_organisation_salto_action_links($category, $context) {
+  $links = [];
+
+  if (arg(0) == 'node') {
+    $node_page = TRUE;
+  }
+
+  switch ($category) {
+    case 'organisation':
+      global $user;
+
+      //no og context, add an "Create organisation link"
+      if (empty($context['node_context'])) {
+
+        //Add organisation
+        if (user_access("create organisation content")) {
+          $path = 'node/add/organisation';
+          $text = t('Create Organisation');
+          //$dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              //  'query' => $query,
+              'attributes' => [
+                'title' => t('Create a new organisation'),
+                'class' => 'action_link add_node add_organisation',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["add_organisation"] = $link;
+        }
+      }
+      else {
+        $node = $context['node_context'];
+
+        if (!empty($node) && node_access("update", $node) && $node_page) {
+          $path = 'node/' . $node->nid . '/edit';
+
+          $text = t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]);
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              //  'query' => $query,
+              'attributes' => [
+                'title' => t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]),
+                'class' => 'action_link edit_node edit_organisation',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["edit_node"] = $link;
+        }
+      }
+
+      if ($node) {
+        //load membership
+        $membership = NULL;
+        $membership = og_get_membership('node', $node->nid, 'user', $user->uid);
+
+        //edit membership
+        if ($node_page) {
+          if ($link = salto_organisation_edit_membership_link($node->nid, $membership)) {
+            $links["edit_organisation_membership"] = $link;
+          }
+
+        }
+
+        //permission check
+        //add suborganisation
+        if (og_user_access('node', $node->nid, 'create organisation content') && $node_page) {
+          $path = 'node/add/organisation';
+          $text = t('Add suborganisation');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => ['field_organisation_parent' => $node->nid] + drupal_get_destination(),
+              'attributes' => [
+                'title' => t('Add new suborganisation'),
+                'class' => 'action_link add_suborganisation',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["edit_organisation_add_suborganisation"] = $link;
+        }
+
+        //Invite users
+        if (salto_og_user_access_group($node->nid, 'manage all members') || user_access('manage people in any organisation')) {//&& $node_page) {
+          $path = 'organisations/' . $node->nid . '/invite';
+          $text = t('Invite people');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => drupal_get_destination(),
+              'attributes' => [
+                'title' => t('Invite new or existing users'),
+                'class' => 'action_link membership membership_invite',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["edit_organisation_membership_invite"] = $link;
+
+        }
+      }
+  }
+  return $links;
+}
+
+/**
+ * Create a membership edit link
+ *
+ * @param type $og_membership
+ * @param type $account
+ *
+ * @return type
+ */
+function salto_organisation_edit_membership_link($gid, $membership) {
+
+  if ($membership && salto_organisation_edit_membership_access($membership)) {
+    $path = 'organisations/' . $gid . '/admin/membership/' . $membership->id;
+    $text = t('Edit membership');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => drupal_get_destination(),
+        'attributes' => [
+          'title' => t('Create a new organisation'),
+          'class' => 'action_link membership edit_membership',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    return $link;
+  }
+  return NULL;
+}
+
+/**
+ * Helper function to determine if a user has access to edit a member's OG
+ * membership entity.
+ *
+ * @param object $og_membership
+ *   OG Membership Entity.
+ *
+ * @return boolean
+ */
+function salto_organisation_edit_membership_access($og_membership) {
+
+  // If user has the stock OG permission to manage members, return TRUE.
+  if (salto_og_user_access_group($og_membership->gid, 'manage all members')) {
+    return TRUE;
+  }
+
+  // Get currently logged-in user account information.
+  global $user;
+  $account = user_load($user->uid);
+
+
+  // If user has the OG permission to manage their own membership and the logged-in user is the same as the UID in the og_membership entity, return TRUE.
+  if (salto_og_user_access_group($og_membership->gid, 'manage own membership') && ($account->uid == $og_membership->etid)) {
+    return TRUE;
+  }
+
+  // Else, deny access.
+  return FALSE;
+}
+
+
+function salto_organisation_form_alter(&$form, &$form_state, $form_id) {
+  //alter exposed form for organisations view to avoid error
+  if ($form['#id'] == 'views-exposed-form-salto-organisations-overview-panel-pane-2') {
+    if ($form_state['view']->name == 'salto_organisations_overview') {
+
+      if (empty($form_state['view']->exposed_input)) {
+        $_GET['sort_by'] = 'title';
+        $form_state['view']->set_exposed_input($_GET);
+        $form_state['input']['sort_by'] = $_GET['sort_by'];
+      }
+    }
+  }
+
+  if ($form_id == 'organisation_node_form') {
+    global $user;
+    $node = $form['#node'];
+
+    ////////////////////
+    // Setup contexts
+    ////////////////////
+
+    //Are we creating a new sub organisation?
+    $is_creating_new_sub_organisation = !empty($_GET['field_organisation_parent']) && is_numeric($_GET['field_organisation_parent']);
+
+    //Is the current organisation a root organisation?
+    $is_dachorganisation = empty($node->field_organisation_parent[LANGUAGE_NONE]) && !$is_creating_new_sub_organisation;
+
+    if (!$is_dachorganisation) {
+      $dv_nid = !empty($node->field_organisation_parent[LANGUAGE_NONE][0]['target_id']) ? $node->field_organisation_parent[LANGUAGE_NONE][0]['target_id'] : $_GET['field_organisation_parent'];
+    }
+
+    //Those are the field permissions o the form
+
+    //$title_access = TRUE // Everybody can
+    $field_organisation_key_access = FALSE;
+    $field_organisation_article_name_access = FALSE;
+    $field_organisation_category_disabled = TRUE;
+    $field_group_president_details_access = FALSE;
+    $field_org_president_name_access = FALSE;
+    $field_org_position_access = FALSE;
+    $field_organisation_signature_access = FALSE;
+    $body_access = TRUE;
+    $field_organisation_earemotes_access = FALSE;
+    $field_organisation_obscure_access = FALSE;
+    $field_org_dv_license_settings_access = FALSE;
+    $field_organisation_remote_id_access = FALSE;
+    $field_organisation_parent_access = FALSE;
+    $field_organisation_custom_labels_access = FALSE;
+
+    $field_org_lsb_inspection_access = FALSE;   //UV only
+
+    $field_org_api_enable_uuid_access = FALSE;
+    $field_org_api_enable_uuid_disabled = TRUE;
+
+
+    if ($is_dachorganisation) {
+
+      ////////////////////
+      // DACHORGANISATION
+      ////////////////////
+
+      //these values are not available for DV at all
+      $field_org_dv_license_settings_access = FALSE;
+
+      //these values are only for admins
+      if (user_has_role(3)) {
+        $field_organisation_parent_access = TRUE;
+        $field_organisation_remote_id_access = TRUE;
+      }
+
+
+      //DOSB, ADMIN have this perm
+      if (user_access('edit organisation meta fields')) {
+        $field_organisation_key_access = TRUE;
+        $field_organisation_article_name_access = TRUE;
+        $field_organisation_category_disabled = FALSE;
+        $field_organisation_earemotes_access = TRUE;
+        $field_org_api_enable_uuid_access = TRUE;
+        $field_org_api_enable_uuid_disabled = FALSE;
+      }
+
+      if (!empty($node->nid) && og_user_access('node', $node->nid, 'edit organisation license fields')) {
+        $field_organisation_obscure_access = TRUE;
+        $field_org_president_name_access = TRUE;
+        $field_group_president_details_access = TRUE;
+        $field_org_position_access = TRUE;
+        $field_organisation_signature_access = TRUE;
+        $field_organisation_custom_labels_access = TRUE;
+      }
+    }
+    elseif (!$is_dachorganisation) {
+
+      if (!empty($node->nid) && og_user_access('node', $node->nid, 'delete suborganisation')) {
+        $form['actions']['delete'] = [
+          '#type' => 'submit',
+          '#value' => t('Delete'),
+          '#weight' => 15,
+          '#submit' => ['salto_organisation_form_delete_submit'],
+        ];
+      }
+
+      ////////////////////
+      // Untergliederung
+      ////////////////////
+
+      //these values are not available for UV at all
+      $field_organisation_key_access = FALSE;
+      $field_organisation_article_name_access = FALSE;
+      $field_organisation_category_disabled = TRUE;
+      $field_org_president_name_access = FALSE;
+      $field_group_president_details_access = FALSE;
+      $field_org_position_access = FALSE;
+      $field_organisation_signature_access = FALSE;
+      $field_organisation_custom_labels_access = FALSE;
+
+      //these values are only for admins
+      if (user_has_role(3)) {
+        $field_organisation_parent_access = TRUE;
+        $field_organisation_remote_id_access = TRUE;
+        $field_organisation_earemotes_access = TRUE;
+        $field_org_lsb_inspection_access = TRUE;
+      }
+
+      //DOSB, ADMIN have this perm
+      if (user_access('edit organisation meta fields')) {
+        //$field_organisation_earemotes_access = TRUE;
+        $field_organisation_category_disabled = FALSE;
+      }
+
+      if (!empty($node->nid) && og_user_access('node', $node->nid, 'edit organisation license fields')) {
+        $field_organisation_obscure_access = TRUE;
+        $field_org_dv_license_settings_access = TRUE;
+        $field_org_lsb_inspection_access = TRUE;
+
+      }
+
+      //lizenzverantwortlicher in DV - let there be ea
+      if (!empty($dv_nid) && (salto_og_user_has_role($dv_nid, $user->uid, SALTO_ORGANISATION_OG_ROLE_BILDUNGSREFERENT_RID) || salto_og_user_has_role($dv_nid, $user->uid, SALTO_ORGANISATION_OG_ROLE_LIZENZVERWALTER_RID))) {
+        $field_organisation_earemotes_access = TRUE;
+        $field_org_lsb_inspection_access = TRUE;
+      }
+    }
+
+    //////////////////////////////
+    // Alter field access
+    /////////////////////////////
+
+    if (!module_exists('dosb_license')) {
+      $field_organisation_key_access = FALSE;
+      $field_organisation_article_name_access = FALSE;
+      $field_organisation_category_disabled = TRUE;
+      $field_group_president_details_access = FALSE;
+      $field_org_president_name_access = FALSE;
+      $field_org_position_access = FALSE;
+      $field_organisation_signature_access = FALSE;
+      $field_organisation_earemotes_access = FALSE;
+      $field_organisation_obscure_access = FALSE;
+      $field_org_dv_license_settings_access = FALSE;
+      $field_organisation_remote_id_access = FALSE;
+      $field_organisation_parent_access = FALSE;
+      $field_organisation_custom_labels_access = FALSE;
+      $field_org_lsb_inspection_access = FALSE;   //UV only
+      $field_org_api_enable_uuid_access = FALSE;
+      $field_org_api_enable_uuid_disabled = TRUE;
+    }
+
+    //set/revoke access
+    $form['field_organisation_key']['#access'] = $field_organisation_key_access;
+    $form['field_organisation_article_name']['#access'] = $field_organisation_article_name_access;
+    $form['field_org_dv_license_settings']['#access'] = $field_org_dv_license_settings_access;
+    $form['field_org_president_name']['#access'] = $field_org_president_name_access;
+    $form['field_org_position']['#access'] = $field_org_position_access;
+    $form['field_organisation_signature']['#access'] = $field_organisation_signature_access;
+    $form['field_organisation_earemotes']['#access'] = $field_organisation_earemotes_access;
+    $form['field_organisation_obscure']['#access'] = $field_organisation_obscure_access;
+    $form['field_organisation_remote_id']['#access'] = $field_organisation_remote_id_access;
+    $form['field_organisation_custom_labels']['#access'] = $field_organisation_custom_labels_access;
+    $form['field_org_lsb_inspection']['#access'] = $field_org_lsb_inspection_access;
+    $form['field_org_api_enable_uuid']['#access'] = $field_org_api_enable_uuid_access;
+
+    //set max length for text fields 25
+    $form['field_org_president_name']['und'][0]['value']['#maxlength'] = 25;
+    $form['field_org_position']['und'][0]['value']['#maxlength'] = 25;
+
+    //hide fields and fieldsets
+    if (!$field_group_president_details_access) {
+      field_group_hide_field_groups($form, ['group_president_details']);
+    }
+
+    if (!$field_organisation_parent_access) {
+      // hide($form['field_organisation_parent']);
+      $form['field_organisation_parent']['#access'] = FALSE;
+    }
+
+    //disable fields
+    $form['field_organisation_category']['#disabled'] = $field_organisation_category_disabled;
+    $form['field_org_api_enable_uuid']['#disabled'] = $field_org_api_enable_uuid_disabled;
+
+
+    //////////////////////////////
+    // Other alterations
+    /////////////////////////////
+
+    //hide the default value for license settings
+    unset($form['field_org_dv_license_settings']['und']['#options']['_none']);
+
+
+    //This is a solution for the obscure options of an organisation. Should be refactored
+    $form['field_organisation_obscure'][LANGUAGE_NONE]['#prefix'] = '<div class="hidden">';
+    $form['field_organisation_obscure'][LANGUAGE_NONE]['#suffix'] = '</div>
+    <div class="field_organisation_obscure_zs" id="field_organisation_obscure_anchor">
+    <label>' . t('Central licensedata storage') . '</label>
+      <div class="form-type-radios form-item form-group">
+        <input type="radio" class="zs_enabled" name="zs-group-1" id="edit-field-organisation-zs-1" value="0" />
+        <label for="edit-field-organisation-zs-1" class="label-small">' . t('Use central data storage') . '</label>
+        <p>' . t('Use central storage description !datenschutzlink', ['!datenschutzlink' => l(t('Privacy condition'), 'https://bildungsnetz.dosb.de/datenschutzvereinbarung')]) . '</p>
+      </div>
+      <div class="form-type-radios form-item form-group">
+        <input type="radio" class="zs_enabled" name="zs-group-1" id="edit-field-organisation-zs-2" value="1" />
+        <label for="edit-field-organisation-zs-2" class="label-small">' . t("Don't use central data storage") . ' </label>
+        <p>' . t('NO Use central storage description !datenschutzlink', ['!datenschutzlink' => l(t('Privacy condition'), 'https://bildungsnetz.dosb.de/datenschutzvereinbarung')]) . '</p>
+      </div>
+
+    </div>';
+
+    $form['#attached']['js'] = [
+      drupal_get_path('module', 'salto_organisation') . '/js/organisation_form.js',
+    ];
+
+    if (module_exists('dosb_license') && !empty($form['#node']->nid)) {
+      $num_licenses = dosb_license_get_unobscured_license_by_og_or_wbm($form['#node'], TRUE);
+      $setting = [
+        'salto_obscure_change_warn_message' => t("There are !num licenses that will be immediately anonymized when you disable central data storage. These data cannot be restored after you save anonymization. If you still need to re-print any licenses, press cancel and do it now.", ['!num' => $num_licenses]),
+        'salto_obscure_num_licenses' => $num_licenses,
+        'salto_obscure_initial_setting' => salto_organisation_obscuring_enabled($form['#node']),
+      ];
+      drupal_add_js($setting, 'setting');
+    }
+  }
+  return $form;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function salto_organisation_form_user_admin_settings_alter(&$form, &$form_state, $form_id) {
+
+  $form['email_salto_invite_new_user'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Salto Invite: New user invited'),
+    '#collapsible' => TRUE,
+    '#description' => t('Edit the mail that existing users get when they are added to a group'),
+    '#group' => 'email',
+  ];
+  $form['email_salto_invite_new_user']['email_salto_invite_new_user_subject'] = [
+    '#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#default_value' => variable_get('email_salto_invite_new_user_subject', ''),
+    '#maxlength' => 180,
+  ];
+  $form['email_salto_invite_new_user']['email_salto_invite_new_user_body'] = [
+    '#type' => 'textarea',
+    '#title' => t('Body'),
+    '#default_value' => variable_get('email_salto_invite_new_user_body', ''),
+    '#rows' => 15,
+  ];
+  // Welcome (awaiting approval).
+  $form['email_salto_invite_new_user']['email_salto_invite_new_user_notify'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Notify new user that has been invited.'),
+    '#default_value' => variable_get('email_salto_invite_new_user_notify', 1),
+    '#weight' => -10,
+  ];
+
+  $form['email_salto_invite_new_user']['email_salto_invite_new_user_subject']['#states']
+    = $form['email_salto_invite_new_user']['email_salto_invite_new_user_body']['#states'] = [
+    'invisible' => [
+      'input[name="email_salto_invite_new_user_notify"]' => ['checked' => FALSE],
+    ],
+  ];
+
+}
+
+/**
+ * Implements hook_init
+ */
+function salto_organisation_init() {
+  //slide in/out of suborganisations in list
+  if (arg(0) == 'people' && arg(1) == 'organisations') {
+    drupal_add_js(drupal_get_path('module', 'salto_organisation') . "/js/salto_organisation_overview.js");
+  }
+
+  //set og context on pathes with orgainsations/INT
+  if (arg(0) == 'organisations' && is_numeric(arg(1))) {
+    $node = node_load(arg(1));
+    og_context('node', $node);
+  }
+}
+
+
+/**
+ * Implements hook_files_path_breadcrumbs_view
+ *
+ * @param  [type] $path_breadcrumbs [description]
+ * @param  [type] $contexts         [description]
+ *
+ * @return [type]                   [description]
+ */
+function salto_organisation_path_breadcrumbs_view_alter(&$breadcrumbs, $path_breadcrumbs, $contexts) {
+
+  if ($path_breadcrumbs->from_cache == FALSE) {
+
+    if ($path_breadcrumbs->machine_name == 'node_add_organisation_content') {
+      if (!empty($_GET['field_organisation_parent'])) {
+        $node = node_load($_GET['field_organisation_parent']);
+        array_splice($breadcrumbs, 3, 0, [l($node->title, 'node/' . $node->nid)]);
+        drupal_set_title(t('Add suborganisation'));
+      }
+    }
+  }
+}
+
+/**
+ * Get the first group of a user that has not activated central storrage
+ *
+ * @param  [type] $account [description]
+ *
+ * @return [type]          [description]
+ */
+function salto_organisation_get_central_storage_first_unset_orgs_by_user($uid) {
+  $account = user_load($uid);
+
+  if (empty($account->field_user_organisations[LANGUAGE_NONE])) {
+    return;
+  }
+
+  foreach ($account->field_user_organisations[LANGUAGE_NONE] as $key => $value) {
+    $group = node_load($value['target_id']);
+
+
+    if (salto_og_user_has_role($group->nid, $uid, 'license manager') && empty($group->field_organisation_obscure)) {
+
+      return $group;
+    }
+
+  }
+}
+
+/**
+ * Get the organisation key for an organisation. Checks parents ecursive. If
+ * parent organisation has no key, NULL is returned
+ *
+ * @param $node
+ *
+ * @return null
+ */
+function salto_organisation_get_organisation_key($node) {
+  //hv
+  $dachorganisation = salto_organisation_get_dachorganisation($node);
+
+  return $dachorganisation->field_organisation_key[LANGUAGE_NONE][0]['value'];
+
+}
+
+/**
+ *
+ */
+function salto_organisation_get_dachorganisation($node) {
+  if (empty($node->field_organisation_parent)) {
+    if (!empty($node->field_organisation_key[LANGUAGE_NONE][0]['value'])) {
+      return $node;
+    }
+    else {
+      return NULL;
+    }
+  }
+  else {
+    $parent = node_load($node->field_organisation_parent[LANGUAGE_NONE][0]['target_id']);
+    //hooray for recursion
+    return salto_organisation_get_dachorganisation($parent);
+  }
+
+  return NULL;
+}
+
+/**
+ * Get all LSBs
+ * Also incldue the uvs of the lsb
+ *
+ * @return array
+ */
+function salto_organisation_get_lsb() {
+
+  $query = new EntityFieldQuery();
+  // Define query, the user load is probably not needed but sometimes is.
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'organisation')
+    ->fieldCondition('field_organisation_category', 'value', "LSB", '=')
+    ->propertyOrderBy("title")
+    ->addMetaData('account', user_load(1));
+
+  $result = $query->execute();
+  if (!empty($result['node'])) {
+    $ids = array_keys($result['node']);
+    return salto_organisation_get_lsb_og_titles($ids);
+  }
+  return [];
+}
+
+/**
+ * Load nodes and return array with key/id => title
+ *
+ * @param $ids
+ *
+ * @return array
+ */
+function salto_organisation_get_lsb_og_titles($ids) {
+  $organisations = [];
+
+  if (!empty($ids)) {
+    //laod title...
+    $ogs = node_load_multiple($ids);
+
+    foreach ($ogs as $og) {
+      $organisations[$og->nid] = salto_core_check_plain($og->title);
+      $uvs_ids = salto_organisation_get_untergliederungen($og->nid);
+      $uvs = node_load_multiple($uvs_ids);
+
+      foreach ($uvs as $uv) {
+        $organisations[$uv->nid] = salto_core_check_plain($og->title) . " > " . salto_core_check_plain($uv->title);
+      }
+    }
+  }
+  return $organisations;
+}
+
+/**
+ * ToDo: move to dosb_license / salto_license or license repository
+ *
+ * Get all organisation ids by a ea_nid or empty array
+ *
+ * @param $ea_nid
+ *
+ * @return array
+ */
+function salto_organisation_get_ids_by_ea_nid($ea_nid) {
+  $query = new EntityFieldQuery();
+  // Define query, the user load is probably not needed but sometimes is.
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'organisation')
+    ->fieldCondition('field_organisation_earemotes', 'target_id', [$ea_nid], 'IN')
+    ->propertyOrderBy("title")
+    ->addMetaData('account', user_load(1));
+
+  $result = $query->execute();
+  if (!empty($result['node'])) {
+    return array_keys($result['node']);
+  }
+  return [];
+}
+
+/**
+ * Get all uvs recursive in an flat array
+ *
+ * @keywords get_children
+ *
+ * @param $nid
+ *
+ * @return array
+ */
+function salto_organisation_get_untergliederungen($nid) {
+  $uvs = [];
+
+  $query = new EntityFieldQuery();
+
+  // Define query, the user load is probably not needed but sometimes is.
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'organisation')
+    ->fieldCondition('field_organisation_parent', 'target_id', $nid, '=')
+    ->addMetaData('account', user_load(1));
+  // Execute query, result with have node key
+  $result = $query->execute();
+  if (!empty($result['node'])) {
+    $next_uvs = array_keys($result['node']);
+    foreach ($next_uvs as $id) {
+      $uvs[$id] = $id;
+      $uvs += salto_organisation_get_untergliederungen($id);
+    }
+  }
+  return $uvs;
+}
+
+
+function salto_organisation_get_dachorganisations_for_migration() {
+  return [];
+}
+
+/**
+ * ToDo: move to dosb_license / salto_license
+ *
+ * helper function.
+ * get organisations i can migrate licenses in
+ *
+ * @param null $account
+ * @param $node_nid
+ *
+ * @return array
+ */
+function salto_organisation_get_eas_and_dvs_for_migration($account = NULL, $node_nid = NULL) {
+  global $user;
+  if (empty($account)) {
+    $account = clone $user;
+  }
+
+  $user_organisations = salto_organisation_get_users_organisations($account, "edit dosb_license");
+
+  //show licenses ovned by dvs
+  $show_dvs = [];
+  //hide licenses from specific ogs
+  $hide_ogs = [];
+  //eas the LV can manage
+  $available_eas = [];
+  if (count($user_organisations) == 1) {
+    $the_only_og = current($user_organisations);
+    $hide_ogs[$the_only_og->nid] = $the_only_og->nid;
+  }
+
+  //build dvs end eas array
+  foreach ($user_organisations as $og) {
+    $dv = salto_organisation_get_dachorganisation($og);
+    $isLSB = FALSE;
+    if ($dv !== NULL) {
+      $isLSB = $dv->field_organisation_category[LANGUAGE_NONE][0]['value'] == 'LSB';
+    }
+    $eas = salto_licenses_get_earemotes_by_organisation($og);
+    foreach ($eas as $nid => $name) {
+      $ogs = salto_organisation_get_ids_by_ea_nid($nid);
+      foreach ($ogs as $og_nid) {
+        if ($og_nid == $og->nid && !$isLSB) {
+          continue;
+        }
+        $node = node_load($og_nid);
+        if (empty($node->field_organisation_parent)) {
+          $show_dvs[$og_nid] = $og_nid;
+        }
+      }
+    }
+    $available_eas += $eas;
+  }
+
+  $result = [];
+  //limit eas
+  $result["available_eas"] = implode("+", array_keys($available_eas));
+  //limit root organisations
+  $result["show_dvs"] = implode("+", array_keys($show_dvs));
+  //hide organisations
+  $result["hide_ogs"] = implode("+", array_keys($hide_ogs));
+  //show licenses for this organisation only
+  $result["limit_og"] = !empty($node_nid) ? $node_nid : "all";
+
+
+  //result has to contain eas and at least 1 dv
+  if (empty($result["available_eas"]) || empty($result["show_dvs"])) {
+    $result = [];
+  }
+
+  //check if we have to hide any ogs
+  if (!empty($result) && empty($result["hide_ogs"])) {
+    $result["hide_ogs"] = "all";
+  }
+
+  return $result;
+}
+
+/**
+ * Get all uvs recursive in an flat array
+ *
+ * @keywords get_children
+ *
+ * @param $nid
+ *
+ * @return array
+ */
+function salto_organisation_get_organisations_without_category($full = TRUE) {
+  $q = db_select('node', 'n');
+  $q->fields('n', ['nid', 'nid'])
+    ->condition('n.type', 'organisation', '=')
+    ->addJoin('LEFT', 'field_data_field_organisation_category', 'f', 'f.entity_id = n.nid');
+  $q->isNull('f.field_organisation_category_value');
+  $r = $q->execute()->fetchAllKeyed();
+
+
+  if ($full && !empty($r)) {
+
+    $nodes = node_load_multiple($r);
+    return $nodes;
+  }
+  return $r;
+}
+
+/**
+ * Get all dv recursive in an flat array
+ *
+ * @keywords get_children
+ * @return array
+ */
+function salto_organisation_get_parent_organisations() {
+  $q = db_select('node', 'n');
+  $q->fields('n', ['nid', 'nid'])
+    ->condition('n.type', 'organisation', '=')
+    ->addJoin('LEFT', 'field_data_field_organisation_category', 'f', 'f.entity_id = n.nid');
+  $q->condition('f.field_organisation_category_value', 'UG', '!=');
+  $q->condition('f.field_organisation_category_value', '', '!=');
+  $result = $q->execute()->fetchAllKeyed();
+
+
+  if (!empty($result)) {
+    $nodes_tmp = node_load_multiple($result);
+    $nodes = [];
+    foreach ($nodes_tmp as $key => $og) {
+      $dv = salto_organisation_get_dachorganisation($og);
+      if ($dv) {
+        $nodes[$dv->nid] = $dv;
+      }
+    }
+    return $nodes;
+  }
+  return $result;
+}
+
+
+/**
+ * Implements hook_node_update().
+ */
+function salto_organisation_node_update($node) {
+  if ($node->type == 'organisation') {
+    salto_organisation_organisation_signature_set_fieldvalue($node);
+    salto_organisation_obscure_field_submit($node);
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function salto_organisation_node_insert($node) {
+  if ($node->type == 'organisation') {
+    salto_organisation_organisation_signature_set_fieldvalue($node);
+    salto_organisation_obscure_field_submit($node);
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function salto_organisation_node_presave($node) {
+  if ($node->type == 'organisation') {
+    $node->uid = 0;
+  }
+}
+
+
+/**
+ * node update/insert
+ * obscure licenses, if organisation obscure field has changed to one
+ *
+ * @param $node
+ */
+function salto_organisation_obscure_field_submit($node) {
+  //if value is 1
+  if ($node->field_organisation_obscure[LANGUAGE_NONE][0]['value'] == 1) {
+    if (module_exists('dosb_license')) {
+      dosb_license_obscure_by_og($node);
+    }
+  }
+}
+
+
+function salto_organisation_organisation_signature_set_fieldvalue($node) {
+  if (!empty($node->field_organisation_signature[LANGUAGE_NONE])) {
+    $file = $node->field_organisation_signature[LANGUAGE_NONE][0];
+    $file = file_load($file['fid']);
+
+    if (empty($file->field_salto_file_type)) {
+      //create a wrapper for eays access
+      $wrapper = entity_metadata_wrapper('file', $file);
+
+      //organisation signature
+      $wrapper->field_salto_file_type->set(SALTO_FILE_TYPE_ORGANISATION_SIGNATURE);
+
+      $wrapper->save();
+    }
+
+  }
+}
+
+/**
+ * implements hook_og_permission()
+ */
+function salto_organisation_og_permission() {
+
+  $perms = [];
+
+  $perms['create suborganisation'] = [
+    'title' => t('Create suborganisation'),
+    'description' => t("Create suborganisation in your organisation."),
+    'roles' => [OG_AUTHENTICATED_ROLE],
+    'default role' => [
+      SALTO_OG_ROLE_EXTERN_TRAINER,
+      SALTO_OG_ROLE_LICENSE_MANAGER,
+    ],
+  ];
+
+  $perms['delete suborganisation'] = [
+    'title' => t('Delete suborganisation'),
+    'description' => t("Delete suborganisation in your organisation."),
+    'roles' => [OG_AUTHENTICATED_ROLE],
+    'default role' => [
+      SALTO_OG_ROLE_EXTERN_TRAINER,
+      SALTO_OG_ROLE_LICENSE_MANAGER,
+    ],
+  ];
+
+  $perms['edit organisation license fields'] = [
+    'title' => t('Edit organisation license fields'),
+    'description' => t('Edit organisation licesne settings.'),
+    'roles' => [OG_AUTHENTICATED_ROLE],
+  ];
+
+  $perms['grant og role trainer'] = [
+    'title' => t('Grant og role trainer'),
+    'description' => t('Grant the role "trainer". This role is assign dynamically in salto_organisation.'),
+    'roles' => [],
+  ];
+  $perms['revoke og role trainer'] = [
+    'title' => t('Revoke og role trainer'),
+    'description' => t('Revoke the role "trainer". This role is assign dynamically in salto_organisation.'),
+    'roles' => [],
+  ];
+
+  $perms['revoke og role trainer'] = [
+    'title' => t('Revoke og role trainer'),
+    'description' => t('Revoke the role "trainer". This role is assign dynamically in salto_organisation.'),
+    'roles' => [],
+  ];
+
+  $perms['request license by uuid'] = [
+    'title' => t('API Request UUID'),
+    'description' => t('Allow to use the API /request_uuid endpoint. This role is assign dynamically in salto_organisation.'),
+    'roles' => [],
+  ];
+
+  return $perms;
+}
+
+/**
+ * render member action links for group managers
+ * this is just a wrapper for og_manage_action_links in teh view
+ *
+ * @param type $group
+ * @param type $account
+ *
+ * @return string
+ * @global type $user
+ */
+function salto_organisation_render_og_manager_member_action($group_nid, $member_uid = NULL) {
+
+  if (!$group_nid || !$member_uid) {
+    return;
+  }
+
+  $og = node_load($group_nid);
+  $account = user_load($member_uid);
+  return theme('og_manage_action_links', [
+    'og' => $og,
+    'account' => $account,
+  ]);
+
+}
+
+/**
+ * Implements hook_salto_og_member_actions
+ *
+ * @param $og
+ * @param null $account
+ *
+ * @return array
+ */
+function salto_organisation_salto_og_member_actions($og, $account = NULL) {
+  global $user;
+
+  //no actions for user's account
+  //permit selfe operation
+  if ($user->uid == $account->uid) {
+    return;
+  }
+
+  $actions = [];
+  if ($og->type != 'organisation') {
+    return;
+  }
+
+  //always use this token
+  $crsf_token = drupal_get_token('salto_og_manage');
+
+
+  $permissions = salto_og_organisation_get_permissions();
+
+  //All users who may manage all members have automatically access to the "normal" roles
+  //1 Bildungsreferent
+  if (og_user_access('node', $og->nid, 'grant og role trainer')) {
+    if (!salto_og_user_has_role($og->nid, $account->uid, "og role trainer")) {
+      $actions[SALTO_ORGANISATION_ACTION_GRANT_TRAINER] = l($permissions[SALTO_OG_ROLE_TRAINER_RID]['icon'] . t('Grant "@permission"', ['@permission' => t('Manage organisation')]), 'salto_og/manage/' . $og->nid . '/' . SALTO_ORGANISATION_ACTION_GRANT_TRAINER . '/' . $account->uid, [
+        'query' => ['token' => $crsf_token],
+        'html' => TRUE,
+      ]);
+    }
+  }
+  if (og_user_access('node', $og->nid, 'revoke og role trainer')) {
+    if (salto_og_user_has_role($og->nid, $account->uid, "og role trainer")) {
+      $actions[SALTO_ORGANISATION_ACTION_REVOKE_TRAINER] = l($permissions[SALTO_OG_ROLE_TRAINER_RID]['icon'] . t('Revoke "@permission"', ['@permission' => t('Manage organisation')]), 'salto_og/manage/' . $og->nid . '/' . SALTO_ORGANISATION_ACTION_REVOKE_TRAINER . '/' . $account->uid, [
+        'query' => ['token' => $crsf_token],
+        'html' => TRUE,
+      ]);
+    }
+  }
+
+  //2
+  //special case: licenses
+  if (module_exists('dosb_license')) {
+    if (salto_organisation_membership_action_access(SALTO_ORGANISATION_ACTION_GRANT_LICENSE_MANAGER, $og, $account)) {
+      $actions[SALTO_ORGANISATION_ACTION_GRANT_LICENSE_MANAGER] = l($permissions[SALTO_OG_ROLE_LICENSE_MANAGER_RID]['icon'] . t('Grant "@permission"', ['@permission' => t('Manage licenses')]), 'salto_og/manage/' . $og->nid . '/' . SALTO_ORGANISATION_ACTION_GRANT_LICENSE_MANAGER . '/' . $account->uid, [
+        'query' => ['token' => $crsf_token],
+        'html' => TRUE,
+      ]);
+    }
+    else {
+      if (salto_organisation_membership_action_access(SALTO_ORGANISATION_ACTION_REVOKE_LICENSE_MANAGER, $og, $account)) {
+        $actions[SALTO_ORGANISATION_ACTION_REVOKE_LICENSE_MANAGER] = l($permissions[SALTO_OG_ROLE_LICENSE_MANAGER_RID]['icon'] . t('Revoke "@permission"', ['@permission' => t('Manage licenses')]), 'salto_og/manage/' . $og->nid . '/' . SALTO_ORGANISATION_ACTION_REVOKE_LICENSE_MANAGER . '/' . $account->uid, [
+          'query' => ['token' => $crsf_token],
+          'html' => TRUE,
+        ]);
+      }
+    }
+  }
+
+  //organisation management actions
+  if (og_user_access('node', $og->nid, 'manage all members')) {
+    //divider new action group
+    $actions["divider"] = '';
+
+    //remove from organisation
+    $actions[SALTO_ORGANISATION_ACTION_REMOVE_FROM_ORGANISATION] = l(t('Remove from this organisation'), 'salto_og/manage/' . $og->nid . '/' . SALTO_ORGANISATION_ACTION_REMOVE_FROM_ORGANISATION . '/' . $account->uid, ['query' => ['token' => $crsf_token]]);
+  }
+
+  return $actions;
+}
+
+/**
+ * Access wrapper for membership actions
+ *
+ * @param $op
+ *  SALTO_ORGANISATION_ACTION_GRANT_LICENSE_MANAGER
+ *  SALTO_ORGANISATION_ACTION_REVOKE_LICENSE_MANAGER
+ * @param $organisation
+ * @param $account
+ */
+function salto_organisation_membership_action_access($op, $organisation, $account) {
+
+  global $user;
+
+  switch ($op) {
+    case SALTO_ORGANISATION_ACTION_GRANT_LICENSE_MANAGER:
+
+      //check permission -  remember that this permission is being altered in salto_organisation_og_user_access_alter
+      if (!og_user_access('node', $organisation->nid, 'grant license managers')) {
+        return FALSE;
+      }
+
+      //cannot grant when role is already applied
+      if (salto_og_user_has_role($organisation->nid, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID)) {
+        return FALSE;
+      }
+
+      //cannot act on our self
+      if ($account->uid == $user->uid) {
+        return FALSE;
+      }
+
+      return TRUE;
+    case SALTO_ORGANISATION_ACTION_REVOKE_LICENSE_MANAGER:
+
+      //check permission -  remember that this permission is being altered in salto_organisation_og_user_access_alter
+      if (!og_user_access('node', $organisation->nid, 'revoke license managers')) {
+        return FALSE;
+      }
+
+      //cannot grant when role is already applied
+      if (!salto_og_user_has_role($organisation->nid, $account->uid, SALTO_OG_ROLE_LICENSE_MANAGER_RID)) {
+        return FALSE;
+      }
+
+      //cannot act on our self
+      if ($account->uid == $user->uid) {
+        return FALSE;
+      }
+      return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Renders the roles and membership responsibility of a user in a group
+ *
+ * @param $gid
+ * @param $uid
+ *
+ * @return string
+ */
+function salto_organisation_user_duties_render($gid, $uid) {
+
+  $membership = og_get_membership('node', $gid, 'user', $uid);
+
+  if (empty($membership)) {
+    //no membership
+    return '-1';
+  }
+
+  $group = node_load($gid);
+
+  $out = "";
+
+  $responsibility = "";
+
+  if (!empty($membership->field_organisation_position[LANGUAGE_NONE][0]['tid'])) {
+    $term = taxonomy_term_load($membership->field_organisation_position[LANGUAGE_NONE][0]['tid']);
+    $responsibility = salto_core_strip_input($term->name);
+  }
+
+  $roles_to_show = og_get_user_roles('node', $gid, $uid);
+
+  //we don't want to show member roles and want to always have the same order
+  $visible_roles = [];
+  $organisation_roles = salto_og_organisation_get_roles();
+  $permissions = salto_og_organisation_get_permissions();
+  foreach ($organisation_roles as $rid => $name) {
+    if (!empty($roles_to_show[$rid])) {
+      if (!empty($permissions[$rid])) {
+        $visible_roles[] = '<span title="' . $permissions[$rid]['tooltip'] . '">' . $permissions[$rid]['icon'] . '</span>';
+      }
+    }
+  }
+
+  //we want translatable roles
+  $out .= "<b>" . $responsibility . "</b><br>";
+  $out .= implode(" ", $visible_roles);
+
+  return $out;
+}
+
+
+/**
+ * Get the labels for custom fields
+ *
+ * @param $organisation_node
+ *   Dachorganisation
+ *
+ * @return array
+ */
+function salto_organisation_get_custom_field_names($organisation_node) {
+
+  $custom_label_1 = t('Custom field 1');
+  $custom_label_2 = t('Custom field 2');
+
+  $dachorganisation = salto_organisation_get_dachorganisation($organisation_node);
+
+  if (!empty($dachorganisation->field_organisation_custom_labels[LANGUAGE_NONE][0]['value'])) {
+    $custom_label_1 = check_plain($dachorganisation->field_organisation_custom_labels[LANGUAGE_NONE][0]['value']);
+  }
+  if (!empty($dachorganisation->field_organisation_custom_labels[LANGUAGE_NONE][1]['value'])) {
+    $custom_label_2 = check_plain($dachorganisation->field_organisation_custom_labels[LANGUAGE_NONE][1]['value']);
+  }
+
+  return [
+    'custom_1' => $custom_label_1,
+    'custom_2' => $custom_label_2,
+  ];
+}
+
+/**
+ * Handles the 'Delete' button on the node form.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_organisation_form_delete_submit($form, &$form_state) {
+  $destination = [];
+  if (isset($_GET['destination'])) {
+    $destination = drupal_get_destination();
+    unset($_GET['destination']);
+  }
+  $node = $form['#node'];
+  $form_state['redirect'] = [
+    'organisations/' . $node->nid . '/delete',
+    ['query' => $destination],
+  ];
+}
+
+/**
+ * @param $form
+ * @param $form_state
+ * @param $nid
+ *
+ * @return mixed
+ */
+function salto_organisation_node_delete_confirm($form, &$form_state, $nid) {
+  $node = node_load($nid);
+
+  if ($node->type == 'organisation') {
+    $breadcrumb = [];
+    $breadcrumb[] = l(t('Home'), '<front>');
+    $breadcrumb[] = l(t('People'), 'people');
+    $breadcrumb[] = l(t('Organisations'), 'organisations');
+    $breadcrumb[] = l($node->title, 'node/' . $node->nid);
+    drupal_set_breadcrumb($breadcrumb);
+
+    $countIds = 0;
+    $isNotFull = FALSE;
+    if (module_exists('dosb_license')) {
+      $countIds = dosb_license_get_count_ids_by_organisation($node->nid, FALSE, FALSE);
+      $isNotFull = $node->field_org_dv_license_settings[LANGUAGE_NONE][0]['value'] !== 'full';
+    }
+    if ($isNotFull && $countIds > 0) {
+      $head = "<h2 class='text danger'>" . t('HINT') . "</h2>";
+      $description = "<p>" .
+        t('The association to be deleted contains license data that can not be moved to the umbrella organization at the current time. Please contact the responsible license manager to grant the necessary access authorization "My association may view and edit license data" before deleting.')
+        . "</p>";
+      $confirm = confirm_form([],
+        t('Organisation delete?'),
+        'node/' . $node->nid,
+        $head . $description
+      );
+      unset($confirm['actions']['submit']);
+      $confirm['actions']['cancel']['#title'] = t('OK');
+      $confirm['actions']['cancel']['#attributes'] = ['class' => 'btn-og-delete-none'];
+
+      $confirm['confirm'] = ['#type' => 'hidden', '#value' => 0];
+      return $confirm;
+    }
+
+    $form['#node'] = $node;
+    // Always provide entity id in the same form key as in the entity edit form.
+    $form['confirm_id'] = ['#type' => 'value', '#value' => $node->nid];
+
+    $head = "<h2 class='text danger'>" . t('WARNING') . "</h2>";
+    $description = "<p>" .
+      t('Sind sie wirklich sicher, dass Sie diese Untergliederung löschen wollen?')
+      . "</p><p>" .
+      t('Bitte beachten Sie, dass ggf. existierende Untergruppierungen der Untergliederung automatisch mit gelöscht werden. Diese Aktion kann nicht rückgängig gemacht werden.')
+      . "</p><p>" .
+      t('HINWEIS: Eventuell existierende Lizenzen der Untergliederung werden nicht gelöscht sondern automatisch in die Datenbank der Dachorganisation übertragen.')
+      . "</p>";
+    return confirm_form($form,
+      t('Organisation delete?'),
+      'node/' . $node->nid,
+      $head . $description,
+      t('Delete'), t('Cancel')
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * ToDo: is unused - check/refactor implementation of node api
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_organisation_node_delete_confirm_submit($form, &$form_state) {
+
+  if ($form_state['values']['confirm'] != 1) {
+    return;
+  }
+
+  $node = $form['#node'];
+  if ($node->nid != $form_state['values']['confirm_id']) {
+    return;
+  }
+
+  if (module_exists('dosb_license')) {
+    $licenseIds = dosb_license_get_ids_by_organisation($node->nid, FALSE, FALSE);
+    $uvs = salto_organisation_get_untergliederungen($node->nid);
+    foreach ($uvs as $uv) {
+      $licenseIds[] = dosb_license_get_ids_by_organisation($uv->nid, FALSE, FALSE);
+    }
+
+    $dv = node_load($node->field_organisation_parent[LANGUAGE_NONE][0]['target_id']);
+    if ($dv == NULL && count($licenseIds) > 0) {
+      return;
+    }
+
+    $migrate = FALSE;
+    $licenses = dosb_license_load_multiple($licenseIds);
+    foreach ($licenses as $dosbLicense) {
+      /** @var DOSBLicense $dosbLicense */
+      $dosbLicense->migrate_to_organisation($dv->nid);
+      $migrate = TRUE;
+    }
+  }
+
+  $title = salto_core_check_plain($node->title);
+
+  node_delete($node->nid);
+
+  watchdog('organisation', '@type: deleted %title.', [
+    '@type' => 'organisation',
+    '%title' => $title,
+  ]);
+  $text = t("The organisation @name has been deleted!", ['@name' => $title]);
+  drupal_set_message($text);
+  if ($migrate) {
+    drupal_set_message(t("Licenses has been migrated to organisation @name.", ['@name' => $dv->title]));
+  }
+
+  $form_state['redirect'] = 'organisations';
+}
+
+
+/**
+ * ToDo: move to dosb_license / salto_license
+ *
+ * @param $organisation
+ *
+ * @return bool
+ */
+function salto_organisation_request_uuid_enabled($organisation) {
+  $dachorganisation = salto_organisation_get_dachorganisation($organisation);
+
+  $request_license_by_uuid = FALSE;
+  if (!empty($dachorganisation->field_organisation_obscure[LANGUAGE_NONE][0]['value']) && !empty($dachorganisation->field_org_api_enable_uuid[LANGUAGE_NONE][0]['value'])) {
+    $request_license_by_uuid = TRUE;
+  }
+
+  return $request_license_by_uuid;
+}
+
+/**
+ * Implements hook_preprocess_page_floating_button_alter().
+ *
+ * @param $variables
+ */
+function salto_organisation_preprocess_page_floating_button_alter(&$variables) {
+  if (stripos(current_path(), 'organisation') === FALSE) {
+    return;
+  }
+
+  $variables['floating_button']['links'] = [];
+  $variables['floating_button']['links'][] = [
+    'icon' => 'users',
+    'target' => '/node/add/organisation',
+    'title' => t('Organisation create'),
+  ];
+
+  // invite forms for organisation, api invite and group
+  // handle in salto_og_preprocess_og_invite_selector(&$variables)
+  $formId = $variables['page']['content']['system_main']['#form_id'];
+  $isForm = $formId !== NULL && ($formId === 'salto_og_invite_form' || $formId === 'salto_og_invite_api_form');
+  if ($isForm) {
+    unset($variables['floating_button']);
+  }
+}
+
+/**
+ * @param $variables
+ */
+function salto_organisation_preprocess_page_toolbar_alter(&$variables) {
+  // invite forms for organisation, api invite and group
+  $formId = $variables['page']['content']['system_main']['#form_id'];
+  if (stripos($formId, 'salto_og_invite') === FALSE) {
+    return;
+  }
+
+  if ($formId === 'salto_og_invite_form') {
+    $variables['toolbar']['title'] = t('Invite user');
+  }
+  if ($formId === 'salto_og_invite_api_form') {
+    $variables['toolbar']['title'] = drupal_get_title();
+  }
+
+  $group = $variables['page']['content']['system_main']['#group'];
+  $variables['toolbar']['back'] = '/node/' . $group->nid;
+  $variables['toolbar']['context_menu'] = [];
+}
+
+function salto_organisation_preprocess_salto_363_toolbar_alter(&$variables) {
+  if (current_path() !== 'organisations') {
+    return;
+  }
+
+  $title = $variables['node'] ? $variables['node']->title : t('Organisations register');
+
+  $variables['toolbar']['title'] = $title;
+  $variables['toolbar']['context_menu'] = [];
+}
+
+/**
+ * Implements hook_preprocess_salto_363_modal_alter().
+ *
+ * @param $variables
+ */
+function salto_organisation_preprocess_salto_363_modal_alter(&$variables) {
+  if (current_path() !== 'organisations') {
+    return;
+  }
+
+  $panelId = $variables['display']->panels['left'][0];
+  salto_core_preprocess_salto_363_modal_filter($panelId, $variables);
+}
+
+function salto_organisation_preprocess_salto_363_panel_alter(&$variables) {
+  if (current_path() !== 'organisations') {
+    return;
+  }
+
+  salto_organisation_preprocess_salto_363_panel_own_og($variables);
+}
+
+function salto_organisation_preprocess_salto_363_panel_own_og(&$variables) {
+  $panelId = $variables['display']->panels['right'][1];
+  if ($panelId == NULL) {
+    return;
+  }
+
+  if (!$variables['display']->content[$panelId]) {
+    return;
+  }
+  if (stripos($variables['display']->content[$panelId]->subtype, 'my_organisations') === FALSE) {
+    return;
+  }
+
+  $panel = $variables['display']->renderer_handler->rendered['panes'][$panelId];
+
+  $variables['owngroups']['title'] = t('My organisations');
+  $variables['owngroups']['content'] = $panel;
+}
+
+/**
+ * ToDo: move to dosb_license / salto_license
+ *
+ * @param $organisation_node
+ *
+ * @return mixed|string
+ */
+function salto_organisation_get_license_mail_text($organisation_node) {
+  if (!empty($organisation_node->field_org_custom_license_mail[LANGUAGE_NONE][0]['value'])) {
+    return $organisation_node->field_org_custom_license_mail[LANGUAGE_NONE][0]['value'];
+  }
+  return salto_organisation_get_license_mailtext_default($organisation_node);
+}
+
+function salto_organisation_get_license_mailtext_default($organisation_node) {
+  return format_string('Bei Fragen und/oder Anmerkungen wenden Sie sich bitte an den/die @organisation_name.', ['@organisation_name' => $organisation_node->title]);
+}

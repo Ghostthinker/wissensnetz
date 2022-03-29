@@ -1,0 +1,225 @@
+/* Import */
+@import "../../../../themes/salto2014/less/variables.less";
+
+.notifications-dropdown {
+  li {
+    color: #000;
+  }
+
+  .notifications-content {
+    width: 280px;
+    text-align: left;
+    padding: 4px;
+    word-break: break-all;
+
+    .view-notifications {
+      word-wrap: break-word;
+    }
+
+    .views-row {
+      border-bottom: 1px solid #eee;
+      margin-bottom: 0.2em;
+    }
+  }
+
+  li > span,
+  li > div {
+    padding: 4px;
+  }
+
+  .notifications-actions {
+    display: none;
+  }
+
+  .notifications-all a,
+  .notifications-settings a {
+    color: #9b9b9b;
+  }
+}
+
+.entity-message {
+  .user-picture {
+    float: left;
+    padding: 0.5em;
+    margin-right: 0.4em;
+
+    img {
+      min-width: 30px;
+      min-height: 30px;
+    }
+  }
+
+  &.message-unread {
+    a.message-link {
+      font-weight: bold;
+      word-break: normal;
+      display: block;
+      padding-left: 0;
+      padding-bottom: 0.5em;
+      float: left;
+      width: 75%;
+    }
+  }
+
+  .message-content-preview {
+    max-width: 460px;
+    word-break: normal;
+    display: block;
+    float: left;
+    padding: 0 0 10px;
+    margin-left: 48px;
+    clear: both;
+  }
+
+  .message-links {
+    margin-left: 44px;
+  }
+}
+
+.subscriptions_view,
+.pane-node-flag-notification-subscribe-node,
+.file {
+  .flag-wrapper.notification_subscribe_node,
+  .flag-wrapper.notification_subscribe_material {
+
+    a {
+      color: @dosb-grey;
+    }
+
+    &.flag-notification-subscribe-node a:before,
+    &.flag-notification-subscribe-material a:before {
+      font-family: "fontello";
+      content: '\e810';
+      margin-right: 5px;
+    }
+
+    a.unflag-action:before {
+      font-family: "fontello";
+      content: '\e839';
+      margin-right: 5px;
+    }
+
+  }
+
+  .flag-wrapper.flag-notification-ignore-material,
+  .flag-wrapper.flag-notification-ignore-post {
+
+    a {
+      color: @dosb-grey;
+    }
+
+    a.flag-action:before {
+      font-family: "fontello";
+      content: '\e839';
+      margin-right: 5px;
+    }
+
+    a.unflag-action:before {
+      font-family: "fontello";
+      content: '\e810';
+      margin-right: 5px;
+    }
+
+  }
+}
+
+.file,
+.subscriptions_view {
+  .flag-outer {
+    color: #fff;
+
+    a,
+    .action-link {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      color: #fff !important;
+      font-weight: 700;
+      text-decoration: none !important;
+      border: none;
+      border-bottom: 1px dotted #fff;
+      background: lighten(@dosb-orange, 7%);
+      text-align: left !important;
+      margin-bottom: 1px
+    }
+
+    a:before,
+    a:after,
+    div.status:before {
+      font-family: "fontello";
+      font-style: normal;
+      font-weight: normal;
+      speak: none;
+      display: inline-block;
+      text-decoration: inherit;
+      width: 22px;
+      font-size: 16px;
+      position: relative;
+      top: 1px;
+    }
+
+    a:before {
+      content: '\e810';
+    }
+
+    a:hover {
+      background: @dosb-orange;
+      color: #fff
+    }
+
+    .action-link .status {
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none !important;
+    }
+
+    .action-link {
+      background: lighten(@dosb-orange, 7%);
+
+      .action-unflag {
+        position: absolute;
+        top: 0;
+        right: -8px;
+      }
+
+      .tooltip {
+        font-weight: normal;
+      }
+
+      a.unflag-action {
+        border: 0;
+        border-left: 1px dotted #fff;
+      }
+
+      a.unflag-action:before {
+        left: 5px;
+        position: relative;
+      }
+
+      div.flagged.status:before {
+        content: '\e815';
+      }
+    }
+  }
+}
+
+.view-id-notifications {
+  &.view-display-id-panel_pane_1 {
+    .field-name-message-flags,
+    ul.links {
+      float: left;
+      padding-left: 8px;
+
+      a {
+        color: #9b9b9b;
+      }
+
+    }
+  }
+}
+
+.view-display-id-ajax_callback_unread {
+  .message-links {
+    display: none;
+  }
+}

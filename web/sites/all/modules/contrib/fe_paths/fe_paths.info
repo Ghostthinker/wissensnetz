@@ -1,0 +1,16 @@
+name = File Entity Paths
+package = Media
+core = 7.x
+description = Adds per bundle Token based file sorting and renaming functionalities for file entities
+dependencies[] = file_entity
+dependencies[] = token
+dependencies[] = entity
+files[] = tests/fe_paths.test
+configure = admin/config/media/fe-paths
+
+; Information added by drupal.org packaging script on 2013-09-30
+version = "7.x-2.0-alpha3+2-dev"
+core = "7.x"
+project = "fe_paths"
+datestamp = "1380578646"
+

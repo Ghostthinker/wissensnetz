@@ -1,0 +1,27 @@
+<?php
+
+function daisy_diff_html_diff($a, $b) {
+
+  drupal_add_css(drupal_get_path('module', 'daisy_diff') . "/DaisyDiff/css/diff.css");
+  drupal_add_css(drupal_get_path('module', 'daisy_diff') . "/DaisyDiff/css/diff.salto.css");
+
+  if ($a != $b) {
+
+    module_load_include('php', 'daisy_diff', '/DaisyDiff/src/HTMLDiff');
+
+    $htmldiffer = new HTMLDiffer();
+    $htmldiff = $htmldiffer->htmldiff($a, $b);
+
+    $diff_array = [
+      [
+        [
+          'data' => $htmldiff,
+          'class' => 'diff-content',
+          'colspan' => 4,
+        ],
+      ],
+    ];
+  }
+
+  return $diff_array;
+}

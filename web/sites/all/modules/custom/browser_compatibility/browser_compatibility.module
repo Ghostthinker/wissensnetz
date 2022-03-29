@@ -1,0 +1,171 @@
+<?php
+
+/**
+ * @file
+ * contact form in modal frame
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function browser_compatibility_menu() {
+  $items['admin/salto/settings/browser_compatibility'] = [
+    'title' => 'Browser Compatibility Settings',
+    'description' => 'Configurate',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['browser_compatibility_form'],
+    'access arguments' => ['administer browser compatibility'], //todo
+    'file' => 'browser_compatibility.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  ];
+
+  return $items;
+}
+
+function browser_compatibility_permission() {
+  return [
+    'administer browser compatibility' => [
+      'title' => t('Administer Browser Compatibility'),
+      'description' => t('Perform administration tasks for browser_compatibility'),
+    ],
+  ];
+}
+
+/**
+ * Implement hook_help().
+ */
+function browser_compatibility_help($path, $arg) {
+  if ($path == 'admin/help#user_warn') {
+    return t('User Warn allows site adminitrators to send a standard e-mail to site users to notify them of improper behavior.');
+  }
+}
+
+function browser_compatibility_preprocess_page($content, $show_blocks, $show_messages = TRUE) {
+  $path = drupal_get_path('module', 'browser_compatibility');
+  drupal_add_js($path . "/js/browser_compatibility.js");
+}
+
+/**
+ * Implements hook_page_alter().
+ */
+function browser_compatibility_page_build(&$page) {
+
+  $warning = '';
+
+  $info = browscap_get_browser();
+
+  if (!$info['javascript']) {
+    $warning .= '<div class="alert alert-warning">';
+    $warning .= t('For a better experience on this site, enable JavaScript in your browser.');
+    $warning .= '</div>';
+  }
+
+  if (!$info['cookies']) {
+    $warning .= '<div class="alert alert-warning">';
+    $warning .= t('Cookies are disabled. Please enable cookies in your webbrowser.');
+    $warning .= '</div>';
+  }
+
+  if (!_browser_compatibility_is_compatible($info)) {
+    $warning .= '<div class="alert alert-warning">';
+    $warning .= t('Your webbrowser version is not supported.');
+    $warning .= '</div>';
+  }
+
+  if (!empty($warning)) {
+    $page['highlighted']['compatibility'] = [
+      '#markup' => $warning,
+      '#weight' => 25,
+    ];
+  }
+}
+
+/**
+ * Checks if user's browser is compatible
+ * The function browscap_get_browser(); is necessary.
+ *
+ * @param type $info Structure from browscap_get_browser();
+ */
+function _browser_compatibility_is_compatible($info) {
+  $whitelist = variable_get('browser_compatibility_whitelist', '');
+  $blacklist = variable_get('browser_compatibility_blacklist', '');
+
+  if (empty($whitelist) && empty($blacklist)) {
+    return TRUE;
+  }
+
+  if (!empty($whitelist)) {
+    $_wi = $whitelist;
+    $_wi = explode("\n", $_wi);
+
+    foreach ($_wi as $item) {
+
+      if (!empty($item)) {
+        $vals = explode("|", $item);
+        $browser = $vals[0];
+        $version = $vals[1];
+
+        $browser = strtolower($browser);
+        if ($browser == strtolower($info['browser'])) {
+          if ($version == $info['version']) {
+            return TRUE;
+          }
+          if (strstr($version, '+')) {
+
+            $version = str_replace('+', '', $version);
+
+            if ($info['version'] >= $version) {
+
+              return TRUE;
+            }
+          }
+          if (strstr($version, '-')) {
+            $version = str_replace('-', '', $version);
+
+            if ($info['version'] <= $version) {
+              return TRUE;
+            }
+          }
+        }
+      }
+    }
+  }
+  if (!empty($blacklist)) {
+
+    $_bi = $blacklist;
+    $_bi = explode("\n", $_bi);
+    foreach ($_bi as $item) {
+
+      if (!empty($item)) {
+        $vals = explode("|", $item);
+        $browser = $vals[0];
+        $version = $vals[1];
+
+        $browser = strtolower($browser);
+
+        if ($browser == strtolower($info['browser'])) {
+          if ($version == $info['version']) {
+            return FALSE;
+          }
+          if (strstr($version, '+')) {
+
+            $version = str_replace('+', '', $version);
+
+            if ($info['version'] >= $version) {
+
+              return FALSE;
+            }
+          }
+          if (strstr($version, '-')) {
+            $version = str_replace('-', '', $version);
+
+            if ($info['version'] <= $version) {
+              return FALSE;
+            }
+          }
+        }
+      }
+    }
+    return TRUE;
+  }
+}

@@ -1,0 +1,17 @@
+name = Testing
+description = Provides a framework for unit and functional testing.
+package = Testing
+core = 7.x
+files[] = simpletest.test
+files[] = drupal_web_test_case.php
+configure = admin/config/development/testing/settings
+dependencies[] = simpletest_monitor
+
+testing_api = 2.x
+
+; Information added by drupal.org packaging script on 2011-03-15
+version = "7.x-2.0"
+core = "7.x"
+project = "simpletest"
+datestamp = "1300166168"
+

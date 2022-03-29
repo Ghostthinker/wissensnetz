@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * Disable search block on licenses
+ */
+function salto_search_update_18001() {
+  db_update('block')
+    ->fields([
+      'pages' => trim('<front>
+messages*
+licenses'),
+    ])
+    ->condition('delta', 'salto_block_search')
+    ->execute();
+}

@@ -1,0 +1,5 @@
+name = Context Support
+description = Adds a support form and context help
+core = 7.x
+package = Access
+dependencies[] = contact

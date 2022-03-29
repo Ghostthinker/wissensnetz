@@ -1,0 +1,7 @@
+name = Views Bulk Operations Multipage
+description = Provides a way of selecting rows belonging to multiple pages.
+dependencies[] = views_bulk_operations
+package = Views
+core = 7.x
+
+files[] = views/views_bulk_operations_multipage_handler_field_operations.inc

@@ -1,0 +1,32 @@
+
+SimpleTest 7.x-2.x, xxxx-xx-xx (development version)
+------------------------------
+- Changes:
+   * #610072: setUp() function accepting array as arguments.
+   * #610072: followup.
+   * #550752: Detect cache our of sync with code on test list select.
+   * Remove version attribute form .info file.
+   * Place hook_schema() first in .install.
+   * #588084: Provide a mechanism for leaving prefix tables.
+   * Add API.txt to document API changes.
+   * Add variable delete for 'simpletest_remove_tables'.
+   * Remove core tests since 7.x-2.x is not going to maintain them.
+   * Added check for 2.x compatible tests.
+   * Add testing API switching mechanism.
+   * Cleanup non 2.x compatible test file removal.
+   * Remove 2.x compatible tests when in 1.x mode.
+   * Add testing API 2.x flag to simpletest.info.
+   * Add group to fieldset title when displaying results.
+   * Formatting and method scope additions.
+   * Add file documentation.
+   * Re-roll patch.
+   * When finding the test result fieldset include the test group.
+   * Cleanup test info.
+   * Merge changes from Drupal 7 core.
+   * Make alert() message more logical.
+   * Post merge fix.
+   * Modified versions of #666956 and #758662.
+   * Add setting field for remote_url and change all working from staging to remote.
+   * Add remote prefix to all randomly generated strings.
+   * Change function_get_args() to func_get_args().
+   * Add setUrl() and resetUrl() to DrupalRemoteTestCase.

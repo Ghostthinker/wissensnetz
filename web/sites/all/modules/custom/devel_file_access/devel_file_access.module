@@ -1,0 +1,1453 @@
+<?php
+/**
+ * @file
+ *
+ * This module gives developers feedback as to what their
+ * file_access table contains, and which files are protected or
+ * visible to the public.
+ *
+ */
+
+define('DFA_ACCESS_VIEW', 'view devel_file_access information');
+
+function devel_file_access_permission() {
+  return [
+    'view devel_file_access information' => [
+      'description' => t('View the file access information blocks on file pages and the summary page.'),
+      'title' => t('Access DFA information'),
+      'restrict access' => TRUE,
+    ],
+  ];
+}
+
+/**
+ * Implements hook_help().
+ */
+function devel_file_access_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/modules#description':
+      return t('Development helper for file_access table');
+    case 'admin/help#devel_file_access':
+      $output = '<p>' . t('This module helps in site development.  Specifically, when an access control module is used to limit access to some or all files, this module provides some feedback showing the file_access table in the database.') . "</p>\n";
+      $output .= '<p>' . t('The file_access table is one method Drupal provides to hide file from some users while displaying it to others.  By default, Drupal shows all files to all users.  There are a number of optional modules which may be installed to hide file from some users.') . "</p>\n";
+      $output .= '<p>' . t('If you have not installed any of these modules, you really have no need for the devel_file_access module.  This module is intended for use during development, so that developers and admins can confirm that the file_access table is working as expected.  You probably do not want this module enabled on a production site.') . "</p>\n";
+      $output .= '<p>' . t('This module provides two blocks.  One called Devel File Access by User is visible when a single file is shown on a page.  This block shows which users can view, update or delete the file shown.  Note that this block uses an inefficient algorithm to produce its output.  You should only enable this block on sites with very few user accounts.') . "</p>\n";
+      $output .= '<p>' . t('The second block provided by this module shows the entries in the file_access table for any files shown on the current page.  You can enable the debug mode on the <a href="@settings_page">settings page</a> to display much more information, but this can cause considerable overhead.  Because the tables shown are wide, it is recommended to enable the blocks in the page footer rather than a sidebar.',
+          ['@settings_page' => url('admin/config/development/devel', ['fragment' => 'edit-devel-file-access'])]
+        ) . "</p>\n";
+      $output .= '<p>' . t('This module also provides a <a href="@summary_page">summary page</a> which shows general information about your file_access table.  If you have installed the Views module, you may browse file_access by realm.',
+          ['@summary_page' => url('devel/file_access/summary')]
+        ) . "</p>\n";
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function devel_file_access_menu() {
+  $items = [];
+
+  if (!module_exists('devel')) {
+    if (!menu_load('devel')) {
+      $menu = [
+        'menu_name' => 'devel',
+        'title' => 'Development',
+        'description' => 'Development link',
+      ];
+      menu_save($menu);
+    }
+
+    $items['admin/config/development/devel'] = [
+      'title' => 'Devel settings',
+      'description' => 'Helper pages and blocks to assist Drupal developers and admins with file_access. The devel blocks can be managed via the <a href="' . url('admin/structure/block') . '">block administration</a> page.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => ['devel_file_access_admin_settings'],
+      'access arguments' => ['administer site configuration'],
+    ];
+    $items['devel/settings'] = $items['admin/config/development/devel'] + [
+        'menu_name' => 'devel',
+      ];
+  }
+
+  $items['devel/file_access/by_user/%/%'] = [
+    'page callback' => 'devel_file_access_user_ajax',
+    'page arguments' => [3, 4],
+    'access arguments' => [DFA_ACCESS_VIEW],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['devel/file_access/summary'] = [
+    'title' => 'file_access summary',
+    'page callback' => 'dfa_summary',
+    'access arguments' => [DFA_ACCESS_VIEW],
+    'menu_name' => 'devel',
+  ];
+
+  return $items;
+}
+
+function devel_file_access_admin_settings() {
+  $form = [];
+  return system_settings_form($form);
+}
+
+function devel_file_access_form_alter(&$form, $form_state, $form_id) {
+  $tr = 't';
+  if ($form_id == 'devel_admin_settings' || $form_id == 'devel_file_access_admin_settings') {
+    $form['devel_file_access'] = [
+      '#type' => 'fieldset',
+      '#title' => t('Devel file Access'),
+      '#collapsible' => TRUE,
+    ];
+    $form['devel_file_access']['devel_file_access_debug_mode'] = [
+      '#type' => 'checkbox',
+      '#title' => t('Debug mode'),
+      '#default_value' => variable_get('devel_file_access_debug_mode', FALSE),
+      '#description' => t('Debug mode verifies the grant records in the file_access table against those that would be set by running !Rebuild_permissions, and displays them all; this can cause considerable overhead.<br />For even more information enable the <a href="@link">%dfabU block</a>, too.', [
+        '!Rebuild_permissions' => l('[' . $tr('Rebuild permissions') . ']', 'admin/reports/status/rebuild'),
+        '%DFAbU' => t('Devel File Access by User'),
+        '@link' => url('admin/structure/block/list'),
+      ]),
+    ];
+    $form['devel_file_access']['devel_file_access_user_ajax'] = [
+      '#type' => 'checkbox',
+      '#title' => t('Asynchronously populate the <em>Devel File Access by User</em> block'),
+      '#default_value' => variable_get('devel_file_access_user_ajax', FALSE),
+      '#description' => t("Use Ajax to populate the second DFA block. This loads the initial page faster and uses dynamic calls to build the data in the table, one request at a time. It's especially useful during development, if some of the calls are failing.") . '<br />' . t('JavaScript must be enabled in your browser.'),
+    ];
+
+    $form['actions']['#weight'] = 10;
+  }
+}
+
+function dfa_summary() {
+  $output = '';
+  $result = db_query('SELECT DISTINCT realm FROM {file_access} WHERE fid = 0 AND gid = 0');
+  $rows = [];
+  foreach ($result as $row) {
+    $rows[] = [$row->realm];
+  }
+  if (!empty($rows)) {
+    $output .= '<h3>' . t('Access Granted to All Files (All Users)') . "</h3>\n";
+    $output .= '<p>' . t('Your file_access table contains entries that may be granting all users access to all files.  Depending on which access control module(s) you use, you may want to delete these entries.  If you are not using an access control module, you should probably leave these entries as is.') . "</p>\n";
+    $headers = [t('realm')];
+    $output .= theme('table', ['header' => $headers, 'rows' => $rows]);
+    $access_granted_to_all_files = TRUE;
+  }
+
+  // how many files are not represented in the file_access table
+  $num = db_query('SELECT COUNT(f.fid) AS num_files FROM {file_managed} f LEFT JOIN {file_access} fa ON f.fid = fa.fid WHERE fa.fid IS NULL')->fetchField();
+  if ($num) {
+    $output .= '<h3>' . t('Legacy Files') . "</h3>\n";
+    $output .= '<p>' .
+      t('You have !num files in your file table which are not represented in your file_access table.  If you have an access control module installed, these files may be hidden from all users.  This could be caused by publishing files before enabling the access control module.  If this is the case, manually updating each file should add it to the file_access table and fix the problem.', ['!num' => l($num, 'devel/file_access/view/NULL')])
+      . "</p>\n";
+    if (!empty($access_granted_to_all_files)) {
+      $output .= '<p>' .
+        t('This issue may be masked by the one above, so look into the former first.')
+        . "</p>\n";
+    }
+  }
+  else {
+    $output .= '<h3>' . t('All Files Represented') . "</h3>\n";
+    $output .= '<p>' . t('All files are represented in the file_access table.') . "</p>\n";
+  }
+
+
+  // a similar warning to the one above, but slightly more specific
+  $result = db_query('SELECT DISTINCT realm FROM {file_access} WHERE fid = 0 AND gid <> 0');
+  $rows = [];
+  foreach ($result as $row) {
+    $rows[] = [$row->realm];
+  }
+  if (!empty($rows)) {
+    $output .= '<h3>' . t('Access Granted to All Files (Some Users)') . "</h3>\n";
+    $output .= '<p>' . t('Your file_access table contains entries that may be granting some users access to all files.  This may be perfectly normal, depending on which access control module(s) you use.') . "</p>\n";
+    $headers = [t('realm')];
+    $output .= theme('table', ['header' => $headers, 'rows' => $rows]);
+  }
+
+
+  // find specific files which may be visible to all users
+  $result = db_query('SELECT DISTINCT realm, COUNT(DISTINCT fid) as file_count FROM {file_access} WHERE gid = 0 AND fid > 0 GROUP BY realm');
+  $rows = [];
+  foreach ($result as $row) {
+    $rows[] = [
+      $row->realm,
+      [
+        'data' => $row->file_count,
+        'align' => 'center',
+      ],
+    ];
+  }
+  if (!empty($rows)) {
+    $output .= '<h3>' . t('Access Granted to Some Files') . "</h3>\n";
+    $output .= '<p>' .
+      t('The following realms appear to grant all users access to some specific files. This may be perfectly normal, if some of your file is available to the public.')
+      . "</p>\n";
+    $headers = [t('realm'), t('public files')];
+    $output .= theme('table', [
+      'header' => $headers,
+      'rows' => $rows,
+      'caption' => t('Public Files'),
+    ]);
+  }
+
+
+  // find specific files protected by file_access table
+  $result = db_query('SELECT DISTINCT realm, COUNT(DISTINCT fid) as file_count FROM {file_access} WHERE gid <> 0 AND fid > 0 GROUP BY realm');
+  $rows = [];
+  foreach ($result as $row) {
+    $rows[] = [
+      $row->realm,
+      [
+        'data' => $row->file_count,
+        'align' => 'center',
+      ],
+    ];
+  }
+  if (!empty($rows)) {
+    $output .= '<h3>' . t('Summary by Realm') . "</h3>\n";
+    $output .= '<p>' . t('The following realms grant limited access to some specific files.') . "</p>\n";
+    $headers = [t('realm'), t('private files')];
+    $output .= theme('table', [
+      'header' => $headers,
+      'rows' => $rows,
+      'caption' => t('Protected Files'),
+    ]);
+  }
+
+  return $output;
+}
+
+function dfa_visible_files($fid = NULL) {
+  static $fids = [];
+  if ($fid) {
+    $fids[$fid] = $fid;
+  }
+  elseif (empty($fids)) {
+    $menu_item = menu_get_item();
+    $map = $menu_item['original_map'];
+
+    //viewing a file full view
+    $cond_1 = $map[0] == 'file' && isset($map[1]) && is_numeric($map[1]) && !isset($map[2]);
+    //viewing a node
+    $cond_2 = $map[0] == 'node' && isset($map[1]) && is_numeric($map[1]) && !isset($map[2]);
+    if ($cond_1) {
+      // show DFA information on file/FID even if access is denied (IF the user has the 'view devel_file_access information' permission)!
+      return [$map[1]];
+    }
+
+    if ($cond_2) {
+      $references = salto_file_usage_by_nid($map[1]);
+      foreach ($references as $fid => $count) {
+        $fids[$fid] = $fid;
+      }
+    }
+
+  }
+  return $fids;
+}
+
+function devel_file_access_file_view($file, $build_mode) {
+  dfa_visible_files($file->fid);
+}
+
+function _devel_file_access_module_invoke_all() {
+  $args = func_get_args();
+  $hook = $args[0];
+  unset($args[0]);
+  $return = [];
+  foreach (module_implements($hook) as $module) {
+    $function = $module . '_' . $hook;
+    if (function_exists($function)) {
+      $result = call_user_func_array($function, $args);
+      if (isset($result)) {
+        if (is_array($result)) {
+          foreach ($result as $key => $value) {
+            $result[$key]['#module'] = $module;
+          }
+        }
+        else {
+          $result = [$module => $result];
+        }
+        $return = array_merge_recursive($return, $result);
+      }
+    }
+  }
+  return $return;
+}
+
+/**
+ * Helper function to build an associative array of grant records and their
+ * history. If there are duplicate records, display an error message.
+ *
+ * @param $grants
+ *   An indexed array of grant records, augmented by the '#module' key,
+ *   as created by _devel_file_access_module_invoke_all('file_access_records').
+ *
+ * @param $file
+ *   The file that the grant records belong to.
+ *
+ * @param $function
+ *   The name of the hook that produced the grants array, in case we need to
+ *   display an error message.
+ *
+ * @return
+ *   See _devel_file_access_nar_alter() for the description of the result.
+ */
+function _devel_file_access_build_nar_data($grants, $file, $function) {
+  $data = [];
+  $duplicates = [];
+  foreach ($grants as $grant) {
+    if (empty($data[$grant['realm']][$grant['gid']])) {
+      $data[$grant['realm']][$grant['gid']] = [
+        'original' => $grant,
+        'current' => $grant,
+        'changes' => [],
+      ];
+    }
+    else {
+      if (empty($duplicates[$grant['realm']][$grant['gid']])) {
+        $duplicates[$grant['realm']][$grant['gid']][] = $data[$grant['realm']][$grant['gid']]['original'];
+      }
+      $duplicates[$grant['realm']][$grant['gid']][] = $grant;
+    }
+  }
+  if (!empty($duplicates)) {
+    $msg = t('Devel Files Access has detected duplicate records returned from %function:', ['%function' => $function]);
+    $msg .= '<ul>';
+    foreach ($duplicates as $realm => $data_by_realm) {
+      foreach ($data_by_realm as $gid => $data_by_realm_gid) {
+        $msg .= '<li><ul>';
+        foreach ($data_by_realm_gid as $grant) {
+          $msg .= "<li>$file->fid/$realm/$gid/" . ($grant['grant_view'] ? 1 : 0) . ($grant['grant_update'] ? 1 : 0) . ($grant['grant_delete'] ? 1 : 0) . ' by ' . $grant['#module'] . '</li>';
+        }
+        $msg .= '</ul></li>';
+      }
+    }
+    $msg .= '</ul>';
+    drupal_set_message($msg, 'error', FALSE);
+  }
+  return $data;
+}
+
+/**
+ * Helper function to mimic hook_file_access_records_alter() and trace what
+ * each module does with it.
+ *
+ * @param object $grants
+ *   An indexed array of grant records, augmented by the '#module' key,
+ *   as created by _devel_file_access_module_invoke_all('file_access_records').
+ *   This array is updated by the hook_file_access_records_alter()
+ *   implementations.
+ *
+ * @param $file
+ *   The file that the grant records belong to.
+ *
+ * @return
+ *   A tree representation of the grant records in $grants including their
+ *   history:
+ *     $data[$realm][$gid]
+ *       ['original']  - grant record before processing
+ *       ['current']   - grant record after processing (if still present)
+ *       ['changes'][]['op']     - change message (add/change/delete by $module)
+ *                    ['grant']  - grant record after change (unless deleted)
+ */
+function _devel_file_access_nar_alter(&$grants, $file) {
+  $dummy = [];
+  drupal_alter('file_access_records', $dummy, $file);
+  static $drupal_static = [];
+  isset($drupal_static['drupal_alter']) || ($drupal_static['drupal_alter'] = &drupal_static('drupal_alter'));
+  $functions = $drupal_static['drupal_alter'];
+
+  // build the initial tree (and check for duplicates)
+  $data = _devel_file_access_build_nar_data($grants, $file, 'hook_file_access_records()');
+
+  foreach ($functions['file_access_records'] as $function) {
+    $function($grants, $file); // <==
+    $module = substr($function, 0, strlen($function) - 26);
+
+    foreach ($grants as $i => $grant) {
+      if (empty($data[$grant['realm']][$grant['gid']]['current'])) {
+        $data[$grant['realm']][$grant['gid']]['current'] = $grant;
+        $data[$grant['realm']][$grant['gid']]['current']['#module'] = $module;
+        $data[$grant['realm']][$grant['gid']]['changes'][] = [
+          'op' => 'added by ' . $module,
+          'grant' => $grant,
+        ];
+        $grants[$i]['#module'] = $module;
+      }
+      else {
+        $view = $update = $delete = FALSE;
+        foreach (['view', 'update', 'delete'] as $op) {
+          $$op = $grant["grant_$op"] - $data[$grant['realm']][$grant['gid']]['current']["grant_$op"];
+        }
+        $priority = $grant['priority'] - $data[$grant['realm']][$grant['gid']]['current']['priority'];
+        if ($view || $update || $delete || $priority) {
+          $data[$grant['realm']][$grant['gid']]['current'] = $grant;
+          $data[$grant['realm']][$grant['gid']]['current']['#module'] = $module;
+          $data[$grant['realm']][$grant['gid']]['changes'][] = [
+            'op' => 'altered by ' . $module,
+            'grant' => $grant,
+          ];
+          $grants[$i]['#module'] = $module;
+        }
+      }
+      $data[$grant['realm']][$grant['gid']]['found'] = TRUE;
+    }
+
+    // check for newly introduced duplicates
+    _devel_file_access_build_nar_data($grants, $file, 'hook_file_access_records_alter()');
+
+    // look for grant records that have disappeared
+    foreach ($data as $realm => $data2) {
+      foreach ($data2 as $gid => $data3) {
+        if (empty($data[$realm][$gid]['found']) && isset($data[$realm][$gid]['current'])) {
+          unset($data[$realm][$gid]['current']);
+          $data[$realm][$gid]['changes'][] = ['op' => 'removed by ' . $module];
+        }
+        else {
+          unset($data[$realm][$gid]['found']);
+        }
+      }
+    }
+  }
+
+  return $data;
+}
+
+/**
+ * Helper function to mimic hook_file_grants_alter() and trace what
+ * each module does with it.
+ *
+ * @param object $grants
+ *   An indexed array of grant records, augmented by the '#module' key,
+ *   as created by _devel_file_access_module_invoke_all('file_grants').
+ *   This array is updated by the hook_file_grants_alter()
+ *   implementations.
+ *
+ * @param $file
+ *   The file that the grant records belong to.
+ *
+ * @return
+ *   A tree representation of the grant records in $grants including their
+ *   history:
+ *     $data[$realm][$gid]
+ *       ['cur']    - TRUE or FALSE whether the gid is present or not
+ *       ['ori'][]  - array of module names that contributed this grant (if any)
+ *       ['chg'][]  - array of changes, such as
+ *                       - 'added' if module name is a prefix if the $realm,
+ *                       - 'added by module' otherwise, or
+ *                       - 'removed by module'
+ */
+function _devel_file_access_ng_alter(&$grants, $account, $op) {
+  $dummy = [];
+  drupal_alter('file_grants', $dummy, $account, $op);
+  static $drupal_static = [];
+  isset($drupal_static['drupal_alter']) || ($drupal_static['drupal_alter'] = &drupal_static('drupal_alter'));
+  $functions = $drupal_static['drupal_alter'];
+
+  $data = [];
+  foreach ($grants as $realm => $gids) {
+    foreach ($gids as $i => $gid) {
+      if ($i !== '#module') {
+        $data[$realm][$gid]['cur'] = TRUE;
+        $data[$realm][$gid]['ori'][] = $gids['#module'];
+      }
+    }
+    unset($grants[$realm]['#module']);
+  }
+
+  foreach ($functions['file_grants'] as $function) {
+    $function($grants, $account, $op); // <==
+    $module = substr($function, 0, strlen($function) - 18);
+
+    // check for new gids
+    foreach ($grants as $realm => $gids) {
+      foreach ($gids as $i => $gid) {
+        if (empty($data[$realm][$gid]['cur'])) {
+          $data[$realm][$gid]['cur'] = TRUE;
+          $data[$realm][$gid]['chg'][] = 'added by ' . $module;
+        }
+      }
+    }
+    // check for removed gids
+    foreach ($data as $realm => $gids) {
+      foreach ($gids as $gid => $history) {
+        if ($history['cur'] && array_search($gid, $grants[$realm]) === FALSE) {
+          $data[$realm][$gid]['cur'] = FALSE;
+          $data[$realm][$gid]['chg'][] = 'removed by ' . $module;
+        }
+      }
+    }
+  }
+
+  return $data;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function devel_file_access_block_info() {
+  $blocks['dfa_file'] = [
+    'info' => t('Devel Files Access'),
+    'region' => 'footer',
+    'status' => 1,
+    'cache' => DRUPAL_NO_CACHE,
+  ];
+  $blocks['dfa_user'] = [
+    'info' => t('Devel Files Access by User'),
+    'region' => 'footer',
+    'status' => 0,
+    'cache' => DRUPAL_NO_CACHE,
+  ];
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function devel_file_access_block_view($delta) {
+  global $user;
+  global $theme_key;
+  static $block1_visible, $hint = '';
+  if (!isset($block1_visible)) {
+    $block1_visible = db_query("SELECT status FROM {block} WHERE module = 'devel_file_access' AND delta = 'dfa_user' AND theme = :theme", [
+      ':theme' => $theme_key,
+    ])->fetchField();
+    if (!$block1_visible) {
+      $hint = t('For per-user access permissions enable the <a href="@link">%dfabU block</a>.', [
+        '@link' => url('admin/structure/block'),
+        '%dfabU' => t('Devel file Access by User'),
+      ]);
+    }
+  }
+
+  if (!user_access(DFA_ACCESS_VIEW)) {
+    return;
+  }
+
+  $output = [];
+
+  switch ($delta) {
+    case 'dfa_file':
+      if (!count(dfa_visible_files())) {
+        return;
+      }
+
+      $fids = array_merge([0 => 0], dfa_visible_files());
+      $query = db_select('file_access', 'fa');
+      $query
+        ->fields('fa')
+        ->condition('fa.fid', $fids, 'IN')
+        ->orderBy('fa.fid')
+        ->orderBy('fa.realm')
+        ->orderBy('fa.gid');
+      $files = file_load_multiple($fids);
+
+      if (!variable_get('devel_file_access_debug_mode', FALSE)) {
+        $headers = [
+          t('file'),
+          t('realm'),
+          t('gid'),
+          t('view'),
+          t('update'),
+          t('delete'),
+          t('explained'),
+        ];
+        $rows = [];
+        foreach ($query->execute() as $row) {
+          $explained = module_invoke_all('file_access_explain', $row);
+          $rows[] = [
+            (empty($row->fid) ? '0' : '<a href="#file-' . $row->fid . '">' . _devel_file_access_get_file_title($files[$row->fid], TRUE) . '</a>'),
+            $row->realm,
+            $row->gid,
+            $row->grant_view,
+            $row->grant_update,
+            $row->grant_delete,
+            implode('<br />', $explained),
+          ];
+        }
+        $output[] = [
+          '#theme' => 'table',
+          '#header' => $headers,
+          '#rows' => $rows,
+          '#attributes' => ['style' => 'text-align: left'],
+        ];
+
+        $hint = t('To see more details enable <a href="@debug_mode">debug mode</a>.', ['@debug_mode' => url('admin/config/development/devel', ['fragment' => 'edit-devel-file-access'])]) . (empty($hint) ? '' : ' ' . $hint);
+      }
+      else {
+        $tr = 't';
+        $variables = ['!fa' => '{file_access}'];
+        $states = [
+          'default' => [
+            t('default'),
+            'ok',
+            t('Default grant supplied by core in the absence of any other non-empty grants; in !fa.', $variables),
+          ],
+          'ok' => [
+            t('ok'),
+            'ok',
+            t('Highest priority grant; in !fa.', $variables),
+          ],
+          'removed' => [
+            t('removed'),
+            '',
+            t('Was removed in @func; not in !fa.', $variables + ['@func' => 'hook_file_access_records_alter()']),
+          ],
+          'static' => [
+            t('static'),
+            'ok',
+            t('Non-standard grant in !fa.', $variables),
+          ],
+          'unexpected' => [
+            t('unexpected'),
+            'warning',
+            t('The 0/all/0/... grant applies to all files and all users -- usually it should not be present in !fa if any file access module is active!'),
+          ],
+          'ignored' => [
+            t('ignored'),
+            'warning',
+            t('Lower priority grant; not in !fa and thus ignored.', $variables),
+          ],
+          'empty' => [
+            t('empty'),
+            'warning',
+            t('Does not grant any access, but could block lower priority grants; not in !fa.', $variables),
+          ],
+          'wrong' => [
+            t('wrong'),
+            'error',
+            t('Is rightfully in !fa but at least one access flag is wrong!', $variables),
+          ],
+          'missing' => [
+            t('missing'),
+            'error',
+            t("Should be in !fa but isn't!", $variables),
+          ],
+          'removed!' => [
+            t('removed!'),
+            'error',
+            t('Was removed in @func; should NOT be in !fa!', $variables + ['@func' => 'hook_file_access_records_alter()']),
+          ],
+          'illegitimate' => [
+            t('illegitimate'),
+            'error',
+            t('Should NOT be in !fa because of lower priority!', $variables),
+          ],
+          'alien' => [
+            t('alien'),
+            'error',
+            t('Should NOT be in !fa because of unknown origin!', $variables),
+          ],
+        ];
+        $active_states = [
+          'default',
+          'ok',
+          'static',
+          'unexpected',
+          'wrong',
+          'illegitimate',
+          'alien',
+        ];
+        $headers = [
+          t('file'),
+          t('prio'),
+          t('status'),
+          t('realm'),
+          t('gid'),
+          t('view'),
+          t('update'),
+          t('delete'),
+          t('explained'),
+        ];
+        $headers = _devel_file_access_format_row($headers);
+        $active_grants = [];
+        foreach ($query->execute() as $active_grant) {
+          $active_grants[$active_grant->fid][$active_grant->realm][$active_grant->gid] = $active_grant;
+        }
+        $all_grants = $checked_grants = $published_fid = [];
+        foreach ($fids as $fid) {
+          $acquired_grants_fid = [];
+          if ($file = file_load($fid)) {
+            $grants = _devel_file_access_module_invoke_all('file_access_records', $file);
+            $data = _devel_file_access_nar_alter($grants, $file);
+
+            if (!empty($data)) {
+              foreach ($data as $data_by_realm) {
+                foreach ($data_by_realm as $data_by_realm_gid) { // by gid
+                  if (isset($data_by_realm_gid['current'])) {
+                    $grant = $data_by_realm_gid['current'];
+                  }
+                  elseif (isset($data_by_realm_gid['original'])) {
+                    $grant = $data_by_realm_gid['original'];
+                    $grant['#removed'] = 1;
+                  }
+                  else {
+                    continue;
+                  }
+                  $priority = intval($grant['priority']);
+                  $top_priority = (isset($top_priority) ? max($top_priority, $priority) : $priority);
+                  $grant['priority'] = (isset($grant['priority']) ? $priority : '&ndash;&nbsp;');
+                  $grant['history'] = $data_by_realm_gid;
+                  $acquired_grants_fid[$priority][$grant['realm']][$grant['gid']] = $grant + [
+                      '#title' => _devel_file_access_get_file_title($file),
+                      '#module' => (isset($grant['#module']) ? $grant['#module'] : ''),
+                    ];
+                }
+              }
+              krsort($acquired_grants_fid);
+            }
+            $published_fid[$fid] = $file->status;
+            if ($file->fid) {
+              foreach (['view', 'update', 'delete'] as $op) {
+                $grants = _devel_file_access_module_invoke_all('file_grants', $user, $op);
+                $ng_alter_datas[$op] = _devel_file_access_ng_alter($grants, $user, $op);
+                $checked_grants[$fid][$op] = array_merge(['all' => [0]], $grants);
+              }
+            }
+          }
+
+          if (isset($active_grants[$fid])) {
+            foreach ($active_grants[$fid] as $realm => $active_grants_realm) {
+              foreach ($active_grants_realm as $gid => $active_grant) {
+                $found = FALSE;
+                $count_nonempty_grants = 0;
+                foreach ($acquired_grants_fid as $priority => $acquired_grants_fid_priority) {
+                  if (isset($acquired_grants_fid_priority[$realm][$gid])) {
+                    $found = TRUE;
+                  }
+                }
+                if ($acquired_grants_fid_priority = reset($acquired_grants_fid)) { // highest priority only
+                  foreach ($acquired_grants_fid_priority as $acquired_grants_fid_priority_realm) {
+                    foreach ($acquired_grants_fid_priority_realm as $acquired_grants_fid_priority_realm_gid) {
+                      $count_nonempty_grants += (!empty($acquired_grants_fid_priority_realm_gid['grant_view']) || !empty($acquired_grants_fid_priority_realm_gid['grant_update']) || !empty($acquired_grants_fid_priority_realm_gid['grant_delete']));
+                    }
+                  }
+                }
+                $fixed_grant = (array) $active_grant;
+                if ($count_nonempty_grants == 0 && $realm == 'all' && $gid == 0) {
+                  $fixed_grant += [
+                    'priority' => '&ndash;',
+                    'state' => 'default',
+                  ];
+                }
+                elseif (!$found) {
+                  $acknowledged = _devel_file_access_module_invoke_all('file_access_acknowledge', $fixed_grant);
+                  if (empty($acknowledged)) {
+                    $fixed_grant += [
+                      'priority' => '?',
+                      'state' => 'alien',
+                    ];
+                  }
+                  else {
+                    $acknowledged_keys = array_keys($acknowledged);
+                    $fixed_grant += [
+                      'priority' => '&ndash;',
+                      'state' => 'static',
+                      '#module' => reset($acknowledged_keys),
+                    ];
+                  }
+                }
+                else {
+                  continue;
+                }
+                $fixed_grant += [
+                  'fid' => $fid,
+                  '#title' => _devel_file_access_get_file_title($file),
+                ];
+                $all_grants[] = $fixed_grant;
+              }
+            }
+          }
+
+          // order grants and evaluate their status
+          foreach ($acquired_grants_fid as $priority => $acquired_grants_priority) {
+            ksort($acquired_grants_priority);
+            foreach ($acquired_grants_priority as $realm => $acquired_grants_realm) {
+              ksort($acquired_grants_realm);
+              foreach ($acquired_grants_realm as $gid => $acquired_grant) {
+                if ($priority == $top_priority) {
+                  if (empty($acquired_grant['grant_view']) && empty($acquired_grant['grant_update']) && empty($acquired_grant['grant_delete'])) {
+                    $acquired_grant['state'] = 'empty';
+                  }
+                  else {
+                    if (isset($active_grants[$fid][$realm][$gid])) {
+                      $acquired_grant['state'] = (isset($acquired_grant['#removed']) ? 'removed!' : 'ok');
+                    }
+                    else {
+                      $acquired_grant['state'] = (isset($acquired_grant['#removed']) ? 'removed' : 'missing');
+                    }
+                    if ($acquired_grant['state'] == 'ok') {
+                      foreach (['view', 'update', 'delete'] as $op) {
+                        $active_grant = (array) $active_grants[$fid][$realm][$gid];
+                        if (empty($acquired_grant["grant_$op"]) != empty($active_grant["grant_$op"])) {
+                          $acquired_grant["grant_$op!"] = $active_grant["grant_$op"];
+                        }
+                      }
+                    }
+                  }
+                }
+                else {
+                  $acquired_grant['state'] = (isset($active_grants[$fid][$realm][$gid]) ? 'illegitimate' : 'ignored');
+                }
+                $all_grants[] = $acquired_grant + ['fid' => $fid];
+              }
+            }
+          }
+        }
+
+        $rows = [];
+        $error_count = 0;
+        foreach ($all_grants as $grant) {
+          $row = new stdClass();
+          $row->fid = $grant['fid'];
+          $row->title = $grant['#title'];
+          $row->priority = $grant['priority'];
+          $row->state = [
+            'data' => $states[$grant['state']][0],
+            'title' => $states[$grant['state']][2],
+          ];
+          $row->realm = $grant['realm'];
+          $row->gid = $grant['gid'];
+          $row->grant_view = $grant['grant_view'];
+          $row->grant_update = $grant['grant_update'];
+          $row->grant_delete = $grant['grant_delete'];
+          $row->explained = implode('<br />', module_invoke_all('file_access_explain', $row));
+          unset($row->title);
+          if ($row->fid == 0 && $row->gid == 0 && $row->realm == 'all' && count($all_grants) > 1) {
+            $row->state = [
+              'data' => $states['unexpected'][0],
+              'title' => $states['unexpected'][2],
+            ];
+            $class = $states['unexpected'][1];
+          }
+          else {
+            $class = $states[$grant['state']][1];
+          }
+          $row = (array) $row;
+          foreach (['view', 'update', 'delete'] as $op) {
+            $row["grant_$op"] = ['data' => $row["grant_$op"]];
+            if ((isset($checked_grants[$grant['fid']][$op][$grant['realm']]) && in_array($grant['gid'], $checked_grants[$grant['fid']][$op][$grant['realm']]) || ($row['fid'] == 0 && $row['gid'] == 0 && $row['realm'] == 'all')) && !empty($row["grant_$op"]['data']) && in_array($grant['state'], $active_states)) {
+              $row["grant_$op"]['data'] .= '&prime;';
+              $row["grant_$op"]['title'] = t('This entry grants access to this file to this user.');
+            }
+            if (isset($grant["grant_$op!"])) {
+              $row["grant_$op"]['data'] = $grant["grant_$op!"] . '&gt;' . (!$row["grant_$op"]['data'] ? 0 : $row["grant_$op"]['data']);
+              $row["grant_$op"]['class'][] = 'error';
+              if ($class == 'ok') {
+                $row['state'] = [
+                  'data' => $states['wrong'][0],
+                  'title' => $states['wrong'][2],
+                ];
+                $class = $states['wrong'][1];
+              }
+            }
+          }
+          $error_count += ($class == 'error');
+          $row['fid'] = [
+            'data' => '<a href="#file-' . $grant['fid'] . '">' . $row['fid'] . '</a>',
+            'title' => $grant['#title'],
+          ];
+          if (empty($grant['#module']) || strpos($grant['realm'], $grant['#module']) === 0) {
+            $row['realm'] = $grant['realm'];
+          }
+          else {
+            $row['realm'] = [
+              'data' => $grant['#module'] . ':<br />' . $grant['realm'],
+              'title' => t("The '@module' module fails to adhere to the best practice of naming its realm(s) after itself.", ['@module' => $grant['#module']]),
+            ];
+          }
+
+          $next_style = [];
+          if (isset($grant['history'])) {
+            $history = $grant['history'];
+            if (($num_changes = count($history['changes']) - empty($history['current'])) > 0) {
+              $first_row = TRUE;
+              while (isset($history['original']) || $num_changes--) {
+                if (isset($history['original'])) {
+                  $this_grant = $history['original'];
+                  $this_action = '[ Original by ' . $this_grant['#module'] . ':';
+                  unset($history['original']);
+                }
+                else {
+                  $change = $history['changes'][0];
+                  $this_grant = $change['grant'];
+                  $this_action = ($first_row ? '[ ' : '') . $change['op'] . ':';
+                  array_shift($history['changes']);
+                }
+                $rows[] = [
+                  'data' => [
+                    'data' => [
+                      'data' => $this_action,
+                      'style' => ['padding-bottom: 0;'],
+                    ],
+                  ],
+                  'style' => array_merge(($first_row ? [] : [
+                    'border-top-style: dashed;',
+                    'border-top-width: 1px;',
+                  ]), ['border-bottom-style: none;']),
+                ];
+                $next_style = ['border-top-style: none;'];
+                if (count($history['changes'])) {
+                  $g = $this_grant;
+                  $rows[] = [
+                    'data' => [
+                      'v',
+                      $g['priority'],
+                      '',
+                      $g['realm'],
+                      $g['gid'],
+                      $g['grant_view'],
+                      $g['grant_update'],
+                      $g['grant_delete'],
+                      'v',
+                    ],
+                    'style' => [
+                      'border-top-style: none;',
+                      'border-bottom-style: dashed;',
+                    ],
+                  ];
+                  $next_style = ['border-top-style: dashed;'];
+                }
+                $first_row = FALSE;
+              }
+            }
+          }
+
+          foreach ($row as $key => $value) {
+            if (!is_array($value)) {
+              $row[$key] = ['data' => $value];
+            }
+            $row[$key]['class'] = [$class];
+          }
+
+          $will_append = empty($history['current']) && !empty($history['changes']);
+          $rows[] = [
+            'data' => array_values($row),
+            'class' => [$class],
+            'style' => array_merge($next_style, ($will_append ? ['border-bottom-style: none;'] : [])),
+          ];
+
+          if ($will_append) {
+            $last_change = end($history['changes']);
+            $rows[] = [
+              'data' => [
+                'data' => [
+                  'data' => $last_change['op'] . ' ]',
+                  'style' => ['padding-top: 0;'],
+                ],
+              ],
+              'style' => ['border-top-style: none;'],
+            ];
+          }
+        }
+
+        foreach ($rows as $i => $row) {
+          $rows[$i] = _devel_file_access_format_row($row);
+        }
+
+        $output[] = [
+          '#theme' => 'table',
+          '#header' => $headers,
+          '#rows' => $rows,
+          '#attributes' => [
+            'class' => ['system-status-report'],
+            'style' => 'text-align: left;',
+          ],
+        ];
+
+        $output[] = [
+          '#theme' => 'form_element',
+          '#description' => t('(Some of the table elements provide additional information if you hover your mouse over them.)'),
+        ];
+
+        if ($error_count > 0) {
+          $variables['!Rebuild_permissions'] = '<a href="' . url('admin/reports/status/rebuild') . '">' . $tr('Rebuild permissions') . '</a>';
+          $output[] = [
+            '#prefix' => "\n<div class=\"error\">",
+            '#markup' => t("You have errors in your !fa table! You may be able to fix these for now by running !Rebuild_permissions, but this is likely to destroy the evidence and make it impossible to identify the underlying issues. If you don't fix those, the errors will probably come back again. <br /> DON'T do this just yet if you intend to ask for help with this situation.", $variables),
+            '#suffix' => "</div><br />\n",
+          ];
+        }
+
+        $tr = 't';
+        array_shift($fids);
+        $accounts = [];
+        $variables += [
+          '!username' => '<em class="placeholder">' . theme('username', ['account' => $user]) . '</em>',
+          '%uid' => $user->uid,
+        ];
+
+        if (user_access('bypass file access')) {
+          $variables['%bypass_file_access'] = $tr('bypass file access');
+          $output[] = [
+            '#markup' => t('!username has the %bypass_file_access permission and thus full access to all files.', $variables),
+            '#suffix' => '<br />&nbsp;',
+          ];
+        }
+        else {
+          $variables['!list'] = '<div style="margin-left: 2em">' . _devel_file_access_get_grant_list($fid, $ng_alter_datas['view']) . '</div>';
+          $variables['%access'] = 'view';
+          $output[] = [
+            '#prefix' => "\n<div style='text-align: left' title='" . t('These are the grants returned by hook_file_grants() for this user.') . "'>",
+            '#markup' => t('!username (user %uid) can use these grants (if they are present above) for %access access: !list', $variables),
+            '#suffix' => "</div>\n",
+          ];
+          $accounts[] = $user;
+        }
+        $menu_item = menu_get_item();
+        $map = $menu_item['original_map'];
+        if ($map[0] == 'file' && isset($map[1]) && is_numeric($map[1]) && !isset($map[2]) && !$block1_visible) {
+          if (user_is_logged_in()) {
+            $accounts[] = user_load(0);
+          }
+          foreach ($accounts as $account) {
+            $fid_items = [];
+            foreach ($fids as $fid) {
+              $op_items = [];
+              foreach (['create', 'view', 'update', 'delete'] as $op) {
+                $explain = _devel_file_access_explain_access($op, $fid, $account);
+                $op_items[] = "<div style='width: 5em; display: inline-block'>" . t('%op:', ['%op' => $op]) . ' </div>' . $explain[2];
+              }
+              $fid_items[] = [
+                '#theme' => 'item_list',
+                '#items' => $op_items,
+                '#type' => 'ul',
+                '#prefix' => t('to file !fid:', ['!fid' => l($fid, 'file/' . $fid)]) . "\n<div style='margin-left: 2em'>",
+                '#suffix' => '</div>',
+              ];
+            }
+            if (count($fid_items) == 1) {
+              $account_items = $fid_items[0];
+            }
+            else {
+              $account_items = [
+                '#theme' => 'item_list',
+                '#items' => $fid_items,
+                '#type' => 'ul',
+                '#prefix' => "\n<div style='margin-left: 2em'>",
+                '#suffix' => '</div>',
+              ];
+            }
+            $variables['!username'] = '<em class="placeholder">' . theme('username', ['account' => $account]) . '</em>';
+            $output[] = [
+              '#prefix' => "\n<div style='text-align: left'>",
+              '#type' => 'item',
+              'lead-in' => ['#markup' => t("!username has the following access", $variables) . ' '],
+              'items' => $account_items,
+              '#suffix' => "\n</div>\n",
+            ];
+          }
+        }
+      }
+
+      if (!empty($hint)) {
+        $output[] = [
+          '#theme' => 'form_element',
+          '#description' => '(' . $hint . ')',
+        ];
+      }
+      $output[]['#markup'] = '<br /><br />';
+      $subject = t('file_access entries for files shown on this page');
+      return ['subject' => $subject, 'content' => $output];
+
+    case 'dfa_user':
+      $menu_item = menu_get_item();
+      $map = $menu_item['original_map'];
+      if ($map[0] != 'file' || !isset($map[1]) || !is_numeric($map[1]) || isset($map[2])) {
+        return;
+      }
+
+      if (isset($menu_item['map'][1]) && is_object($file = $menu_item['map'][1])) {
+
+      }
+      elseif (is_numeric($menu_item['original_map'][1])) {
+        $file = file_load($menu_item['original_map'][1]);
+      }
+      if (isset($file)) {
+        $fid = $file->fid;
+        $file_type = $file->type;
+        $variables = ['@file_type' => ($file_type ? $file_type->name : $file->type)];
+        $create_header = '<span title="' . t("Create files of the '@file_type' type.", $variables) . '">' . t('create') . '</span>';
+        if (!$file_type) {
+          $create_header .= '<br /><span class="error">' . t("(missing type: '@file_type')", $variables) . '</span>';
+        }
+        $headers = [
+          t('username'),
+          $create_header,
+          t('view'),
+          t('update'),
+          t('delete'),
+        ];
+        $rows = [];
+        // Determine whether to use Ajax or prepopulate the tables.
+        if ($ajax = variable_get('devel_file_access_user_ajax', FALSE)) {
+          drupal_add_js(drupal_get_path('module', 'devel_file_access') . '/devel_file_access.js');
+        }
+
+        $query = db_select('users', 'u')
+          ->fields('u', ['uid'])
+          ->orderBy('u.access', 'DESC')
+          ->range(0, 9);
+        $uids = $query->execute()->fetchCol();
+        array_unshift($uids, 0);
+        $accounts = user_load_multiple($uids);
+        foreach ($accounts as $account) {
+          $username = theme('username', ['account' => $account]);
+          if ($account->uid == $user->uid) {
+            $username = '<strong>' . $username . '</strong>';
+          }
+          $rows[] = [
+            $username,
+            [
+              'id' => 'create-' . $fid . '-' . $account->uid,
+              'class' => 'dfa-permission',
+              'data' => $ajax ? NULL : theme('dfa_permission', ['permission' => _devel_file_access_explain_access('create', $fid, $account)]),
+            ],
+            [
+              'id' => 'view-' . $fid . '-' . $account->uid,
+              'class' => 'dfa-permission',
+              'data' => $ajax ? NULL : theme('dfa_permission', ['permission' => _devel_file_access_explain_access('view', $fid, $account)]),
+            ],
+            [
+              'id' => 'update-' . $fid . '-' . $account->uid,
+              'class' => 'dfa-permission',
+              'data' => $ajax ? NULL : theme('dfa_permission', ['permission' => _devel_file_access_explain_access('update', $fid, $account)]),
+            ],
+            [
+              'id' => 'delete-' . $fid . '-' . $account->uid,
+              'class' => 'dfa-permission',
+              'data' => $ajax ? NULL : theme('dfa_permission', ['permission' => _devel_file_access_explain_access('delete', $fid, $account)]),
+            ],
+          ];
+        }
+        if (count($rows)) {
+          $output[] = [
+            '#theme' => 'table',
+            '#header' => $headers,
+            '#rows' => $rows,
+            '#attributes' => ['style' => 'text-align: left'],
+          ];
+          $output[] = [
+            '#theme' => 'form_element',
+            '#description' => t('(This table lists the most-recently active users. Hover your mouse over each result for more details.)'),
+          ];
+
+          return [
+            'subject' => t('Access permissions by user'),
+            'content' => $output,
+          ];
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Callback function for file access by user block ajax.
+ */
+function devel_file_access_user_ajax($data_type, $cell) {
+  [$op, $fid, $uid] = explode('-', $cell);
+  $account = user_load($uid);
+  $output = [
+    '#theme' => 'dfa_permission',
+    '#permission' => _devel_file_access_explain_access($op, $fid, $account),
+  ];
+
+  if ($data_type == 'json') {
+    drupal_json_output(drupal_render($output));
+    exit;
+  }
+
+  if ($file = file_load($fid)) {
+    $file_title = l($file->title, 'file/' . $file->fid);
+  }
+  else {
+    $file_title = t('unknown file %fid', ['%fid' => $fid]);
+  }
+  drupal_set_title(
+    t(
+      'Devel file access: %op permission for !user on !file',
+      [
+        '%op' => $op,
+        '!user' => theme('username', ['account' => $account]),
+        '!file' => $file_title,
+      ]
+    ),
+    PASS_THROUGH
+  );
+  return $output;
+}
+
+/**
+ * Helper function that mimicks file.module's file_entity_access() function.
+ *
+ * Unfortunately, this needs to be updated manually whenever file.module
+ * changes!
+ *
+ * @return
+ *   An array suitable for theming with theme_dfa_permission().
+ */
+function _devel_file_access_explain_access($op, $file, $account = NULL) {
+  global $user;
+
+  if (is_numeric($file) && !($file = file_load($file))) {
+    return [
+      FALSE,
+      '???',
+      t('Unable to load the file &ndash; this should never happen!'),
+    ];
+  }
+  if (!in_array($op, ['view', 'update', 'delete', 'create'], TRUE)) {
+    return [
+      FALSE,
+      t('!NO: invalid $op', ['!NO' => t('NO')]),
+      t("'@op' is an invalid operation!", ['@op' => $op]),
+    ];
+  }
+
+  if ($op == 'create' && is_object($file)) {
+    $file = $file->type;
+  }
+
+  if (!empty($account)) {
+    $saved_user = $user;
+    drupal_save_session(FALSE);
+    $user = $account;
+    $result = _devel_file_access_explain_access($op, $file, NULL);
+    $user = $saved_user;
+    drupal_save_session(TRUE);
+    $second_opinion = file_entity_access($op, $file, $account);
+    if ($second_opinion != $result[0]) {
+      $result[1] .= '<span class="' . ($second_opinion ? 'ok' : 'error') . '" title="Core seems to disagree on this item. This is a bug in either dfa or Core and should be fixed! Try to look at this file as this user and check whether there is still disagreement.">*</span>';
+    }
+    return $result;
+  }
+
+  $variables = [
+    '!NO' => t('NO'),
+    '!YES' => t('YES'),
+    '!bypass_file_access' => t('bypass file access'),
+    '!view files' => t('view files'),
+  ];
+
+  if (user_access('bypass file access')) {
+    return [
+      TRUE,
+      t('!YES: bypass file access', $variables),
+      t("!YES: This user has the '!bypass_file_access' permission and may do everything with files.", $variables),
+    ];
+  }
+
+  foreach (module_implements('file_entity_access') as $module) {
+    $function = $module . '_file_entity_access';
+    if (function_exists($function)) {
+      $result = $function($op, $file, $user);
+      if ($module == 'file') {
+        $module = 'file (permissions)';
+      }
+      if (isset($result)) {
+        if ($result === FILE_ENTITY_ACCESS_DENY) {
+          $denied_by[] = $module;
+        }
+        elseif ($result === FILE_ENTITY_ACCESS_ALLOW) {
+          $allowed_by[] = $module;
+        }
+        $access[] = $result;
+      }
+    }
+  }
+  $variables += [
+    '@deniers' => (empty($denied_by) ? NULL : implode(', ', $denied_by)),
+    '@allowers' => (empty($allowed_by) ? NULL : implode(', ', $allowed_by)),
+  ];
+  if (!empty($denied_by)) {
+    $variables += [
+      '%module' => $denied_by[0] . (count($denied_by) > 1 ? '+' : ''),
+    ];
+    return [
+      FALSE,
+      t('!NO: by %module', $variables),
+      empty($allowed_by)
+        ? t("!NO: hook_file_entity_access() of the following module(s) denies this: @deniers.", $variables)
+        : t("!NO: hook_file_entity_access() of the following module(s) denies this: @deniers &ndash; even though the following module(s) would allow it: @allowers.", $variables),
+    ];
+  }
+
+  if (!empty($allowed_by)) {
+    $variables += [
+      '%module' => $allowed_by[0] . (count($allowed_by) > 1 ? '+' : ''),
+      '!view_own_unpublished_content' => t('view own unpublished content'),
+    ];
+    return [
+      TRUE,
+      t('!YES: by %module', $variables),
+      t("!YES: hook_file_entity_access() of the following module(s) allows this: @allowers.", $variables),
+    ];
+  }
+
+  if ($op != 'create' && $file->fid) {
+    if (file_entity_access($op, $file)) {
+      $variables['@file_access_table'] = '{file_access}';
+      return [
+        TRUE,
+        t('!YES: @file_access_table', $variables),
+        t('!YES: file access allows this based on one or more records in the @file_access_table table (see the other dfa block!).', $variables),
+      ];
+    }
+  }
+
+  return [
+    FALSE,
+    t('!NO: no reason', $variables),
+    t("!NO: None of the checks resulted in allowing this, so it's denied.", $variables)
+    . ($op == 'create' ? ' ' . t('This is most likely due to a withheld permission.') : ''),
+  ];
+}
+
+/**
+ * Helper function to create a list of the grants returned by
+ * hook_file_grants().
+ */
+function _devel_file_access_get_grant_list($fid, $ng_alter_data) {
+  $ng_alter_data = array_merge([
+    'all' => [
+      0 => [
+        'cur' => TRUE,
+        'ori' => ['all'],
+      ],
+    ],
+  ], $ng_alter_data);
+  $items = [];
+  if (count($ng_alter_data)) {
+    foreach ($ng_alter_data as $realm => $gids) {
+      ksort($gids);
+      $gs = [];
+      foreach ($gids as $gid => $history) {
+        if ($history['cur']) {
+          if (isset($history['ori'])) {
+            $g = $gid;  // original grant, still active
+          }
+          else {
+            $g = '<u>' . $gid . '</u>';  // new grant, still active
+          }
+        }
+        else {
+          $g = '<del>' . $gid . '</del>';  // deleted grant
+        }
+
+        $ghs = [];
+        if (isset($history['ori']) && strpos($realm, $history['ori'][0]) !== 0) {
+          $ghs[] = 'by ' . $history['ori'][0];
+        }
+        if (isset($history['chg'])) {
+          foreach ($history['chg'] as $h) {
+            $ghs[] = $h;
+          }
+        }
+        if (!empty($ghs)) {
+          $g .= ' (' . implode(', ', $ghs) . ')';
+        }
+        $gs[] = $g;
+      }
+      $items[] = $realm . ': ' . implode(', ', $gs);
+    }
+    if (!empty($items)) {
+      return theme('item_list', ['items' => $items, 'type' => 'ul']);
+    }
+  }
+}
+
+/**
+ * Implements hook_file_access_explain().
+ */
+function devel_file_access_file_access_explain($row) {
+  if ($row->gid == 0 && $row->realm == 'all') {
+    foreach (['view', 'update', 'delete'] as $op) {
+      $gop = 'grant_' . $op;
+      if (!empty($row->$gop)) {
+        $ops[] = $op;
+      }
+    }
+    if (empty($ops)) {
+      return '(No access granted to ' . ($row->fid == 0 ? 'any files.)' : 'this file.)');
+    }
+    else {
+      return 'All users may ' . implode('/', $ops) . ($row->fid == 0 ? ' all files.' : ' this file.');
+    }
+  }
+}
+
+/**
+ * Helper function to return a sanitized file title.
+ */
+function _devel_file_access_get_file_title($file, $clip_and_decorate = FALSE) {
+  if (isset($file)) {
+    if (isset($file->title)) {
+      $file_title = entity_label('file', $file);;
+      if ($clip_and_decorate) {
+        if (drupal_strlen($file_title) > 20) {
+          $file_title = "<span title='file/$file->fid: $file_title'>" . drupal_substr($file_title, 0, 15) . '...</span>';
+        }
+        $file_title = '<span title="file/' . $file->fid . '">' . $file_title . '</span>';
+      }
+      return $file_title;
+    }
+    elseif (isset($file->fid)) {
+      return $file->fid;
+    }
+  }
+  return '&mdash;';
+}
+
+/**
+ * Helper function to apply common formatting to a debug-mode table row.
+ */
+function _devel_file_access_format_row($row, $may_unpack = TRUE) {
+  if ($may_unpack && isset($row['data'])) {
+    $row['data'] = _devel_file_access_format_row($row['data'], FALSE);
+    $row['class'][] = 'even';
+    return $row;
+  }
+  if (count($row) == 1) {
+    if (is_scalar($row['data'])) {
+      $row['data'] = ['data' => $row['data']];
+    }
+    $row['data']['colspan'] = 9;
+  }
+  else {
+    $row = array_values($row);
+    foreach ([0, 1, 4] as $j) {
+      if (is_scalar($row[$j])) {
+        $row[$j] = ['data' => $row[$j]];
+      }
+      $row[$j]['style'][] = 'text-align: right;';
+    }
+  }
+  return $row;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function devel_file_access_theme() {
+  return [
+    'dfa_permission' => [
+      'variables' => [
+        'permission' => NULL,
+      ],
+    ],
+  ];
+}
+
+/**
+ * Indicate whether user has a permission or not.
+ */
+function theme_dfa_permission($variables) {
+  $permission = &$variables['permission'];
+  return '<span class="' . ($permission[0] ? 'ok' : 'error') . '" title="' . $permission[2] . '">' . $permission[1] . '</span>';
+}

@@ -1,0 +1,88 @@
+#salto-search-search-form {
+  position: relative;
+
+  .icon-search {
+    position: absolute;
+    top: 8px;
+    left: 5px;
+  }
+}
+
+
+.salto-search-result-container {
+
+  position: absolute;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  width: 100%;
+  top: 31px;
+  display: none;
+  z-index: 1;
+
+  .search-item a {
+    padding: 2px 5px;
+    display: block;
+    font-weight: normal;
+    color: #000;
+  }
+
+  .search-item-placeholder {
+    font-weight: bold;
+  }
+
+  .search-item a strong.search-item-text {
+    color: #333;
+    font-weight: normal;
+  }
+
+  .search-item a strong.search-item-cat {
+    color: rgb(252, 177, 49);
+  }
+
+
+  .search-item a:hover {
+    background-color: #eee;
+  }
+
+}
+
+.view-salto-search-node,
+.view-salto-search-comment,
+.view-salto-search-file {
+
+  .views-field-field-user-picture {
+    float: left;
+  }
+
+  .searchsub,
+  .views-field-php,
+  .views-field-search-api-excerpt,
+  .views-field views-field-title,
+  .views-field-name,
+  .node-readmore,
+  .views-field-rendered-entity .content {
+    margin-left: 80px !important;
+  }
+
+  .node-readmore {
+    margin-top: 10px;
+
+    a {
+      text-decoration: none;
+      color: #9b9b9b;
+      font-size: 12px;
+    }
+  }
+
+  .view-header {
+    margin-bottom: 1em;
+  }
+
+  .suggestion-link-org {
+    font-weight: bold;
+  }
+}
+
+.search-api-autocomplete-suggestion .autocomplete-suggestion-results {
+  display: none !important;
+}

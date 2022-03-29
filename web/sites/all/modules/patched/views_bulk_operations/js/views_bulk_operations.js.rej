@@ -1,0 +1,11 @@
+--- js/views_bulk_operations.js
++++ js/views_bulk_operations.js
+@@ -8,7 +8,7 @@
+ 
+   Drupal.behaviors.vbo = {
+     attach: function(context) {
+-      $('.vbo-views-form', context).each(function() {
++      $('.vbo-views-form', context).once('vbo', function () {
+         Drupal.vbo.initTableBehaviors(this);
+         Drupal.vbo.initGenericBehaviors(this);
+         Drupal.vbo.toggleButtonsState(this);

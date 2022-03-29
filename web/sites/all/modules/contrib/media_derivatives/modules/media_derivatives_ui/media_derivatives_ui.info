@@ -1,0 +1,22 @@
+name = Derivatives API preset UI 
+description = Derivatives API preset management UI.
+package = Media
+core = 7.x
+
+; Core files
+files[] = media_derivatives_ui.module
+
+; Tests
+files[] = tests/media_derivatives_ui.test
+
+dependencies[] = media_derivatives
+dependencies[] = ctools
+
+testing_api = 2.x
+
+; Information added by Drupal.org packaging script on 2016-07-31
+version = "7.x-1.0-beta3+6-dev"
+core = "7.x"
+project = "media_derivatives"
+datestamp = "1469958540"
+

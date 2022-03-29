@@ -1,0 +1,436 @@
+<?php
+
+/**
+ * @file
+ * Code for the salto_help feature.
+ */
+include_once 'salto_help.features.inc';
+
+include_once 'inc/salto_help.flag.inc';
+
+/**
+ * Implementation of hook_init().
+ */
+function salto_help_init() {
+  ctools_include('ajax');
+  ctools_include('modal');
+  // Add CTools' javascript to the page.
+  ctools_modal_add_js();
+
+  drupal_add_js([
+    'salto-style' => [
+      'modalSize' => [
+        'type' => 'scale',
+        'width' => .9,
+        'height' => .9,
+      ],
+      'modalOptions' => [
+        'opacity' => 0,
+      ],
+      'animation' => 'show',
+      'animationSpeed' => 0,
+      //   'modalTheme' => 'CtoolsFaceStyle',
+    ],
+  ], 'setting');
+
+  drupal_add_js(drupal_get_path('module', 'salto_help') . "/js/salto_help.flag.js");
+}
+
+/**
+ * Implements hook_menu().
+ */
+function salto_help_menu() {
+  $items['context_help/%ctools_js'] = [
+    'title' => "Contact us",
+    'page callback' => 'salto_help_page_callback',
+    'page arguments' => [1],
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+
+  //flagging
+  $items['salto/help/feedback/%/%/%'] = [
+    'title' => 'Help entry Feedback',
+    'access callback' => 'user_is_logged_in',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'salto_help_flag_action_callback',
+    'page arguments' => [3, 4, 5],
+  ];
+
+  $items['salto/help/feedback/quick/%'] = [
+    'title' => 'Show not more quick guide panel',
+    'access callback' => 'user_is_logged_in',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'salto_help_callback_quick_guide_panel',
+    'page arguments' => [4],
+  ];
+
+  $items['salto/help/js/%/%node'] = [
+    'title' => 'Help',
+    'page callback' => 'salto_help_js_callback',
+    'page arguments' => [3, 4],
+    'access callback' => TRUE,
+    //We only giv things back for current users,so access check is not important
+    'type' => MENU_CALLBACK,
+  ];
+
+
+  return $items;
+}
+
+/**
+ * js callbacks for salto help
+ *
+ * @param  [type] $op [description]
+ *
+ * @return [type]     [description]
+ */
+function salto_help_js_callback($op, $node) {
+  global $user;
+  switch ($op) {
+    case 'form':
+      salto_help_render_ajax_comment_form($node);
+      break;
+
+    case 'comments':
+
+      $output = salto_help_render_ajax_comments($node);
+      $json = ['output' => $output];
+      drupal_json_output($json);
+      break;
+
+    case 'num_comments':
+      $query = new EntityFieldQuery();
+      $query->entityCondition('entity_type', 'comment')
+        ->propertyCondition('nid', $node->nid);
+
+      $count = $query->count()->execute();
+
+
+      $output = $count . ' ' . format_plural($count, t('comment'), t('comments'));
+      $json = ['output' => $output];
+
+      drupal_json_output($json);
+
+      break;
+    default:
+      break;
+  }
+}
+
+/**
+ * rednder ajax comments
+ *
+ * @param type $node
+ *
+ * @return type
+ */
+function salto_help_render_ajax_comments($node) {
+  $node_view = node_view($node);
+  $node_view['comments'] = comment_node_page_additions($node);
+  unset($node_view['comments']['comment_form']);
+
+  return drupal_render($node_view['comments']);
+}
+
+/**
+ *
+ * @return type
+ */
+function salto_help_render_ajax_comment_link($node) {
+  // Generate a unique token to prevent illegitimate requests.
+  $options = [
+    'attributes' => [
+      'class' => [
+        'use-ajax',
+        'ajax-comments-add-comment',
+        'ajax-comments-add-comment-nid-' . $node->nid,
+      ],
+    ],
+    'query' => ['tok' => drupal_get_token('ajax-comments-add-comment-' . $node->nid)],
+  ];
+  $path = 'salto/help/js/form/' . $node->nid;
+  $text = t('Add comment');
+  return l($text, $path, $options);
+}
+
+function salto_help_render_ajax_comment_form($node) {
+  $comment = new stdClass;
+  $comment->nid = $node->nid;
+  $comment->views_ajax_submission = TRUE;
+  $form = drupal_get_form('comment_form', $comment);
+  unset($form['author']);
+  $markup = drupal_render($form);
+  $commands[] = ajax_command_html('.salto-help-comments-wrapper-' . $node->nid, $markup);
+  $page = ['#type' => 'ajax', '#commands' => $commands];
+  ajax_deliver($page);
+}
+
+/**
+ * [salto_help_flag_action_callback description]
+ *
+ * @param  [type] $nid    [description]
+ * @param  [type] $flag   [description]
+ * @param  [type] $action [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_help_flag_action_callback($nid, $flag, $action) {
+
+
+  if ($flag == 'help_entry_useful_no') {
+    $flag_o = flag_get_flag('help_entry_useful_no');
+  }
+  else {
+    $flag_o = flag_get_flag('help_entry_useful_yes');
+  }
+
+  $data = NULL;
+  if ($action == 'flag') {
+    //flag
+    $flag_o->flag('flag', $nid);
+  }
+  else {
+    //unflag
+    $flag_o->flag('unflag', $nid);
+  }
+
+  $data['data'] = salto_help_render_flag_yes_and_no($nid);
+
+  return drupal_json_output($data);
+}
+
+function salto_help_callback_quick_guide_panel($flag) {
+  global $user;
+  $account = user_load($user->uid);
+
+  if ($flag == 'false') {
+    $account->data['show_quick_guide_panel'] = FALSE;
+    user_save($account);
+  }
+
+  return drupal_json_output($account->data['show_quick_guide_panel']);
+}
+
+function salto_help_show_quick_guide_panel() {
+  global $user;
+  $account = user_load($user->uid);
+
+  if (isset($account->data['show_quick_guide_panel'])) {
+    return FALSE;
+  };
+
+  return TRUE;
+}
+
+function salto_help_page_callback($js = FALSE, $action = 'overview') {
+
+  ctools_include('modal');
+
+  ctools_include('ajax');
+
+  if (strpos($_GET['q'], 'nojs/screencast') !== FALSE) {
+    drupal_set_title(t('Screencasts'));
+    drupal_add_js(drupal_get_path('module', 'salto_help') . "/js/salto_help.screencast.js");
+  }
+
+  if (strpos($_GET['q'], 'collapse') !== FALSE && isset($_GET['nid'])) {
+    drupal_add_js(['nodeId' => $_GET['nid']], 'setting');
+  }
+
+  $output = [];
+
+  //load views and embed them
+  $rendered_out = salto_help_tabs($js, $action);
+  if ($action == "faq") {
+    $rendered_out .= views_embed_view('help_faq_tags', 'default');
+  }
+  else {
+    $rendered_out .= views_embed_view('help', 'panel_pane_1', $action);
+  }
+
+  if ($js) {
+    //set the ajax callback and tell to replace the body output
+    $output[] = ajax_command_html('.help_body', $rendered_out);
+
+    print ajax_render($output);
+  }
+  else {
+    return $rendered_out;
+  }
+}
+
+/**
+ * render the tabs
+ *
+ * @return [type] [description]
+ */
+function salto_help_tabs($js = TRUE, $active = 'support') {
+  $links = [];
+  ctools_include('ajax');
+
+  //first before ajax can bind mousedown event
+  drupal_add_js(drupal_get_path('module', 'salto_help') . '/js/salto_help.js', ['weight' => 55]);
+
+
+  $links[] = [
+    'data' => ctools_ajax_text_button(t('Support request'), 'context_support/nojs/contact', '', 'ctools-modal-salto-style help-support'),
+    'class' => $active == 'contact' ? ['active'] : [],
+  ];
+
+  $links[] = [
+    'data' => ctools_ajax_text_button(t('Overview'), 'context_help/nojs/general', '', 'ctools-modal-salto-style help-overview'),
+    'class' => $active == 'general' ? ['active'] : [],
+  ];
+
+  $links[] = [
+    'data' => ctools_ajax_text_button(t('FAQ'), 'context_help/nojs/faq', '', 'ctools-modal-salto-style help-faq'),
+    'class' => $active == 'faq' ? ['active'] : [],
+  ];
+
+  $links[] = [
+    'data' => ctools_ajax_text_button(t('Screencasts'), 'context_help/nojs/screencast', '', 'ctools-modal-salto-style help-screencasts'),
+    'class' => $active == 'screencast' ? ['active'] : [],
+  ];
+
+  $links[] = [
+    'data' => ctools_ajax_text_button(t('Usage samples'), 'context_help/nojs/scenario', '', 'ctools-modal-salto-style help-usage'),
+    'class' => $active == 'scenario' ? ['active'] : [],
+  ];
+
+  return theme('item_list', [
+    'items' => $links,
+    'attributes' => ['class' => 'nav nav-tabs'],
+  ]);
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function salto_help_menu_alter(&$items) {
+
+  $items['help/%pm_arg']['modal'] = TRUE;
+  $items['context_support/%ctools_js/contact']['access callback'] = 'salto_help_modal_dialog_access_callback';
+
+}
+
+/**
+ * help - modal dialog access callback
+ *
+ * @param  [type] $arg [description]
+ *
+ * @return [type]      [description]
+ */
+function salto_help_modal_dialog_access_callback($arg = NULL) {
+
+  global $user;
+
+  //only auth users may access help modals
+  if ($user->uid > 0) {
+    return TRUE;
+  }
+
+  return FALSE;
+
+}
+
+
+/**
+ * Implements hook_action_links_info
+ */
+function salto_help_action_links_info() {
+  $items['help'] = t('Help links');
+  return $items;
+}
+
+/**
+ * Implements hook_salto_action_links
+ *
+ * @param type $category
+ *
+ * @return type
+ */
+function salto_help_salto_action_links($category, $context) {
+  $links = [];
+
+  switch ($category) {
+    case 'help':
+      $node = $context['node_context'];
+      $base_query = drupal_get_destination();
+
+      //the edit link
+      if (!empty($node)) {
+        if (!empty($node) && node_access("update", $node)) {
+          $path = 'node/' . $node->nid . '/edit';
+          $text = t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]);
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => $base_query,
+              'attributes' => [
+                'title' => t('Edit this @node_type', ['@node_type' => node_type_get_name($node)]),
+                'class' => 'action_link edit_node edit_article',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["edit_node"] = $link;
+        }
+      }
+
+      //revisions
+      if (!empty($node) && user_access("view revisions")) {
+        $path = 'node/' . $node->nid . '/revisions';
+        $text = t('Manage revisions');
+        $dest = drupal_get_destination();
+        $link = [
+          '#theme' => 'link',
+          '#text' => $text,
+          '#path' => $path,
+          '#options' => [
+            'query' => $query,
+            'attributes' => [
+              'title' => t('See all versions of this article'),
+              'class' => 'action_link manage_revisions',
+            ],
+            'html' => TRUE,
+          ],
+        ];
+        $links["manage_revisions"] = $link;
+      }
+      break;
+  }
+  return $links;
+}
+
+
+/**
+ * Implements hook_file_access_records_alter().
+ */
+function salto_help_file_access_records_alter(&$grants, $file) {
+  if (empty($grants['all'])) {
+    $usage = file_usage_list($file);
+
+    //get all nodes in one array
+    foreach ($usage as $type => $data) {
+      if (!empty($data['node'])) {
+        foreach ($data['node'] as $nid => $active) {
+          $node = node_load($nid);
+          if ($node->type == 'help') {
+            $grants[] = [
+              'realm' => 'all',
+              'gid' => 0,
+              'grant_view' => 1,
+              'grant_update' => 0,
+              'grant_delete' => 0,
+              'grant_download' => 1,
+            ];
+            return;
+          }
+        }
+      }
+    }
+  }
+}

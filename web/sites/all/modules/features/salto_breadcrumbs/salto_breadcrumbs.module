@@ -1,0 +1,193 @@
+<?php
+/**
+ * @file
+ * Code for the Salto Breadcrumbs feature.
+ */
+
+include_once 'salto_breadcrumbs.features.inc';
+
+/**
+ * Implements hook_files_path_breadcrumbs_view
+ *
+ * @param  [type] $path_breadcrumbs [description]
+ * @param  [type] $contexts         [description]
+ *
+ * @return [type]                   [description]
+ */
+function salto_breadcrumbs_path_breadcrumbs_view_alter(&$breadcrumbs, $path_breadcrumbs, $contexts) {
+  salto_breadcrumbs_license_alter($breadcrumbs, $path_breadcrumbs, $contexts);
+  salto_breadcrumbs_knowledgebase_alter($breadcrumbs, $path_breadcrumbs, $contexts);
+  salto_breadcrumbs_groups_alter($breadcrumbs, $path_breadcrumbs, $contexts);
+}
+
+function salto_breadcrumbs_license_alter(&$breadcrumbs, $path_breadcrumbs, $contexts) {
+  if ($path_breadcrumbs->machine_name == 'license_view') {
+    if ($contexts['license']->data->wbm_nid == NULL) {
+      array_pop($breadcrumbs);
+      $og = node_load($contexts['license']->data->og_nid);
+      $breadcrumbs[] = l($og->title, 'licenses/' . $og->nid);
+    }
+  }
+}
+
+function salto_breadcrumbs_knowledgebase_alter(&$breadcrumbs, $path_breadcrumbs, $contexts) {
+  if ($path_breadcrumbs->from_cache == FALSE) {
+
+    if ($path_breadcrumbs->machine_name == 'category_assign') {
+      $type = $contexts['type']->data;
+      $eid = $contexts['eid']->data;
+
+      if (!is_numeric($eid)) {
+        return;
+      }
+
+      array_shift($breadcrumbs);
+
+      if ($type == 'materials') {
+        $entity_type = 'file';
+        $file = file_load($eid);
+        $additional_breadcrumb = _salto_knowledgebase_file_category_breadcrumb($file);
+
+        array_push($breadcrumbs, l(t('Materials'), 'materials'));
+        $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+      }
+      elseif ($type == 'posts') {
+        $node = node_load($eid);
+        array_push($breadcrumbs, l(t('Posts'), 'posts'));
+        $additional_breadcrumb = _salto_knowledgebase_post_category_breadcrumb($node);
+        $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+      }
+    }
+
+    if ($path_breadcrumbs->machine_name == 'materials_overview') {
+      if ($term = $contexts['term']->data) {
+
+        $additional_breadcrumb = _salto_knowledgebase_get_category_hirarchie('materials', $term);
+        if (count($additional_breadcrumb) != 0) {
+          $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+        }
+      }
+    }
+
+    if ($path_breadcrumbs->machine_name == 'knowledgebase_upload_file_clone' || $path_breadcrumbs->machine_name == 'node_add_group_content') {
+      if (!empty($_GET['field_og_group'])) {
+        $node = node_load($_GET['field_og_group']);
+        array_splice($breadcrumbs, 2, 0, [l($node->title, 'node/' . $node->nid)]);
+      }
+    }
+    //inject categories to posts view/edit/delete
+    if ($path_breadcrumbs->machine_name == 'beitraege_node_view' || $path_breadcrumbs->machine_name == 'beitraege_node_edit') {
+      if ($node = $contexts['node']->data) {
+        $additional_breadcrumb = _salto_knowledgebase_post_category_breadcrumb($node);
+        $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+        drupal_set_title($node->title);
+      }
+    }
+    //inject breadcrumbs into posts overview with categories
+    if ($path_breadcrumbs->machine_name == 'beitraege_overview') {
+      if ($term = $contexts['term']->data) {
+        salto_breadcrumbs_set_category_breadcrumb($breadcrumbs, 'posts', $term);
+      }
+    }
+
+    //inject category post category for node/add/post
+    if ($path_breadcrumbs->machine_name == 'beitraege_node_add') {
+
+      $content_category_tid = isset($_GET['content_category']) ? check_plain($_GET['content_category']) : NULL;
+      if ($content_category_tid && $term = taxonomy_term_load($content_category_tid)) {
+
+        $additional_breadcrumb = _salto_knowledgebase_get_category_hirarchie('posts', $term);
+        $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+      }
+    }
+
+
+    //inject breadcrumbs into file edit with categories
+    if ($path_breadcrumbs->machine_name == 'files_edit') {
+      if ($file = $contexts['file']->data) {
+        $additional_breadcrumb = _salto_knowledgebase_file_category_breadcrumb($file);
+        $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+      }
+    }
+  }
+}
+
+/**
+ * Get breadcrumb per fn _salto_knowledgebase_get_category_hirarchie
+ * and merge with current breadcrumb
+ *
+ * @param $breadcrumb
+ * @param $type
+ * @param $term
+ * @param $setTitle
+ *
+ * @author D.Kuche
+ */
+function salto_breadcrumbs_set_category_breadcrumb(&$breadcrumb, $type, $term, $setTitle = TRUE) {
+  $additional_breadcrumb = _salto_knowledgebase_get_category_hirarchie($type, $term);
+  $breadcrumb = array_merge($breadcrumb, $additional_breadcrumb);
+  if ($setTitle) {
+    array_pop($breadcrumb);
+    drupal_set_title($term->name);
+  }
+}
+
+/**
+ * @param $breadcrumbs
+ * @param $path_breadcrumbs
+ * @param $contexts
+ */
+function salto_breadcrumbs_groups_alter(&$breadcrumbs, $path_breadcrumbs, $contexts) {
+  //inject category post category for node view in groups
+  if ($path_breadcrumbs->machine_name == 'group_content' || $path_breadcrumbs->machine_name == 'group_files') {
+    if ($term = $contexts['term']->data) {
+      $group = $contexts['node']->data;
+      $additional_breadcrumb = _salto_group_breadcrumbs_get_category_hierarchy('posts', $group, $term);
+
+      //last term == current path, so pop the last element
+      array_pop($additional_breadcrumb);
+      $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+
+      //current active term
+      drupal_set_title($term->name);
+    }
+  }
+
+  //inject breadcrumbs into group posts overview with categories
+  if ($path_breadcrumbs->machine_name == 'beitraege_node_view_in_group') {
+    if ($node = $contexts['node']->data) {
+      $additional_breadcrumb = _salto_group_post_category_breadcrumb($node);
+      $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+      drupal_set_title($node->title);
+    }
+  }
+  //fix group node /node/id
+  if ($path_breadcrumbs->machine_name == 'groups') {
+    if ($node = $contexts['node']->data) {
+      drupal_set_title(t('Posts'), 'posts');
+    }
+  }
+
+  //inject category post category for node/add/post
+  if ($path_breadcrumbs->machine_name == 'node_add_group_content') {
+
+    $content_category_tid = isset($_GET['og_vocabulary']) ? check_plain($_GET['og_vocabulary']) : NULL;
+    $group_context = og_context();
+    $group = ['nid' => $group_context['gid']];
+    if ($content_category_tid && $term = taxonomy_term_load($content_category_tid)) {
+
+      $additional_breadcrumb = _salto_group_breadcrumbs_get_category_hierarchy('posts', (object) $group_context, $term);
+
+      $breadcrumbs = array_merge($breadcrumbs, $additional_breadcrumb);
+    }
+  }
+
+  if ($path_breadcrumbs->machine_name == 'file_add_in_group') {
+    $group_context = $_GET['field_og_group'];
+    if (is_numeric($group_context)) {
+      $group = node_load($group_context);
+      $breadcrumbs[] = l($group->title, 'node/' . $group->nid);
+    }
+    drupal_set_title(t('Upload file'));
+  }
+}

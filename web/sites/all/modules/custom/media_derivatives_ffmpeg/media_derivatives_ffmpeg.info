@@ -1,0 +1,12 @@
+name = ffmpeg engine for media deivatives
+description = Media derivatives api ffmpeg engine.
+package = Media
+core = 7.x
+
+files[] = media_derivatives_ffmpeg.module
+
+dependencies[] = media_derivatives
+
+version = "7.x-1.x-dev"
+
+testing_api = 2.x

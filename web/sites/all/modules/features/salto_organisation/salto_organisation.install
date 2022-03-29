@@ -1,0 +1,40 @@
+<?php
+/**
+* set missing categories
+*/
+function salto_organisation_update_20000() {
+  salto_debug_set_missing_categories();
+}
+
+
+/*
+ *create fallback organisation
+ */
+function salto_organisation_update_21000() {
+  //create fallback organisation
+  $data = array();
+  $data['title'] = "Keine Organisationszuweisung";
+  $data['nid'] = -1;
+
+  $fallback_og = _salto_organisation_create_organisation($data);
+
+  //set config
+  variable_set('salto_organisation_fallback_nid', $fallback_og->nid);
+}
+
+/**
+ * update user menu (add new element for mobile header)
+ */
+function salto_user_update_35001() {
+  $menu = menu_tree('main-menu');
+
+  $item = array(
+    'link_path' => 'user',
+    'link_title' => 'Organisationen',
+    'menu_name' => 'main-menu',
+    'weight' => -48,
+    'language' => 'de',
+    'module' => 'menu',
+  );
+  $mlid = menu_link_save($item);
+}

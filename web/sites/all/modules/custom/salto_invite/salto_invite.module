@@ -1,0 +1,874 @@
+<?php
+
+/**
+ * @file
+ * Module for the Model Entity - a starting point to create your own Entity
+ * and associated administration interface
+ */
+
+
+/**
+ * Implement hook_entity_info().
+ *
+ * We define two entities here - the actual entity that will hold our domain
+ * specific information and an entity that holds information about the
+ * different
+ * types of entities. See here: http://drupal.org/node/977380 for a discussion
+ * on this choice.
+ */
+function salto_invite_entity_info() {
+  $return['salto_invite'] = [
+    'label' => t('Salto Invite'),
+    'entity class' => 'SaltoInvite',
+    'controller class' => 'SaltoInviteController',
+    'metadata controller class' => 'SaltoInviteMetadataController',
+    'base table' => 'salto_invite',
+    'fieldable' => TRUE,
+    'entity keys' => [
+      'id' => 'salto_invite_id',
+      'bundle' => 'type',
+    ],
+    'bundles' => [],
+    'bundle keys' => [
+      'bundle' => 'type',
+    ],
+    'label callback' => 'entity_class_label',
+    'uri callback' => 'entity_class_uri',
+    'creation callback' => 'salto_invite_create',
+    'access callback' => 'salto_invite_access',
+    'module' => 'salto_invite',
+    'admin ui' => [
+      'path' => 'admin/content/salto_invites',
+      'file' => 'salto_invite.admin.inc',
+      'controller class' => 'SaltoInviteUIController',
+      'menu wildcard' => '%salto_invite',
+    ],
+  ];
+
+  $return['salto_invite_type'] = [
+    'label' => t('Salto Invite Type'),
+    'entity class' => 'SaltoInviteType',
+    'controller class' => 'SaltoInviteTypeController',
+    'base table' => 'salto_invite_type',
+    'fieldable' => FALSE,
+    'bundle of' => 'salto_invite',
+    'exportable' => TRUE,
+    'entity keys' => [
+      'id' => 'id',
+      'name' => 'type',
+      'label' => 'label',
+    ],
+    'access callback' => 'salto_invite_type_access',
+    'module' => 'salto_invite',
+    'admin ui' => [
+      'path' => 'admin/structure/salto_invite_types',
+      'file' => 'salto_invite_type.admin.inc',
+      'controller class' => 'SaltoInviteTypeUIController',
+    ],
+  ];
+
+  return $return;
+}
+
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * We are adding the info about the model types via a hook to avoid a recursion
+ * issue as loading the model types requires the entity info as well.
+ *
+ */
+function salto_invite_entity_info_alter(&$entity_info) {
+  foreach (salto_invite_get_types() as $type => $info) {
+    $entity_info['salto_invite']['bundles'][$type] = [
+      'label' => $info->label,
+      'admin' => [
+        'path' => 'admin/structure/salto_invite_types/manage/%salto_invite_type',
+        'real path' => 'admin/structure/salto_invite_types/manage/' . $type,
+        'bundle argument' => 4,
+        'access arguments' => ['administer salto_invite types'],
+      ],
+    ];
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function salto_invite_menu() {
+  $items['salto_invite/%/accept'] = [
+    'page callback' => 'salto_invite_use_page',
+    'page arguments' => [1, 2],
+    'access callback' => 'salto_invite_use_access',
+    'access arguments' => [1],
+    'type' => MENU_CALLBACK,
+  ];
+  $items['salto_invite/%/decline'] = [
+    'page callback' => 'salto_invite_use_page',
+    'page arguments' => [1, 2],
+    'access callback' => 'salto_invite_use_access',
+    'access arguments' => [1],
+    'type' => MENU_CALLBACK,
+  ];
+  $items['salto_invite/%/resend'] = [
+    'page callback' => 'salto_invite_resend_callback',
+    'page arguments' => [1],
+    'access callback' => 'salto_invite_menu_access',
+    'access arguments' => [1, "resend"],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['salto_invite/%/delete'] = [
+    'page callback' => 'salto_invite_delete_callback',
+    'page arguments' => [1],
+    'access callback' => 'salto_invite_menu_access',
+    'access arguments' => [1, "delete"],
+    'type' => MENU_CALLBACK,
+  ];
+
+  return $items;
+}
+
+/**
+ * Invite use access
+ *
+ * @param  [type] $invite [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_invite_use_access($id, $account = NULL) {
+
+  if (!drupal_valid_token($_GET['token'], 'invite_use')) {
+    return FALSE;
+  }
+
+  $invite = salto_invite_load($id);
+
+  if (!$account) {
+    global $user;
+    $account = clone $user;
+  }
+
+  return !empty($invite->field_salto_invite_account[LANGUAGE_NONE][0]['target_id'])
+    && $invite->field_salto_invite_account[LANGUAGE_NONE][0]['target_id'] == $account->uid;
+}
+
+/**
+ * CRSF access wrapper
+ *
+ * @param  [type] $invite [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_invite_menu_access($id, $op, $account = NULL) {
+
+  if (!drupal_valid_token($_GET['token'], 'invite')) {
+    return FALSE;
+  }
+
+  $invite = salto_invite_load($id);
+
+  if ($invite->used) {
+    return FALSE;
+  }
+
+  if (!$account) {
+    global $user;
+    $account = clone $user;
+  }
+
+  return salto_invite_access($op, $invite, $account);
+}
+
+/**
+ * check if user may invite to the organisation an invitation is assigned to
+ *
+ * @param $invite
+ * @param $account
+ *
+ * @return bool
+ */
+function salto_invite_salto_invite_resend_access($invite, $account) {
+
+  $gid = NULL;
+  if ($invite->type == 'organisation_invite') {
+    $gid = $invite->field_salto_invite_organisations[LANGUAGE_NONE][0]['target_id'];
+  }
+
+  if ($invite->type == 'accept_invite') {
+    $gid = $invite->field_salto_invite_og[LANGUAGE_NONE][0]['target_id'];
+  }
+
+  if (og_user_access('node', $gid, 'manage all members', $account)) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+
+/**
+ * @param $id
+ */
+function salto_invite_resend_callback($id) {
+
+  $invite = salto_invite_load($id);
+
+  module_invoke_all('salto_invite_resend', $invite);
+
+  drupal_goto(drupal_get_destination());
+}
+
+/**
+ * @param $id
+ */
+function salto_invite_delete_callback($id) {
+
+  $invite = salto_invite_load($id);
+
+  salto_invite_delete($invite);
+
+  drupal_set_message(t("Invite has been removed."));
+
+  drupal_goto(drupal_get_destination());
+}
+
+/**
+ * @param $invite
+ */
+function salto_invite_salto_invite_resend($invite) {
+
+  if ($invite->type == 'organisation_invite') {
+    //check if user doesn't have a account yet
+    //otherwise set note to use the forgot password function
+    $mail = $invite->field_profile_contact_email[LANGUAGE_NONE][0]['value'];
+    if (user_load_by_mail($mail)) {
+      drupal_set_message(t('The e-mail address %email is already registered. User should use the <a href="@password">forgotten your password function</a>', [
+        '%email' => $mail,
+        '@password' => url('user/password'),
+      ]), 'error');
+    }
+    else {
+      salto_og_new_user_invite_send_mail($invite);
+
+      drupal_set_message(t("An !invite has been sent again to the e-mail-adress %email.", [
+        '%email' => $mail,
+        '!invite' => l(t('Invite'), 'salto_invite/' . $invite->salto_invite_id),
+      ]));
+    }
+  }
+
+  if ($invite->type == 'accept_invite') {
+    module_invoke_all('salto_invite_created', $invite);
+    $uid = $invite->field_salto_invite_account[LANGUAGE_NONE][0]['target_id'];
+    $gid = $invite->field_salto_invite_og[LANGUAGE_NONE][0]['target_id'];
+
+    $account = user_load($uid);
+    $group = node_load($gid);
+
+    drupal_set_message(t('%user has been notified again about the invitation to the group %group-title.', [
+      '%user' => format_username($account),
+      '%group-title' => entity_label('node', $group),
+    ]));
+  }
+}
+
+/**
+ * Invite use callback
+ *
+ * @param  [type] $invite [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_invite_use_page($id, $op) {
+  $invite = salto_invite_load($id);
+
+  $invite->used = TRUE;
+  $invite->save();
+
+  module_invoke_all('salto_invite_used', $invite, $op);
+
+  salto_invite_delete($invite);
+
+  drupal_goto(drupal_get_destination());
+}
+
+/**
+ * Implements hook_permission().
+ */
+function salto_invite_permission() {
+  // We set up permisssions to manage entity types, manage all entities and the
+  // permissions for each individual entity
+  $permissions = [
+    'administer salto_invite types' => [
+      'title' => t('Administer salto_invite types'),
+      'description' => t('Create and delete fields for salto_invite types, and set their permissions.'),
+    ],
+    'administer salto invites' => [
+      'title' => t('Administer salto invites'),
+      'description' => t('Edit and delete all salto invites'),
+    ],
+  ];
+
+  //Generate permissions per model
+  foreach (salto_invite_get_types() as $type) {
+    $type_name = check_plain($type->type);
+    $permissions += [
+      "edit any $type_name salto invite" => [
+        'title' => t('%type_name: Edit any salto invite', ['%type_name' => $type->label]),
+      ],
+      "view any $type_name salto_invite" => [
+        'title' => t('%type_name: View any salto invite', ['%type_name' => $type->label]),
+      ],
+    ];
+  }
+  return $permissions;
+}
+
+/**
+ * Determines whether the given user has access to a model.
+ *
+ * @param $op
+ *   The operation being performed. One of 'view', 'update', 'create', 'delete'
+ *   or just 'edit' (being the same as 'create' or 'update').
+ * @param $model
+ *   Optionally a model or a model type to check access for. If nothing is
+ *   given, access for all models is determined.
+ * @param $account
+ *   The user to check for. Leave it to NULL to check for the global user.
+ *
+ * @return boolean
+ *   Whether access is allowed or not.
+ */
+function salto_invite_access($op, $salto_invite = NULL, $account = NULL) {
+  if (user_access('administer salto invites', $account)) {
+    return TRUE;
+  }
+
+  if (isset($salto_invite) && $type_name = $salto_invite->type) {
+    switch ($op) {
+      case 'view':
+      case 'edit':
+        if (user_access("$op any $type_name salto invite", $account)) {
+          return TRUE;
+        }
+        break;
+      case 'resend':
+      case 'delete':
+        $access = module_invoke_all('salto_invite_resend_access', $salto_invite, $account);
+        if (in_array(FALSE, $access)) {
+          return FALSE;
+        }
+        if (in_array(TRUE, $access)) {
+          return TRUE;
+        }
+        break;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Access callback for the entity API.
+ */
+function salto_invite_type_access($op, $type = NULL, $account = NULL) {
+  return user_access('administer salto_invite types', $account);
+}
+
+/**
+ * Gets an array of all model types, keyed by the type name.
+ *
+ * @param $type_name
+ *   If set, the type with the given name is returned.
+ *
+ * @return ModelType[]
+ *   Depending whether $type isset, an array of model types or a single one.
+ */
+function salto_invite_get_types($type_name = NULL) {
+  $types = entity_load_multiple_by_name('salto_invite_type', isset($type_name) ? [$type_name] : FALSE);
+  return isset($type_name) ? reset($types) : $types;
+}
+
+/**
+ * Menu argument loader; Load a model type by string.
+ *
+ * @param $type
+ *   The machine-readable name of a model type to load.
+ *
+ * @return
+ *   A model type array or FALSE if $type does not exist.
+ */
+function salto_invite_type_load($type) {
+  return salto_invite_get_types($type);
+}
+
+/**
+ * Fetch a model object. Make sure that the wildcard you choose
+ * in the model entity definition fits the function name here.
+ *
+ * @param $model_id
+ *   Integer specifying the model id.
+ * @param $reset
+ *   A boolean indicating that the internal cache should be reset.
+ *
+ * @return
+ *   A fully-loaded $model object or FALSE if it cannot be loaded.
+ *
+ * @see model_load_multiple()
+ */
+function salto_invite_load($salto_invite_id, $reset = FALSE) {
+  $salto_invites = salto_invite_load_multiple([$salto_invite_id], [], $reset);
+  return reset($salto_invites);
+}
+
+/**
+ * Load multiple models based on certain conditions.
+ *
+ * @param $model_ids
+ *   An array of model IDs.
+ * @param $conditions
+ *   An array of conditions to match against the {model} table.
+ * @param $reset
+ *   A boolean indicating that the internal cache should be reset.
+ *
+ * @return
+ *   An array of model objects, indexed by model_id.
+ *
+ * @see entity_load()
+ * @see model_load()
+ */
+function salto_invite_load_multiple($salto_invite_ids = [], $conditions = [], $reset = FALSE) {
+  return entity_load('salto_invite', $salto_invite_ids, $conditions, $reset);
+}
+
+/**
+ * Deletes a model.
+ */
+function salto_invite_delete(SaltoInvite $salto_invite) {
+  $salto_invite->delete();
+}
+
+/**
+ * Delete multiple models.
+ *
+ * @param $model_ids
+ *   An array of model IDs.
+ */
+function salto_invite_delete_multiple(array $salto_invite_ids) {
+  entity_get_controller('salto_invite')->delete($salto_invite_ids);
+}
+
+/**
+ * Create a model object.
+ */
+function salto_invite_create($values = []) {
+  return entity_get_controller('salto_invite')->create($values);
+}
+
+/**
+ * Saves a model to the database.
+ *
+ * @param $model
+ *   The model object.
+ */
+function salto_invite_save(SaltoInvite &$salto_invite) {
+  return entity_save('salto_invite', $salto_invite);
+}
+
+/**
+ * Saves a model type to the db.
+ */
+function salto_invite_type_save(SaltoInviteType $type) {
+  return entity_save('salto_invite_type', $type);
+}
+
+/**
+ * Deletes a model type from the db.
+ */
+function salto_invite_type_delete(SaltoInviteType $type) {
+  $type->delete();
+}
+
+/**
+ * URI callback for models
+ */
+function salto_invite_uri(SaltoInvite $salto_invite) {
+  return [
+    'path' => 'salto_invite/' . $salto_invite->salto_invite_id,
+  ];
+}
+
+/**
+ * Menu title callback for showing individual entities
+ */
+function salto_invite_page_title(SaltoInvite $salto_invite) {
+  return $salto_invite->code;
+}
+
+/**
+ * Sets up content to show an individual model
+ */
+function salto_invite_page_view($salto_invite, $view_mode = 'full') {
+  $controller = entity_get_controller('salto_invite');
+  $content = $controller->view([$salto_invite->salto_invite_id => $salto_invite]);
+  drupal_set_title($salto_invite->code);
+  return $content;
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function salto_invite_views_api() {
+  return [
+    'api' => 3,
+    'path' => drupal_get_path('module', 'salto_invite') . '/views',
+  ];
+}
+
+/**
+ * Implement hook_theme().
+ */
+function salto_invite_theme() {
+  return [
+    'salto_invite_add_list' => [
+      'variables' => ['content' => []],
+      'file' => 'salto_invite.admin.inc',
+    ],
+    'salto_invite' => [
+      'render element' => 'elements',
+      'template' => 'salto_invite',
+    ],
+    'model_sample_data' => [
+      'variables' => ['model_sample_data', 'model' => NULL],
+      'template' => 'model-sample-data',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function salto_invite_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  if ($root_path == 'admin/content/salto_invites') {
+    $item = menu_get_item('admin/content/salto_invites/add');
+    if ($item['access']) {
+      $data['actions']['output'][] = [
+        '#theme' => 'menu_local_action',
+        '#link' => $item,
+      ];
+    }
+  }
+}
+
+/**
+ * The class used for model entities
+ */
+class SaltoInvite extends Entity {
+
+  public function __construct($values = []) {
+    parent::__construct($values, 'salto_invite');
+  }
+
+  protected function defaultLabel() {
+    return $this->code;
+  }
+
+  protected function defaultUri() {
+    return ['path' => 'salto_invite/' . $this->salto_invite_id];
+  }
+
+}
+
+/**
+ * The class used for model type entities
+ */
+class SaltoInviteType extends Entity {
+
+  public $type;
+
+  public $label;
+
+  public function __construct($values = []) {
+    parent::__construct($values, 'salto_invite_type');
+  }
+
+}
+
+/**
+ * The Controller for Model entities
+ */
+class SaltoInviteController extends EntityAPIController {
+
+  public function __construct($entityType) {
+    parent::__construct($entityType);
+  }
+
+  /**
+   * Create a model - we first set up the values that are specific
+   * to our model schema but then also go through the EntityAPIController
+   * function.
+   *
+   * @param $type
+   *   The machine-readable type of the model.
+   *
+   * @return
+   *   A model object with all default fields initialized.
+   */
+  public function create(array $values = []) {
+    $values += [
+      'salto_invite_id' => '',
+      'code' => salto_invite_create_regcode(10, 'alphanum'),
+      'is_new' => TRUE,
+      'title' => '',
+      'used' => 0,
+      'created' => '',
+      'changed' => '',
+      'data' => '',
+    ];
+
+    $salto_invite = parent::create($values);
+    return $salto_invite;
+  }
+
+  /**
+   * Overriding the buldContent function to add entity specific fields
+   */
+  public function buildContent($entity, $view_mode = 'full', $langcode = NULL, $content = []) {
+    $content = parent::buildContent($entity, $view_mode, $langcode, $content);
+    $content['model_sample_data'] = [
+      '#markup' => "test",
+    ];
+
+    return $content;
+  }
+
+}
+
+/**
+ * The Controller for Model entities
+ */
+class SaltoInviteTypeController extends EntityAPIControllerExportable {
+
+  public function __construct($entityType) {
+    parent::__construct($entityType);
+  }
+
+  /**
+   * Create a model type - we first set up the values that are specific
+   * to our model type schema but then also go through the EntityAPIController
+   * function.
+   *
+   * @param $type
+   *   The machine-readable type of the model.
+   *
+   * @return
+   *   A model type object with all default fields initialized.
+   */
+  public function create(array $values = []) {
+    $values += [
+      'id' => '',
+      'is_new' => TRUE,
+      'data' => '',
+      'used' => FALSE,
+    ];
+    $salto_invite_type = parent::create($values);
+    return $salto_invite_type;
+  }
+
+}
+
+/**
+ * Create a code
+ *
+ * @param  [type] $length [description]
+ * @param  [type] $output [description]
+ * @param  [type] $case   [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_invite_create_regcode($length, $output, $case = FALSE) {
+  static $seeded = FALSE;
+
+  // Possible seeds
+  $outputs['alpha'] = 'abcdefghijklmnopqrstuvwqyz';
+  $outputs['numeric'] = '0123456789';
+  $outputs['alphanum'] = 'abcdefghijklmnopqrstuvwqyz0123456789';
+  $outputs['hexadec'] = '0123456789abcdef';
+
+  // Choose seed
+  if (isset($outputs[$output])) {
+    $output = $outputs[$output];
+  }
+
+  // Seed generator (only do this once per invocation)
+  if (!$seeded) {
+    [$usec, $sec] = explode(' ', microtime());
+    $seed = (float) $sec + ((float) $usec * 100000);
+    mt_srand($seed);
+    $seeded = TRUE;
+  }
+
+  $str = '';
+  $output_count = strlen($output);
+  for ($i = 0; $length > $i; $i++) {
+    $str .= $output{mt_rand(0, $output_count - 1)};
+  }
+  if ($case) {
+    $str = strtoupper($str);
+  }
+
+  return $str;
+}
+
+/**
+ * Create an url safe regcode
+ *
+ * @param  [type] $invite_id [description]
+ *
+ * @return [type]            [description]
+ */
+function _salto_invite_encode_regurl($invite_id) {
+
+  $str = serialize([
+    'invite_id' => $invite_id,
+  ]);
+
+  $encrypted = core_encrypt_openssl($str, SALTO_REGCODE_KEY, 'bf-cbc');
+  return base64_encode($encrypted);
+}
+
+/**
+ * Decode an regcode from url
+ *
+ * @param  [type] $hash
+ *
+ * @return [type]
+ */
+function _salto_invite_decode_regurl($hash) {
+  $str = core_decrypt_openssl(base64_decode($hash), SALTO_REGCODE_KEY, 'bf-cbc');
+  return unserialize($str);
+}
+
+/**
+ * Get an encoded url link for an invite
+ *
+ * @param SaltoInvite $invite [description]
+ *
+ * @return [type]              [description]
+ */
+function _salto_invite_get_link(SaltoInvite $invite) {
+  $link = url("user/register", [
+      'absolute' => TRUE,
+      'query' => [
+        'code' => urlencode(_salto_invite_encode_regurl($invite->salto_invite_id)),
+      ],
+    ]
+  );
+  return $link;
+}
+
+/**
+ * Mial token for salto invites
+ *
+ * @param  [type] $replacements [description]
+ * @param  [type] $data         [description]
+ * @param  [type] $options      [description]
+ *
+ * @return [type]               [description]
+ */
+function salto_invite_mail_tokens(&$replacements, $data, $options) {
+  if (isset($data['invite'])) {
+    $invite = $data['invite'];
+    $inviter = user_load($invite->uid);
+    $replacements['[salto_invite:invite_link]'] = _salto_invite_get_link($data['invite']);
+    $replacements['[salto_invite:message]'] = $invite->data['invite'];
+    $replacements['[salto_invite:name]'] = $invite->field_profile_name_first[LANGUAGE_NONE][0]['value'] . " " . $invite->field_profile_name_last[LANGUAGE_NONE][0]['value'];
+    $replacements['[salto_invite:user]'] = $inviter->realname;
+  }
+}
+
+/**
+ * Implemnts hook_token_info
+ *
+ * @return [type] [description]
+ */
+function salto_invite_token_info() {
+  $type = [
+    'name' => t('Salto Invite'),
+    'description' => t('Tokens related to individual salto invites.'),
+    'needs-data' => 'salto_invite',
+  ];
+
+  $invite['invite_link'] = [
+    'name' => t("Invite link"),
+    'description' => t("The user register link of the invite."),
+  ];
+  $invite['message'] = [
+    'name' => t("Invite message"),
+    'description' => t("The invite message."),
+  ];
+  $invite['name'] = [
+    'name' => t("Fullname"),
+    'description' => t("The fullname of the invited user."),
+  ];
+
+  $invite['user'] = [
+    'name' => t("User"),
+    'description' => t("The date the node was posted."),
+  ];
+
+  $invite['message'] = [
+    'name' => t("Message"),
+    'description' => t("The invite message."),
+  ];
+
+  return [
+    'types' => ['salto_invite' => $type],
+    'tokens' => ['salto_invite' => $invite],
+  ];
+}
+
+/**
+ * Implements hook_user_delete().
+ */
+function salto_invite_user_delete($account) {
+  db_delete('salto_invite')->condition('uid', $account->uid)->execute();
+}
+
+/**
+ * Get the invite types as options
+ *
+ * @return [type] [description]
+ */
+function salto_invite_types_get_options() {
+  $options = [];
+  foreach (salto_invite_get_types() as $type) {
+    $options[$type->type] = $type->label;
+  }
+  return $options;
+}
+
+/**
+ * Implementation of hook_tokens().
+ */
+function salto_invite_tokens($type, $tokens, array $data = [], array $options = []) {
+  $url_options = ['absolute' => TRUE];
+  if (isset($options['language'])) {
+    $url_options['language'] = $options['language'];
+  }
+
+  $replacements = [];
+
+  if ($type == 'salto_invite' && !empty($data['salto_invite'])) {
+    $salto_invite = $data['salto_invite'];
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'message':
+          $replacements[$original] = !empty($salto_invite->data['invite']) ? $salto_invite->data['invite'] : '';
+          break;
+      }
+    }
+  }
+  return $replacements;
+}

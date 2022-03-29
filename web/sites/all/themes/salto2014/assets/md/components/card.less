@@ -1,0 +1,124 @@
+@import "../node_modules/@fortawesome/fontawesome-free/less/fontawesome";
+@import "../node_modules/@fortawesome/fontawesome-free/less/solid";
+
+@import "../../../less/variables";
+
+.card {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  //border: 1px solid @dosb-light-grey;
+  border-radius: @card-border-radius;
+  box-shadow: @card-background-shadow;
+  transition: 0.1s;
+  padding: 1em;
+  background-color: white;
+  margin: 1em auto;
+
+  &.row {
+    flex-direction: row;
+    width: 100%;
+    //margin: 1em;
+  }
+
+  &:hover {
+    box-shadow: @card-background-shadow-hover;
+  }
+
+  header, .header {
+    display: flex;
+    align-items: center;
+
+    h2 {
+      word-break: break-word;
+      font-weight: bold;
+    }
+
+    .col-md-15 {
+      flex: auto;
+    }
+
+  }
+
+  img {
+    max-width: 100%;
+  }
+
+  .field-name-field-user-picture img {
+    border-radius: 8em;
+    width: @card-user-image-width;
+    height: inherit;
+    max-width: 100%;
+  }
+
+  img + div {
+    padding: 0 1em;
+  }
+
+  .panel-title {
+    font-size: 15px;
+    font-weight: 300;
+  }
+
+  /*
+  .field-name-field-profile-categories .field-item {
+    display: flex;
+    flex-wrap: wrap;
+    .fa-icon;
+    .fas;
+  }
+   */
+
+  .field-item {
+    a {
+      display: inline-block;
+      text-decoration: none;
+      color: @dosb-grey;
+    }
+    &.field-name-field-post-tags a:before {
+      content: @fa-var-tag;
+      margin-right: 0.4em;
+    }
+    .user-picture {
+      margin-right: 15px;
+    }
+  }
+
+  &.small {
+    padding: 1em 2em;
+  }
+
+  .row-direction {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .left {
+    color: @dosb-orange;
+    width: 25%;
+  }
+
+  .right {
+    width: 75%;
+
+    span {
+      width: 100%;
+      display: block;
+      padding-bottom: 0.3em;
+    }
+  }
+
+}
+
+.row {
+  &.margin-0-auto {
+    margin: 0 auto;
+  }
+
+  &.blank {
+    //opacity: 0;
+    visibility: hidden;
+    z-index: -100;
+    display: none;
+  }
+}

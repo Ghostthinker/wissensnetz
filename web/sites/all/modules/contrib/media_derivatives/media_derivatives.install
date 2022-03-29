@@ -1,0 +1,324 @@
+<?php
+
+/**
+ * @file
+ *   Install hooks form media derivatves API.
+ *
+ * @author JAnez Urevc <janez@janezurevc.name>
+ */
+
+
+/**
+ * Implements hook_schema().
+ */
+function media_derivatives_schema() {
+  $schema['media_derivatives'] = array(
+   'description' => 'Table for media derivatives.',
+    'fields' => array(
+      'mdid' => array(
+        'description' => 'The primary identifier for a media derivative.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'Owner of this derivative (one who created it).',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'type' => array(
+        'description' => 'Derivative type: 0 - unmanaged file, 1 - managed file.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'source_fid' => array(
+        'description' => 'Original (source) file in file_managed table.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'root_source_fid' => array(
+        'description' => 'Root original (file that was uploaded by user) file in file_managed table.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'derivative_fid' => array(
+        'description' => 'Derivative file in file_managed table.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => NULL,
+      ),
+      'engine' => array(
+        'description' => 'Engine that was used to create this derivative.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'event' => array(
+        'description' => 'Name of event that triggered creation of this derivative.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'context' => array(
+        'description' => 'Context variables that were passed by a trigger.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'preset_name' => array(
+        'description' => 'Name of configuration preset that was used to create this derivative.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'preset' => array(
+        'description' => 'Configuration preset that was used to create this derivative.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => TRUE,
+        'serialize' => TRUE,
+      ),
+      'status' => array(
+        'description' => 'Status of this derivative: 0 - waiting, 1 - processing, 2 - finished, 3 - error.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'scheduler' => array(
+        'description' => "Scheduler's machine name.",
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'scheduled_time' => array(
+        'description' => 'The Unix timestamp when the encoding should be started.',
+        'type' => 'int',
+        'not null' => FALSE,
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the media derivative was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the media derivative was most recently saved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'language' => array(
+        'description' => "Derivative's language.",
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => LANGUAGE_NONE,
+      ),
+      'log' => array(
+        'description' => "Derivate log (if availible).",
+        'type' => 'text',
+        'size' => 'normal',
+        'not null' => FALSE,
+      ),
+    ),
+    'indexes' => array(
+      'derivative_changed' => array('changed'),
+      'derivative_created' => array('created'),
+    ),
+    'unique keys' => array(
+      'derivative_fid' => array('derivative_fid'),
+    ),
+    'foreign keys' => array(
+      'file_original' => array(
+        'table' => 'file_managed',
+        'columns' => array('source_fid' => 'fid'),
+      ),
+      'file_derivative' => array(
+        'table' => 'file_managed',
+        'columns' => array('derivative_fid' => 'fid'),
+      ),
+    ),
+    'primary key' => array('mdid'),
+  );
+
+  // Storage for unmanaged files URIs.
+  $schema['media_derivatives_unmanaged'] = array(
+   'description' => 'Table of unmanaged media derivative files URIs.',
+    'fields' => array(
+      'mdid' => array(
+        'description' => 'Meida derivative this uri belongs to.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uri' => array(
+        'description' => 'The URI to access the derivative file (either local or remote).',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'unique keys' => array(
+      'mdid' => array('mdid'),
+    ),
+    'foreign keys' => array(
+      'mdid' => array(
+        'table' => 'media_derivatives',
+        'columns' => array('mdid' => 'mdid'),
+      ),
+    ),
+    'primary key' => array('mdid'),
+  );
+
+  // Configuration presets table.
+  $schema['media_derivatives_presets'] = array(
+   'description' => 'Media derivative configuration presets.',
+    'fields' => array(
+      'mdpid' => array(
+        'description' => 'The primary key for a media derivative configuration preset.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'no export' => TRUE,
+      ),
+      'machine_name' => array(
+        'description' => "Configuration preset's unique machine name.",
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'engine' => array(
+        'description' => "Engine's machine name.",
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'engine_settings' => array(
+        'description' => 'Serialized settings array of engine configuration.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'conditions' => array(
+        'description' => 'Serialized settings array of conditions that need to be checked for this preset.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'conditions_settings' => array(
+        'description' => 'Serialized settings array of condition specific configuration.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'events' => array(
+        'description' => 'Serialized settings array of events that this preset reacts on.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'events_settings' => array(
+        'description' => 'Serialized settings array of events specific configuration.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'scheduler' => array(
+        'description' => "Scheduler's machine name.",
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'scheduler_settings' => array(
+        'description' => 'Serialized settings array of scheduler configuration.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'settings' => array(
+        'description' => 'Serialized settings array of this preset.',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+    ),
+    'unique keys' => array(
+      'machine_name' => array('machine_name'),
+    ),
+    'primary key' => array('mdpid'),
+    'export' => array(
+      'key' => 'machine_name',
+      'primary key' => 'mdpid',
+      'identifier' => 'preset',
+      'default hook' => 'media_derivatives_presets',
+      'api' => array(
+        'owner' => 'media_derivatives',
+        'api' => 'media_derivatives_presets',
+        'minimum_version' => 1,
+        'current_version' => 1,
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function media_derivatives_uninstall() {
+  variable_del('media_derivatives_background_process');
+  variable_del('media_derivatives_display_status_messages');
+}
+
+/**
+ * Adds another field (preset_name) to media_derivatives DB table.
+ */
+function media_derivatives_update_7101() {
+  // Add field to database table.
+  db_add_field(
+    'media_derivatives',
+    'preset_name',
+    array(
+      'description' => 'Name of configuration preset that was used to create this derivative.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'initial' => '',
+    )
+  );
+
+  // Update media derivatives DB entries with preset name.
+  $mdids = db_select('media_derivatives', 'md')
+    ->fields('md', array('mdid'))
+    ->execute()
+    ->fetchAll();
+
+  foreach ($mdids as $mdid) {
+    $derivative = media_derivatives_load($mdid->mdid);
+    $derivative->preset_name = $derivative->preset->machine_name;
+    media_derivatives_save($derivative);
+  }
+}
+
+/**
+ * Removes unneded unique constraints from DB tables.
+ */
+function media_derivatives_update_7102() {
+  db_drop_unique_key('media_derivatives', 'mdid__source_fid');
+  db_drop_unique_key('media_derivatives_unmanaged', 'uri');
+}

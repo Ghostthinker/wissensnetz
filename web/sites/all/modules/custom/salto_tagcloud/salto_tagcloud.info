@@ -1,0 +1,4 @@
+name = SALTO Tagcloud
+description = Providing Tagcloud logics and ctools Plugin for display and configuration
+core = 7.x
+

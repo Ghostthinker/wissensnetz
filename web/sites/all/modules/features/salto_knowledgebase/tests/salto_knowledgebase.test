@@ -1,0 +1,31 @@
+<?php
+
+/**
+ * Test the node_load_multiple() function.
+ */
+class SaltoKnowledgebaseAuthorsTestCase extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Check node authors',
+      'description' => 'Test authors of a node',
+      'group' => 'salto',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $web_user = $this->drupalCreateUser(array('create kb_article content', ));
+    $this->drupalLogin($web_user);
+  }
+
+  /**
+   * Create four nodes and ensure they're loaded correctly.
+   */
+  function testSlatoNodeAuthors() {
+    //$node1 = $this->drupalCreateNode(array('type' => 'kb_article'));
+    //$this->drupalGet('node');
+   // $this->assertText($node1->title, 'Node title appears on the default listing.');
+    $this->assertText("aa", 'aa');
+  }
+}

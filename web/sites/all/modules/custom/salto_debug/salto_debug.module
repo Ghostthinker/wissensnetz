@@ -1,0 +1,1252 @@
+<?php
+
+defined('WN_TESTS_RUNNING') or define('WN_TESTS_RUNNING', FALSE);
+
+/**
+ * @file
+ * This module holds functions useful for Salto development.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function salto_debug_menu() {
+  $items['admin/config/salto/debug'] = [
+    'title' => 'Debug settings',
+    'description' => 'Debug settings for salto',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_debug_admin_settings'],
+    'file' => 'salto_debug.admin.inc',
+    'access arguments' => ['administer site configuration'],
+  ];
+
+  $items['admin/appearance/showcase'] = [
+    'title' => 'Bootstrap Showcase',
+    'page callback' => 'salto_debug_bootstrap_showcase',
+    'access arguments' => ['administer themes'],
+    'type' => MENU_NORMAL_ITEM,
+    'theme callback' => 'salto_debug_custom_theme',
+  ];
+
+  $items['debug'] = [
+    'title' => 'Debug',
+    'page callback' => 'salto_debug_page',
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  ];
+
+  return $items;
+}
+
+/**
+ * A debug page to test code
+ *
+ * @return string
+ */
+function salto_debug_page() {
+  return "a minimal page to test performance";
+}
+
+/**
+ * Page callback for the bootstrap example page
+ *
+ * @return [string] rendered output
+ */
+function salto_debug_bootstrap_showcase($site = NULL, $style = 'sample') {
+
+  global $custom_theme;
+  $custom_theme = 'salto2014';
+  if ($site == 'grid') {
+
+    $style = check_plain($style);
+    return theme('bootstrap_showcase_layout', ["layout" => $style]);
+  }
+  return theme('bootstrap_showcase');
+}
+
+/**
+ * Implements hook_theme().
+ */
+function salto_debug_theme($existing, $type, $theme, $path) {
+  return [
+    'bootstrap_showcase' => [
+      'template' => 'bootstrap_showcase',
+      'variables' => ['dummy' => NULL],
+    ],
+    'bootstrap_showcase_layout' => [
+      'template' => 'bootstrap_showcase_layout',
+      'variables' => ['layout' => "sample"],
+    ],
+  ];
+}
+
+/**
+ * Implements hook_custom_theme().
+ */
+function salto_debug_custom_theme() {
+
+  if (arg(1) == 'appearance' && arg(2) == 'showcase') {
+    return "salto2014";
+  }
+}
+
+/**
+ * Implements hook_user_presave().
+ */
+function salto_debug_user_presave(&$edit, $account, $category) {
+  if (!empty($edit['devel_generate'])) {
+    $name = _salto_debug_generate_name();
+    $edit['name'] = implode(" ", $name);
+    $edit['field_title']['und'][0]['value'];
+    $edit['generated_name'] = $name;
+    $edit['name'] = email_registration_unique_username($edit['name']);
+  }
+}
+
+/**
+ * Implements hook_user_insert().
+ */
+function salto_debug_user_insert(&$edit, $account, $category) {
+
+  if (isset($edit['generated_name'])) {
+    $name = $edit['generated_name'];
+    $profile = profile_create(['type' => 'main', 'uid' => $account->uid]);
+    // Add in the necessary custom fields and values.
+    $profile->field_profile_name_first[LANGUAGE_NONE][0]['value'] = $name['first'];
+    $profile->field_profile_name_last[LANGUAGE_NONE][0]['value'] = $name['last'];
+    profile2_save($profile);
+  }
+}
+
+function _salto_debug_generate_name() {
+
+  $names = &drupal_static(__FUNCTION__);
+  if (!isset($names)) {
+
+    //read in firstnames
+    $firstnames = [];
+    $file = drupal_get_path('module', 'salto_debug') . '/firstnames.txt';
+    $handle = fopen($file, "r");
+    if ($handle) {
+      while (($line = fgets($handle)) !== FALSE) {
+        $firstnames[] = trim($line);
+      }
+    }
+    fclose($handle);
+    $names['first'] = $firstnames;
+
+    //read in lastnames
+    $lastnames = [];
+    $file = drupal_get_path('module', 'salto_debug') . '/lastnames.txt';
+    $handle = fopen($file, "r");
+    if ($handle) {
+      while (($line = fgets($handle)) !== FALSE) {
+        $lastnames[] = trim($line);
+      }
+    }
+    $names['last'] = $lastnames;
+  }
+
+  $first = $names['first'][rand(0, count($names['first']) - 1)];
+  $last = $names['last'][rand(0, count($names['last']) - 1)];
+  return ["first" => $first, "last" => $last];
+}
+
+/**
+ * Be carefull! This wipes out all user data from a dev system before a
+ * versiondump is made Keeps all admins, though
+ *
+ * @return [type] [description]
+ */
+function salto_debug_cleanout_userdata($keep_dosb = 0) {
+
+  $keep_uids = salto_debug_get_fixed_uids($keep_dosb);
+
+  $data = db_query('SELECT uid,uid FROM {users} WHERE uid not in (:uids)', [':uids' => $keep_uids])->fetchAllKeyed();
+
+  try {
+    user_delete_reassign_multiple($data);
+  } catch (Exception $e) {
+    watchdog_exception('salto_debug', $e);
+  }
+
+  try {
+    foreach ($data as $uid) {
+      user_delete($uid);
+    }
+  } catch (Exception $e) {
+    watchdog_exception('salto_debug', $e);
+  }
+  drupal_set_message('deleted users: ' . count($data), 'status', FALSE);
+
+  //cleanup other user tables completly. Those are tables with uid fields.
+  $tables_uid_delete = [
+    'authmap',
+    'accesslog',
+    'realname',
+    'users_roles',
+    'pm_disable',
+    'profile',
+    'security_questions',
+    'security_questions_answers',
+    'security_questions_incorrect',
+  ];
+}
+
+/**
+ * @param $keep_dosb
+ *
+ * @return array
+ */
+function salto_debug_get_fixed_uids($keep_dosb) {
+
+  //always keep
+  $keep_uids = [];
+
+  if (!empty($keep_dosb)) {
+    try {
+      $group_uids = salto_og_get_users_by_og(variable_get('salto_user_keep_group', 2194));
+      $keep_uids = array_unique(array_merge($keep_uids, $group_uids));
+
+    } catch (Exception $e) {
+      watchdog_exception('salto_debug', $e);
+    }
+    return $keep_uids;
+  }
+  return $keep_uids;
+}
+
+/**
+ * get all published nodes by type array. DOES NOT LOAD FULL NODES, ONLY DARA
+ * FROM NODE TABLE
+ *
+ * @param  [type] $types [description]
+ *
+ * @return [type]        [description]
+ */
+function salto_debug_get_all_nodes(array $types) {
+  $result = db_select('node', 'n')
+    ->fields('n')
+    ->condition('status', 0, '>')
+    ->condition('type', $types, 'IN')
+    ->execute()
+    ->fetchAll();
+
+  return $result;
+}
+
+function salto_debug_add_author_uid_to_all_nodes() {
+  $types = ['post'];
+
+  $all_nodes = salto_debug_get_all_nodes($types);
+
+  foreach ($all_nodes as $node) {
+
+    $tmp_node = node_load($node->nid);
+    if (empty($tmp_node->field_post_authors)) {
+      $tmp_node->field_post_authors = [LANGUAGE_NONE => []];
+    }
+
+    //check if uid is in array already
+    $search_flag = FALSE;
+    $a_pos = 0;
+    foreach ($tmp_node->field_post_authors[LANGUAGE_NONE] as $entry) {
+      if (array_search($tmp_node->uid, $entry)) {
+        $search_flag = TRUE;
+        break;
+      }
+      $a_pos++;
+    }
+
+    //check if uid is already set in array
+    if (!$search_flag) {
+      //if uid is not set yet
+      $tmp_node->field_post_authors[LANGUAGE_NONE] = array_merge([['target_id' => $tmp_node->uid]], $tmp_node->field_post_authors[LANGUAGE_NONE]);
+    }
+    else {
+      if ($a_pos > 0) {
+        //make sure uid is on the first position of the array
+        $tmp_node->field_post_authors[LANGUAGE_NONE] = array_merge(
+          [['target_id' => $tmp_node->uid]],
+          array_slice($tmp_node->field_post_authors[LANGUAGE_NONE], 0, $a_pos),
+          array_slice($tmp_node->field_post_authors[LANGUAGE_NONE], $a_pos + 1));
+      }
+    }
+    node_save($tmp_node);
+  }
+}
+
+/**
+ * check if the current installation correctly redirects from http to https
+ *
+ * @return [type] [description]
+ */
+function salto_debug_check_http_redirect() {
+  $url = "http://$_SERVER[HTTP_HOST]";
+
+  $ch = curl_init();
+
+  curl_setopt($ch, CURLOPT_HEADER, TRUE);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+
+  curl_setopt($ch, CURLOPT_URL, $url);
+  $out = curl_exec($ch);
+
+  $out = str_replace("\r", "", $out);
+
+  $headers_end = strpos($out, "\n\n");
+  if ($headers_end !== FALSE) {
+    $out = substr($out, 0, $headers_end);
+  }
+
+  $headers = explode("\n", $out);
+  foreach ($headers as $header) {
+    if (substr($header, 0, 10) == "Location: ") {
+      $target = substr($header, 10);
+
+      if (substr($target, 0, 5) == 'https') {
+        return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function salto_debug_requirements($phase) {
+
+  $t = get_t();
+
+  $https_redirect = salto_debug_check_http_redirect();
+
+  $requirements['salto_debug_https_redirect'] = [
+    'title' => $t('HTTPS redirect'),
+    'value' => $https_redirect ? 'ok' : 'failed',
+  ];
+
+  if (!$https_redirect) {
+    $requirements['salto_debug_https_redirect']['description'] = $t('url1 does not redirect to $url2. Did you override the htaccess?', [
+      'url1' => "http://$_SERVER[HTTP_HOST]",
+      'url2' => "https://$_SERVER[HTTP_HOST]",
+    ]);
+    $requirements['salto_debug_https_redirect']['severity'] = REQUIREMENT_ERROR;
+  }
+
+  return $requirements;
+}
+
+/**
+ * setup taxonomy term "Noch nicht einsortiert"
+ *
+ * @return [type] [description]
+ */
+function _salto_knowledgebase_update_7000_setup_taxonomyterm() {
+  $vocabulary = taxonomy_vocabulary_machine_name_load('wissensbasis_kategorien');
+  if (!empty($vocabulary)) {
+    $default_term_tid = variable_get('salto_knowledgebase_content_category_default_term_tid', NULL);
+    $terms = taxonomy_get_term_by_name(SALTO_KNOWLEDGEBASE_CONTENT_CATEGORY_DEFAULT_PARENT, 'wissensbasis_kategorien');
+    if (!$default_term_tid) {
+      if (count($terms) > 0) {
+        $terms = current($terms);
+      }
+      else {
+        $term = new stdClass();
+        $term->name = SALTO_KNOWLEDGEBASE_CONTENT_CATEGORY_DEFAULT_PARENT;
+        $term->vid = $vocabulary->vid;
+        taxonomy_term_save($term);
+      }
+      variable_set('salto_knowledgebase_content_category_default_term_tid', $term->tid);
+      echo "Term created";
+    }
+    else {
+      echo "Term already exists";
+    }
+  }
+  else {
+    echo "Vocabulary does not exist.";
+  }
+}
+
+
+function salto_debug_random_string($length = 10) {
+  $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  $charactersLength = strlen($characters);
+  $randomString = '';
+  for ($i = 0; $i < $length; $i++) {
+    $randomString .= $characters[rand(0, $charactersLength - 1)];
+  }
+  return $randomString;
+}
+
+function salto_debug_random_bool() {
+  return rand(0, 1) == 1;
+}
+
+function salto_debug_random_integer($min = 0, $max = 1000000) {
+  return rand($min, $max);
+}
+
+/**
+ * @return [type] [description]
+ * @deprecated better use salto_debug_sanitize_users_mails
+ * Be carefull! This wipes out all user data from a dev system before a
+ *   versiondump is made Keeps all admins, though
+ */
+function salto_debug_saitize_users_mails_sql_string($keep_dosb = 1) {
+  $keep_uids = salto_debug_get_fixed_uids($keep_dosb);
+  db_update('users')
+    ->expression('mail', "CONCAT(uid,'@bn.ghostthinker.de')")
+    ->condition('uid', $keep_uids, 'NOT IN')
+    ->execute();
+}
+
+/**
+ * Be carefull! This wipes out all user data from a dev system before a
+ * versiondump is made Keeps all admins, though
+ *
+ * @param int $keep_dosb
+ * @param array $keep_users_from_og
+ *
+ * @return void
+ */
+function salto_debug_sanitize_users_mails($keep_dosb = 1, $keep_users_from_og = []) {
+  $blanco = new BlankCleanup();
+
+  if ($keep_dosb) {
+    $keep_users_from_og[] = variable_get('salto_user_keep_group', 2194);
+  }
+
+  $ugs = [];
+  foreach ($keep_users_from_og as $ogNid) {
+    $ugs = salto_organisation_get_untergliederungen($ogNid);
+  }
+
+  $keepOgs = array_unique(array_merge($keep_users_from_og, $ugs));
+  $keepUsers = $blanco->getAllUserIds($keepOgs, TRUE);
+
+  db_update('users')
+    ->expression('mail', "CONCAT(uid,'@bn.ghostthinker.de')")
+    ->condition('uid', $keepUsers, 'NOT IN')
+    ->execute();
+}
+
+
+/**
+ * Deletes the complete field! Be carefull for reused fields! check them at
+ * admin/reports/fields
+ *
+ * @param $field_names
+ */
+function salto_delete_fields($field_names) {
+  foreach ($field_names as $field_name) {
+    field_delete_field($field_name);
+  }
+}
+
+/**
+ * Delete an array of content types
+ *
+ * @param $content_types
+ */
+function salto_delete_content_types($content_types) {
+  foreach ($content_types as $type) {
+    node_type_delete($type);
+  }
+}
+
+/**
+ * delete views
+ *
+ * @param $views
+ */
+function salto_delete_views($views) {
+  foreach ($views as $name) {
+    $view = views_get_view($name);
+    $view->delete();
+  }
+}
+
+/**
+ * Implements hook_action_info().
+ */
+function salto_debug_rebuild_taxonomy_menu($vid) {
+  $menu_name = taxonomy_menu_variable_get('vocab_menu', $vid, FALSE);
+  $terms = taxonomy_get_tree($vid, 0, NULL, TRUE);
+
+  taxonomy_menu_menu_links_delete($vid);
+
+  foreach ($terms as $term) {
+    // Save the menu link for this taxonomy term.
+    taxonomy_menu_menu_link_save($term, $menu_name);
+  }
+}
+
+/**
+ * disable backup schedules
+ */
+function salto_debug_disable_backup_schedules() {
+  $schedules = ['live_db', 'live_full'];
+  db_update('backup_migrate_schedules')
+    ->fields(['enabled' => 0])
+    ->condition('machine_name', $schedules, 'IN')
+    ->execute();
+}
+
+/**
+ * create group vocabularies for existing groups
+ */
+function _salto_group_update_11000_create_group_vocabularies() {
+
+  $groups = node_load_multiple([], ['type' => 'group']);
+  foreach ($groups as $group) {
+    salto_group_create_og_vocabulary($group);
+  }
+}
+
+
+/**
+ * a little helper to resave a node
+ *
+ * @param $nid
+ *
+ * @throws Exception
+ */
+function node_resave($nid) {
+  $node = node_load($nid);
+  node_save($node);
+}
+
+/**
+ * cleanup function to delete all books
+ * This function has been executed on 13.03.2015-13:52 - SH on live and
+ * everything should be fine right now
+ */
+function salto_debug_remove_books() {
+
+  $result = db_select('book', 'n')
+    ->fields('n', ['nid'])
+    ->execute()
+    ->fetchAll();
+
+  foreach ($result as $r) {
+    $node = node_load($r->nid);
+
+    if ($node) {
+      menu_link_delete($node->book['mlid']);
+      db_delete('book')
+        ->condition('nid', $node->nid)
+        ->execute();
+    }
+  }
+}
+
+/**
+ * Get set all missing cateories for uvs
+ */
+function salto_debug_set_missing_categories() {
+  try {
+    $q = db_select('node', 'n');
+    $q->fields('n', ['nid', 'nid'])
+      ->condition('n.type', 'organisation', '=')
+      ->addJoin('LEFT', 'field_data_field_organisation_category', 'f', 'f.entity_id = n.nid');
+
+    $or = db_or();
+    $or->isNull('f.field_organisation_category_value');
+    $or->condition('f.field_organisation_category_value', "");
+
+    $q->condition($or);
+
+    $r = $q->execute()->fetchAllKeyed();
+
+    $orgs = node_load_multiple($r);
+  } catch (Exception $e) {
+  }
+
+  foreach ($orgs as $org) {
+    if (!empty($org->field_organisation_parent)) {
+      $org->field_organisation_category[LANGUAGE_NONE][0]['value'] = 'UG';
+      node_save($org);
+    }
+  }
+}
+
+
+/**
+ * Create a new organisation
+ *
+ * @param $title
+ * @param array $options see defaults
+ *
+ * @throws \Exception
+ */
+function bildungsnetz_api_create_organisation($title, $options = []) {
+  $defaults = [
+    'key' => empty($options['parent']) ? "DEMO" : NULL,
+    'body' => 'dummy course',
+    'earemotes' => [376, 639],
+    'obscure' => 0,
+    'field_org_api_enable_uuid' => 0,
+    'dv_license_settings' => 'none',
+    'parent' => NULL,
+    'language' => 'en',
+    'field_organisation_custom_labels' => [],
+  ];
+  $options = array_merge($defaults, $options);
+
+  $node = new stdClass();
+  $node->title = $title;
+  $node->type = 'organisation';
+  $node->language = $options['language'];
+
+  $node->body[LANGUAGE_NONE][0]['value'] = $options['body'];
+  $node->field_organisation_obscure[LANGUAGE_NONE][0]['value'] = $options['obscure'];
+
+  if ($options['key']) {
+    $node->field_organisation_key[LANGUAGE_NONE][0]['value'] = $options['key'];
+  }
+
+  if ($options['parent']) {
+    $node->field_organisation_parent[LANGUAGE_NONE][0]['target_id'] = $options['parent']->nid;
+  }
+
+  if ($options['dv_license_settings']) {
+    $node->field_org_dv_license_settings[LANGUAGE_NONE][0]['value'] = $options['dv_license_settings'];
+  }
+
+  if ($options['category']) {
+    $node->field_organisation_category[LANGUAGE_NONE][0]['value'] = $options['category'];
+  }
+
+  foreach ($options['earemotes'] as $ea_nid) {
+    $node->field_organisation_earemotes[LANGUAGE_NONE][] = ['target_id' => $ea_nid];
+  }
+
+  if ($options['lsb_inspection']) {
+    foreach ($options['lsb_inspection'] as $og_nid) {
+      $node->field_org_lsb_inspection[LANGUAGE_NONE][] = ['target_id' => $og_nid];
+    }
+  }
+
+  if ($options['field_org_api_enable_uuid']) {
+    $node->field_org_api_enable_uuid[LANGUAGE_NONE][0]['value'] = $options['field_org_api_enable_uuid'];
+  }
+
+  if ($options['field_organisation_custom_labels']) {
+    $node->field_organisation_custom_labels[LANGUAGE_NONE] = $options['field_organisation_custom_labels'];
+  }
+
+  node_save($node);
+  return $node;
+}
+
+/**
+ * Create a new ea
+ *
+ * @param $title
+ * @param array $options see defaults
+ *
+ * @throws \Exception
+ */
+function bildungsnetz_api_create_ea($options = []) {
+  $defaults = [
+    'name' => 'JL',
+    'training_course_tid' => TRAINING_COURSE_JL_TID,
+    'lizenzstufe' => 1,
+    'validity_period' => 4,
+  ];
+  $options = array_merge($defaults, $options);
+
+  $node = new StdClass();
+  $node->name = $options['name'];
+  $node->type = 'earemote';
+  $node->status = 1;
+  $node->language = '';
+  node_object_prepare($node);
+  $node->uid = 0;
+
+  $term = taxonomy_term_load($options['training_course_tid']);
+  $vocab = taxonomy_vocabulary_load($term->vid);
+  if (!$vocab) {
+    $vocab = new StdClass();
+    $vocab->name = $options['name'] . '-Vocabulary-Test';
+    $vocab->machine_name = 'vocabulary-test-' . microtime();
+    $vid = taxonomy_vocabulary_save($vocab);
+
+    $term = new stdClass();
+    $term->vid = $vid;
+    $term->name = $options['name'] . '-Term-Test';
+    $options['training_course_tid'] = taxonomy_term_save($term);
+  }
+
+  $node->field_ea_training_course[LANGUAGE_NONE][0]['tid'] = $options['training_course_tid'];
+  $node->field_ea_lizenzstufe[LANGUAGE_NONE][0]['value'] = $options['lizenzstufe'];
+  $node->field_ea_field_ea_validity_period[LANGUAGE_NONE][0]['value'] = $options['validity_period'];
+
+  node_save($node);
+  return $node;
+}
+
+/**
+ * Create a new online meeting
+ *
+ * @param $title
+ * @param array $options see defaults
+ */
+function bildungsnetz_api_create_online_meeting($options = []) {
+
+  $defaults = [
+    'title' => 'Online meeting',
+    'recurring_meeting' => 0,
+    'webinar_size' => 'small',
+    'meeting_options' => 'online_meeting',
+    'meeting_status' => 0,
+  ];
+  $options = array_merge($defaults, $options);
+
+  $node = new StdClass();
+  $node->type = 'online_meeting';
+  $node->title = $options['title'];
+  $node->status = 1;
+  $node->language = '';
+  if (!empty($options['group'])) {
+    $node->field_og_group[LANGUAGE_NONE][0]['target_id'] = $options['group']->nid;
+  }
+  $node->field_recurring_meeting[LANGUAGE_NONE][0]['value'] = $options['recurring_meeting'];
+  $node->field_webinar_size[LANGUAGE_NONE][0]['value'] = $options['webinar_size'];
+  $node->field_meeting_options[LANGUAGE_NONE][0]['value'] = $options['meeting_options'];
+
+  if (!empty($options['startDate'])) {
+    $node->field_online_meeting_date[LANGUAGE_NONE][0]['value'] = date('Y-m-d\TH:i:s', $options['startDate']);
+  }
+
+  if (!empty($options['endDate'])) {
+    $node->field_online_meeting_date[LANGUAGE_NONE][0]['value2'] = date('Y-m-d\TH:i:s', $options['endDate']);
+  }
+
+  if (!empty($options['meeting_status'])) {
+    $node->field_online_meeting_status[LANGUAGE_NONE][0]['value'] = $options['meeting_status'];
+  }
+
+  if (!empty($options['Lesezugriff'])) {
+    $node->field_post_collaboration[LANGUAGE_NONE][0]['read'] = $options['Lesezugriff'];
+  }
+
+  $author_uid = 0;
+  if (!empty($options['user'])) {
+    $author_uid = $options['user']->uid;
+  }
+  node_object_prepare($node);
+  $node->uid = $author_uid;
+
+  if ($author_uid > 0) {
+    $node->field_post_authors[LANGUAGE_NONE][0]['target_id'] = $author_uid;
+  }
+
+  node_save($node);
+  return $node;
+}
+
+function bildungsnetz_api_create_post($options) {
+
+  $defaults = [
+    'title' => "test",
+    'categorie' => 1781,
+    'Schlagworte' => "Test",
+    'body' => "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
+    'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+    'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+    'groupAccess' => '_none',
+  ];
+  $options = array_merge($defaults, $options);
+
+  $node = new StdClass();
+  $node->type = 'post';
+  $node->title = $options['title'];
+  $node->status = 1;
+  $node->language = '';
+
+  if (!empty($options['group'])) {
+    $node->field_og_group[LANGUAGE_NONE][0]['target_id'] = $options['group']->nid;
+  }
+
+  $author_uid = 0;
+  if (!empty($options['user'])) {
+    $author_uid = $options['user']->uid;
+  }
+  node_object_prepare($node);
+
+  $node->uid = $author_uid;
+
+  if ($author_uid > 0) {
+    $node->field_post_authors[LANGUAGE_NONE][0]['target_id'] = $author_uid;
+  }
+
+  if (!empty($options['authorList'])) {
+    foreach ($options['authorList'] as $author) {
+      $node->field_post_authors[LANGUAGE_NONE][]['target_id'] = $author->uid;
+    }
+  }
+
+  $node->field_kb_content_category[LANGUAGE_NONE][0]['tid'] = $options['categorie'];
+
+  $node->field_post_collaboration[LANGUAGE_NONE][0]['read'] = $options['readAccess'];
+  $node->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = $options['editAccess'];
+
+  node_save($node);
+  return $node;
+}
+
+function bildungsnetz_api_create_material($options) {
+
+
+  $defaults = [
+    'title' => "Material",
+    'Kategorie' => 1781,
+    'Schlagworte' => "Test",
+    'body' => "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
+    'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+    'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+    'groupAccess' => '_none',
+    'filename' => 'test.pdf',
+    'user' => user_load(0),
+  ];
+  $options = array_merge($defaults, $options);
+
+  $author_uid = $options['user']->uid;
+
+  $userPicDir = 'private://user_pictures';
+  file_prepare_directory($userPicDir, FILE_CREATE_DIRECTORY);
+
+  $filename = 'assets/userls.jpg';
+  $filepath = realpath(dirname(__FILE__) . '/../../features/salto_user/' . $filename);
+
+  $file = new stdClass();
+  $file->fid = NULL;
+  $file->uri = file_unmanaged_copy($filepath, 'private://user_pictures/userls.jpg');
+  $file->filename = drupal_basename($filepath);
+  $file->filemime = file_get_mimetype($file->uri);
+  $file->status = FILE_STATUS_PERMANENT;
+  $file->field_file_title[LANGUAGE_NONE][0]['value'] = $options['title'];
+  $file->uid = $author_uid;
+
+  if (!empty($options['group'])) {
+    $file->field_og_group[LANGUAGE_NONE][0]['target_id'] = $options['group']->nid;
+  }
+
+  file_save($file);
+
+  //We have to save a second time the file for triggering the hook to auto subscribe the author
+  //We also need to set the read access now becasue initially it will always be
+  //set to SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS
+
+  $file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'] = $options['Kategorie'];
+  $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = $options['readAccess'];
+  $file->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = $options['editAccess'];
+
+  file_save($file);
+  return $file;
+}
+
+/**
+ * Create a new lehrgang
+ *
+ * @param $organisation
+ * @param array $options see defaults
+ *
+ * @throws \Exception
+ */
+function bildungsnetz_api_create_lehrgang($organisation, $options = []) {
+  $defaults = [
+    'key' => empty($options['parent']) ? "DEMO" : NULL,
+    'title' => "Lehrgang " . time(),
+    'ea_nid' => end($organisation->field_organisation_earemotes[LANGUAGE_NONE])['target_id'],
+    'language' => LANGUAGE_NONE,
+  ];
+  $options = array_merge($defaults, $options);
+
+  $node = new stdClass();
+  $node->title = $options['title'];
+  $node->type = 'weiterbildungsmassnahme';
+  $node->language = $options['language'];
+
+  $node->body[LANGUAGE_NONE][0]['value'] = $options['body'];
+  $node->field_wbm_organisation[LANGUAGE_NONE][0]['target_id'] = $organisation->nid;
+
+  if ($options['ea_nid']) {
+    $node->field_wbm_ea_ref [LANGUAGE_NONE][0]['target_id'] = $options['ea_nid'];
+  }
+
+  node_save($node);
+  return $node;
+}
+
+/**
+ * Create a new user
+ *
+ * @param array $options
+ *
+ * @throws \Exception
+ */
+function bildungsnetz_api_create_user($options = []) {
+
+  $default_name = _salto_debug_generate_name();
+  $mt = microtime(TRUE);
+
+  if (!empty($options["firstname"])) {
+    $default_name['first'] = $options["firstname"];
+  }
+  if (!empty($options["lastname"])) {
+    $default_name['last'] = $options["lastname"];
+  }
+  if (!empty($options["pass"])) {
+    $default_name['pass'] = $options["pass"];
+  }
+
+  if (!empty($options["mail"])) {
+    $mail = $options["mail"];
+  }
+  else {
+    $mail = $mt . '@example.com';
+  }
+
+  $defaults = [
+    'login_name' => "user-" . $mt,
+    'firstname' => $default_name['first'],
+    'lastname' => $default_name['last'],
+    'mail' => $mail,
+    'role_api_user' => FALSE,
+    'role_dosb' => FALSE,
+    'language' => 'de',
+    'pass' => user_password(8),
+  ];
+  $options = array_merge($defaults, $options);
+
+  $account = new stdClass();
+  $account->mail = $options['mail'];
+  $account->name = $options['login_name'];
+  $account->is_new = TRUE;
+  $account->status = 1;
+
+  $edit['pass'] = $options['pass'];
+  $edit['legal_accept'] = TRUE;
+
+
+  if ($options['role_dosb']) {
+    $account->roles[ROLE_GLOBAL_DOSB_RID] = ROLE_GLOBAL_DOSB_RID;
+  }
+
+  if (!module_exists('dosb_license')) {
+    if ($options['role_api_user']) {
+      $account->roles[ROLE_API_USER_RID] = ROLE_API_USER_RID;
+    }
+    if ($options['role_lizenzmanager']) {
+      $account->roles[7] = 7;
+    }
+  }
+
+
+  if ($options['role_ghost']) {
+    $account->roles[5] = 5;
+  }
+
+  if ($options['language']) {
+    $account->language = $options['language'];
+  }
+
+  $account = user_save($account, $edit);
+
+  $profile = profile_create(['type' => 'main', 'uid' => $account->uid]);
+  // Add in the necessary custom fields and values.
+  $profile->field_profile_name_first[LANGUAGE_NONE][0]['value'] = $options['firstname'];
+  $profile->field_profile_name_last[LANGUAGE_NONE][0]['value'] = $options['lastname'];
+  // Save the profile2 to the user account.
+  profile2_save($profile);
+
+  $account = user_load($account->uid, TRUE);
+  $account->password = $edit['pass'];
+  user_save($account);
+
+  return $account;
+}
+
+/**
+ * Add a user to an organisation with a role or just add role to existing member
+ *
+ * @param $account
+ * @param $organisation
+ * @param array $rids
+ *
+ * @throws \OgException
+ */
+function bildungsnetz_api_add_user_to_organisation($account, $organisation, $rids = []) {
+
+  if (!og_is_member('node', $organisation->nid, 'user', $account, [
+    OG_STATE_ACTIVE,
+    OG_STATE_BLOCKED,
+    OG_STATE_PENDING,
+  ])) {
+    og_group('node', $organisation, ['entity' => $account]);
+  }
+
+  foreach ($rids as $rid) {
+    og_role_grant('node', $organisation->nid, $account->uid, $rid);
+  }
+
+  if (!og_is_member('node', $organisation->nid, 'user', $account, [
+    OG_STATE_ACTIVE,
+    OG_STATE_BLOCKED,
+    OG_STATE_PENDING,
+  ])) {
+    og_group('node', $organisation, ['entity' => $account]);
+  }
+
+  foreach ($rids as $rid) {
+    og_role_grant('node', $organisation->nid, $account->uid, $rid);
+  }
+}
+
+function bildungsnetz_api_add_add_comment($node, $options = []) {
+
+  $defaults = [
+    'pid' => 0,
+    'user' => user_load(0),
+    'status' => COMMENT_PUBLISHED,
+    'subject' => "MY new little comment pony",
+    'body' => "Berni is viel zu müde",
+  ];
+  $options = array_merge($defaults, $options);
+
+  $comment = (object) [
+    'nid' => $node->nid,
+    'pid' => $options['pid'],
+    'uid' => $options['user']->uid,
+    'is_anonymous' => 0,
+    'status' => $options['status'],
+    'subject' => $options['subject'],
+    'language' => LANGUAGE_NONE,
+    'comment_body' => [
+      LANGUAGE_NONE => [
+        0 => [
+          'value' => $options['body'],
+          'format' => 'plain_text',
+        ],
+      ],
+    ],
+  ];
+
+  comment_submit($comment);
+  comment_save($comment);
+
+  return comment_load($comment->cid);
+}
+
+function salto_debug_salto_user_update_25001() {
+  $query = db_select('users', 'u')
+    ->fields('u', ['uid'])
+    ->condition('u.uid', 0, '>')
+    ->groupBy('u.uid');
+
+  $result = $query->execute()->fetchAllKeyed(0, 0);
+  $users = user_load_multiple($result);
+
+  foreach ($users as $account) {
+    $profile2 = profile2_load_by_user($account);
+    if (!empty($profile2['main'])) {
+      profile2_save($profile2['main']);
+    }
+  }
+}
+
+/**
+ * @param $mlid
+ * @param $uri
+ *
+ * @throws \Exception
+ */
+function salto_debug_derivative_set_uri_and_status($mlid, $uri) {
+  $derivative = media_derivatives_load($mlid);
+
+  $derivative->unmanaged_uri = $uri;
+  $derivative->status = MEDIA_DERIVATIVE_TYPE_FINISHED;
+  media_derivatives_save($derivative);
+}
+
+/**
+ * e.q.
+ *  $keepOgs =[BlankCleanup::OG_LSB_NIEDERSACHSEN_ID,
+ * BlankCleanup::OG_GHOSTTHINKER_ID];
+ *  $keepNids = [50718, 62775, BlankCleanup::OG_FALLBACK_ID];
+ *  $keepTypes = ['help','page'];
+ *
+ * handle fallback og self => salto_debug_blank_cleanup_og_fallback()
+ *
+ * @param $keepOgs
+ * @param $keepTypes
+ * @param array $keepNids
+ */
+function salto_debug_blank_cleanup_content($keepOgs, $keepTypes = [
+  'help',
+  'page',
+], $keepNids = []) {
+  $blanco = new BlankCleanup();
+  $repo = new NodeRepository();
+
+  // truncate db tables
+  $blanco->truncateTables();
+  // clean invites
+  $blanco->deleteSaltoInvites();
+
+  $ugs = [];
+  foreach ($keepOgs as $ogNid) {
+    $ugs = salto_organisation_get_untergliederungen($ogNid);
+  }
+
+  $keepOgs = array_unique(array_merge($keepOgs, $ugs));
+  $keepUsers = $blanco->getAllUserIds($keepOgs);
+  // only two groups must as args (in $keepNids [or $keepOgs with users])
+  $keepGroups = [];
+  $keepNodes = $repo->getNodeIdsByUsers($keepUsers);
+  // keep ogs, before must users delete
+  $keepNodeTypes = $repo->getNodeIdsByType(array_merge($keepTypes, ['organisation']));
+
+  $nodes = array_unique(array_merge($keepOgs, $keepNodeTypes, $keepNodes, $keepGroups, $keepNids));
+  $delNodes = $blanco->deleteNodes($nodes, TRUE);
+
+  $delete_notifications_mids = $blanco->getAllNotificationsIds();
+  $blanco->deleteNotifications($delete_notifications_mids);
+}
+
+function salto_debug_blank_cleanup_truncate() {
+  $blanco = new BlankCleanup();
+
+  $blanco->truncateTables();
+  $blanco->deleteSaltoInvites();
+}
+
+function salto_debug_blank_cleanup_nodes_with_ogs($keepOgs, $keepTypes, $keepNids = []) {
+  $blanco = new BlankCleanup();
+  $repo = new NodeRepository();
+
+  $ugs = [];
+  foreach ($keepOgs as $ogNid) {
+    $ugs = salto_organisation_get_untergliederungen($ogNid);
+  }
+
+  $keepOgs = array_unique(array_merge($keepOgs, $ugs));
+  $keepUsers = $blanco->getAllUserIds($keepOgs);
+  $keepGroups = [];
+  $keepNodes = $repo->getNodeIdsByUsers($keepUsers);
+  // keep ogs, before must users delete
+  $keepNodeTypes = $repo->getNodeIdsByType($keepTypes);
+
+  $nodes = array_unique(array_merge($keepOgs, $keepNodeTypes, $keepNodes, $keepGroups, $keepNids));
+  $blanco->deleteNodes($nodes, TRUE);
+}
+
+/**
+ * keep users with ogs
+ *
+ * @param $keepOgs
+ */
+function salto_debug_blank_cleanup_users($keepOgs) {
+  $blanco = new BlankCleanup();
+
+  $ugs = [];
+  foreach ($keepOgs as $ogNid) {
+    $ugs = salto_organisation_get_untergliederungen($ogNid);
+  }
+
+  $keepOgs = array_unique(array_merge($keepOgs, $ugs));
+  $keepUsers = $blanco->getAllUserIds($keepOgs, TRUE);
+  $blanco->executeCleanUserData($keepUsers);
+
+  $blanco->revokeLVRole();
+
+  // delete unused files (keep files of kept users)
+  $keepUsers[] = 2;
+  $keepUsers[] = 1003;
+  $keepUsers[] = 546;
+  $blanco->deleteUserFiles($keepUsers, TRUE);
+}
+
+function salto_debug_blank_cleanup_node_types($types) {
+  $blanco = new BlankCleanup();
+
+  $blanco->deleteNodesByTypes($types);
+  salto_delete_content_types($types);
+}
+
+/**
+ * delete first users of fallback og, then the og self (option)
+ *
+ * @param bool $deleteOG
+ */
+function salto_debug_blank_cleanup_og_fallback($deleteOG = FALSE) {
+  $blanco = new BlankCleanup();
+  // first only users
+  $blanco->cleanupFallbackOG();
+
+  if ($deleteOG) {
+    $blanco->cleanupFallbackOG($deleteOG);
+  }
+}
+
+/**
+ *
+ * @param $fids
+ * @param $baseDir
+ *
+ * @return bool
+ */
+function salto_debug_copy_files($fids, $baseDir) {
+  if (is_string($baseDir)) {
+    $dir = $baseDir;
+    $baseDir = new \stdClass();
+    $baseDir->dir = $dir;
+    $baseDir->privateSrc = 'files_private/';
+    $baseDir->publicSrc = 'web/sites/default/files/';
+    $baseDir->privateTgt = 'files_copy_private/';
+    $baseDir->publicTgt = 'files_copy_public/';
+  }
+  if (!is_object($baseDir) || $baseDir->dir == NULL) {
+    return FALSE;
+  }
+  if ($baseDir->privateTgt == NULL || $baseDir->publicTgt == NULL) {
+    return FALSE;
+  }
+
+  foreach ($fids as $fid) {
+    $file = file_load($fid);
+    if (!$file) {
+      continue;
+    }
+    if (strpos($file->uri, 'private') !== FALSE) {
+      $targetDir = $baseDir->dir . $baseDir->privateSrc;
+      $destDir = $baseDir->dir . $baseDir->privateTgt;
+      $fileUri = substr($file->uri, 10);
+    }
+    else {
+      if (strpos($file->uri, 'public') !== FALSE) {
+        $targetDir = $baseDir->dir . $baseDir->publicTgt;
+        $destDir = $baseDir->dir . $baseDir->publicTgt;
+        $fileUri = substr($file->uri, 9);
+      }
+      else {
+        continue;
+      }
+    }
+
+    $pos_R = strrpos($fileUri, '/');
+    if ($pos_R !== FALSE) {
+      $path = substr($fileUri, 0, $pos_R);
+      if (!is_dir($destDir . $path)) {
+        if (!mkdir($destDir . $path, 0777, TRUE)) {
+        }
+      }
+    }
+    copy($targetDir . $fileUri, $destDir . $fileUri);
+  }
+  return TRUE;
+}

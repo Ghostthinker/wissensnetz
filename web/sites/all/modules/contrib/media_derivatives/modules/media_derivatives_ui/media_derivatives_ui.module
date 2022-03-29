@@ -1,0 +1,23 @@
+<?php 
+
+/**
+* Implementation of hook_ctools_plugin_directory().
+*/
+function media_derivatives_ui_ctools_plugin_directory($module, $type) {
+  // Load the export_ui plugin.
+  if ($type =='export_ui') {
+    return 'plugins/export_ui';
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function media_derivatives_ui_permission() {
+  return array(
+    'administer media_derivatives presets' => array(
+      'title' => t('Administer media derivatives presets'),
+      'description' => t('Allows user to configure media derivation configuration presets.'),
+    ),
+  );
+}

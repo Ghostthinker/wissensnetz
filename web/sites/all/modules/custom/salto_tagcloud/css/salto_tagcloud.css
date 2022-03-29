@@ -1,0 +1,108 @@
+
+.pane-salto-tagcloud {
+  overflow: hidden;
+}
+
+.pane-salto-tagcloud .pane-content {
+  width: 100%;
+  margin: auto;
+}
+
+#salto_tagcloud {
+  display: block;
+  height: 210px;
+  overflow: visible;
+}
+
+div.jqcloud {
+  color: #09f;
+}
+
+div.jqcloud a {
+  color: inherit;
+}
+
+div.jqcloud a:hover {
+  color: #777;
+}
+
+div.jqcloud span.w10 {
+  color: #999;
+}
+
+div.jqcloud span.w9 {
+  color: #aaa;
+}
+
+div.jqcloud span.w8 {
+  color: #aaa;
+}
+
+div.jqcloud span.w7 {
+  color: #aaa;
+}
+
+div.jqcloud span.w6 {
+  color: #bbb;
+}
+
+div.jqcloud span.w5 {
+  color: #bbb;
+}
+
+div.jqcloud span.w4 {
+  color: #bbb;
+}
+
+div.jqcloud span.w3 {
+  color: #ccc;
+}
+
+div.jqcloud span.w2 {
+  color: #ccc;
+}
+
+div.jqcloud span.w1 {
+  color: #ccc;
+}
+
+
+div.jqcloud span.w10 {
+  font-size: 220%;
+}
+
+div.jqcloud span.w9 {
+  font-size: 210%;
+}
+
+div.jqcloud span.w8 {
+  font-size: 190%;
+}
+
+div.jqcloud span.w7 {
+  font-size: 180%;
+}
+
+div.jqcloud span.w6 {
+  font-size: 170%;
+}
+
+div.jqcloud span.w5 {
+  font-size: 160%;
+}
+
+div.jqcloud span.w4 {
+  font-size: 150%;
+}
+
+div.jqcloud span.w3 {
+  font-size: 140%;
+}
+
+div.jqcloud span.w2 {
+  font-size: 120%;
+}
+
+div.jqcloud span.w1 {
+  font-size: 110%;
+}

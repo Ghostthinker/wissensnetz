@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * Implements hook_update().
+ */
+function salto_core_update_33001($node) {
+  _salto_core_node_check_batch($sandbox);
+}
+
+/**
+ * set klaro configuration file
+ */
+function salto_core_update_38001($node) {
+  variable_set('klaro_privacy_config', '/module/configs/config.wn.js');
+}

@@ -1,0 +1,8 @@
+
+#dosb-ea-menu.dosb-ea {
+  display: none;
+}
+
+#edit-user-delete:before {
+  content: '\e828';
+}

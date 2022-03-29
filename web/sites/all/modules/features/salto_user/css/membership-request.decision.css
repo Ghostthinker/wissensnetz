@@ -1,0 +1,52 @@
+.view-membership-requests .view-content {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.views-field-content {
+  flex: 1 1 auto;
+}
+
+.view-membership-requests .views-row.card {
+  flex: 1 1 0;
+  flex-basis: 45%;
+  margin: 0.5em 0.2em 0 !important;
+}
+
+.view-membership-requests .views-label {
+  font-weight: bold;
+}
+
+.view-membership-requests .views-field {
+  padding: 0.3em 0;
+}
+
+.view-membership-requests .views-field-membership-request-button {
+  text-align: right;
+  margin: 0.7em 0;
+}
+
+.view-membership-requests .views-field-membership-request-button .btn {
+  margin-left: 0.5em;
+}
+
+.modal-tb .alert {
+  display: none;
+}
+
+.modal-tb .subtitle {
+  width: 100%;
+  font-size: 1.1em;
+  padding: 0.5em;
+  font-weight: 600;
+  color: #9b9b9b;
+  flex: 1;
+}
+
+.modal-tb .message textarea {
+  width: 100%;
+}
+
+.modal-tb .buttons .big {
+  padding: 1em 2em;
+}

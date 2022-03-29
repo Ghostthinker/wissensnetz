@@ -1,0 +1,6 @@
+name = salto_og
+description = Salto og has combined functions, access and forms for groups and organisations
+core = 7.x
+package = salto
+version = 7.x-1.5
+project = salto_group

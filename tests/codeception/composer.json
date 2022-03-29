@@ -1,0 +1,7 @@
+{
+    "require": {
+        "codeception/codeception": "^2.2",
+        "ext-zip": "*",
+        "phpunit/phpunit": "^6.5"
+    }
+}

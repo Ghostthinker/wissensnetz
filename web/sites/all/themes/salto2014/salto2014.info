@@ -1,0 +1,87 @@
+name = Bildungsportal
+description = A Bootstrap Sub-theme for SALTO Bildungsportal
+core = 7.x
+base theme = bootstrap
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Regions
+;;;;;;;;;;;;;;;;;;;;;
+
+regions[navigation]     = 'Navigation'
+regions[header]         = 'Top Bar'
+regions[highlighted]    = 'Highlighted'
+regions[help]           = 'Help'
+regions[content]        = 'Content'
+;regions[sidebar_first]  = 'Primary'
+regions[sidebar_second] = 'Secondary'
+regions[content_footer] = 'Content Footer'
+regions[footer]         = 'Footer'
+regions[page_top]       = 'Page top'
+regions[page_bottom]    = 'Page bottom'
+
+api[page_manager][pages_default][version] = 1
+api[page_manager][pages_default][path] = pages
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Stylesheets
+;;;;;;;;;;;;;;;;;;;;;
+
+stylesheets[all][] = fontello/css/fontello.css
+stylesheets[all][] = less/style.less
+;stylesheets[all][] = css/style.css
+
+stylesheets[all][] = assets/md/dist/public.css
+;stylesheets[screen and (max-width: 768px)][] = assets/md/less/imports.less
+;stylesheets[screen and (max-width: 768px)][] = assets/md/less/modules.less
+
+; For information on choosing the desired method, please read the Drupal
+; Bootstrap sub-theme "how-to" documentation:
+; https://drupal.org/node/1978010
+
+; ;----------------------------------
+; ; METHOD 1: Bootstrap Source Files
+; ;----------------------------------
+;
+; ;;;;;;;;;;;;;;;;;;;;;
+; ;; Scripts
+; ;;;;;;;;;;;;;;;;;;;;;
+;
+scripts[] = 'bootstrap/js/affix.js'
+scripts[] = 'bootstrap/js/alert.js'
+scripts[] = 'bootstrap/js/button.js'
+scripts[] = 'bootstrap/js/carousel.js'
+scripts[] = 'bootstrap/js/collapse.js'
+scripts[] = 'bootstrap/js/dropdown.js'
+scripts[] = 'bootstrap/js/modal.js'
+scripts[] = 'bootstrap/js/tooltip.js'
+scripts[] = 'bootstrap/js/popover.js'
+scripts[] = 'bootstrap/js/scrollspy.js'
+scripts[] = 'bootstrap/js/tab.js'
+scripts[] = 'bootstrap/js/transition.js'
+
+; libs
+scripts[] = libs/bootbox.min.js
+
+;custom js
+scripts[] = 'js/main.js'
+
+;This was hinted on docu page https://drupal.org/node/1978010 05.02.2014-20:09 - SH
+exclude[js][] = 'sites/all/themes/bootstrap/js/bootstrap.js'
+;
+; ; Disable BootstrapCDN if using Bootstrap source files in your sub-theme.
+; settings[bootstrap_cdn] = ''
+
+
+; ;-------------------------
+; ; METHOD 2: Bootstrap CDN
+; ;-------------------------
+;
+; Method 2 uses BootstrapCDN, the only thing you might need to provide here
+; is overrides to Bootstrap theme settings. Copy them here from the base theme
+; to override.
+
+
+;settings
+settings[bootstrap_tooltip_descriptions] = 0

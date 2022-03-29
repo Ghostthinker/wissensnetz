@@ -1,0 +1,669 @@
+<?php
+
+/**
+ * @file
+ * Code for the salto_search feature.
+ */
+include_once 'salto_search.features.inc';
+
+function salto_search_theme() {
+  return [
+    'salto_search_result_container_theme' => [
+      'template' => 'templates/salto-search-result-container',
+      'variables' => [
+        'search_cats' => NULL,
+      ],
+    ],
+    'salto_search_authors_and_editors_theme' => [
+      'template' => 'templates/salto-search-authors-and-editors',
+      'variables' => NULL,
+    ],
+    'salto_search_organisations_theme' => [
+      'template' => 'templates/salto-search-organisations',
+      'variables' => NULL,
+    ],
+  ];
+}
+
+/**
+ * Implements hook_menu().
+ */
+function salto_search_autocomplete_menu() {
+  return $items;
+}
+
+
+function salto_search_search_api_autocomplete_types() {
+  $types['salto_search'] = [
+    'name' => t('Salto search autocomplete'),
+    'description' => t('Searches provided by the <em>Salto search autocomplete</em> module.'),
+    'list searches' => 'salto_search_autocomplete_list_searches',
+    'create query' => 'salto_search_autocomplete_create_query',
+
+  ];
+  return $types;
+}
+
+function salto_search_autocomplete_list_searches(SearchApiIndex $index) {
+  $ret = [];
+  $ret['salto_search']['name'] = t('Salto search autocomplete');
+  return $ret;
+}
+
+function salto_search_autocomplete_create_query(SearchApiAutocompleteSearch $search, $complete, $incomplete) {
+  $query = search_api_query($search->index_id);
+  if ($complete) {
+    $query->keys($complete);
+  }
+  return $query;
+}
+
+/**
+ * alter groups navigation items block
+ *
+ * @param type $tree
+ * @param type $config
+ */
+function salto_search_menu_block_tree_alter(&$tree, &$config) {
+
+  if ($config['menu_name'] != 'menu-suche') {
+    return;
+  }
+  $parsed_url = drupal_parse_url(request_uri());
+  $query = $parsed_url['query'];
+  foreach ($tree as &$ti) {
+    $ti['link']['query'] = $query;
+  }
+}
+
+function salto_search_facetapi_url_processors() {
+  return [
+    'salto_search' => [
+      'handler' => [
+        'label' => t('SaltoSearch URL processor'),
+        'class' => 'SaltoSearchFacetapiUrlProcessor',
+      ],
+    ],
+  ];
+}
+
+/**
+ * Implements hook_facetapi_search_info().
+ *
+ * @param array $searcher_info
+ */
+function salto_search_facetapi_searcher_info_alter(array &$searcher_info) {
+  foreach ($searcher_info as &$info) {
+    $info['url processor'] = 'salto_search';
+  }
+}
+
+function salto_search_session($key, $value = NULL) {
+  static $storage;
+  if ($value) {
+    $storage[$key] = $value;
+    $_SESSION['salto_search'][$key] = $value;
+  }
+  else {
+    if (empty($storage[$key]) && isset($_SESSION['salto_search'][$key])) {
+      $storage[$key] = $_SESSION['salto_search'][$key];
+    }
+  }
+  return $storage[$key];
+}
+
+/**
+ * Implementation of hook_form_alter()
+ *
+ * @param $form
+ * @param $form_state
+ * @param $form_id
+ */
+function salto_search_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'views_exposed_form') {
+    if (arg(0) == 'search') {
+      $form['#action'] = request_uri();
+    }
+    if (strlen(salto_search_session('solr_query_collation')) > 1) {
+      $form_state['input']['search_api_views_fulltext'] = salto_search_session('solr_query_collation');
+      $form_state['view']->exposed_input['search_api_views_fulltext'] = salto_search_session('solr_query_collation');
+    }
+  }
+}
+
+/**
+ * @param bool $autocomplete
+ *
+ * @return string
+ */
+function salto_search_render_search_form($autocomplete = TRUE) {
+
+  $out = drupal_get_form('salto_search_search_form', $autocomplete);
+  return drupal_render($out);
+}
+
+function salto_search_init() {
+  if (arg(0) == 'search') {
+
+    //attaching js
+    drupal_add_js(drupal_get_path('module', 'salto_group') . '/js/salto_group_filter.js');
+  }
+}
+
+/**
+ * @param type $form
+ * @param type $form_state
+ * @param bool $autocomplete
+ *
+ * @return string
+ * @throws Exception
+ */
+function salto_search_search_form($form, &$form_state, $autocomplete = TRUE) {
+  //attaching css style
+  drupal_add_css(drupal_get_path('module', 'salto_search') . '/less/salto_search.less');
+  //attaching js
+  drupal_add_js(drupal_get_path('module', 'salto_search') . '/js/salto_search.js');
+
+  //attaching settings for client side
+  $search_cats = [];
+  $form['icon'] = [
+    '#type' => 'hidden',
+    '#prefix' => '<span class="icon-search"></span>',
+    '#disabled' => TRUE,
+    '#attributes' => [
+      'class' => [],
+    ],
+  ];
+
+  //search box
+  $form['text'] = [
+    '#type' => 'textfield',
+    //'#suffix' => '<span class="icon-search"></span>',
+    '#default_value' => isset($_GET['search_api_views_fulltext']) ? check_plain($_GET['search_api_views_fulltext']) : "",
+    '#attributes' => [
+      'autocomplete' => 'off',
+      'placeholder' => t('Search'),
+      'class' => [
+        'salto-search',
+      ],
+    ]
+  ];
+
+  $autocomplete_id = 'salto_search';
+  $search = search_api_autocomplete_search_load($autocomplete_id);
+  if ($autocomplete && $search && $search->enabled) {
+    $search->alterElement($form['text']);
+  }
+
+  $form['container'] = [
+    '#markup' => theme('salto_search_result_container_theme', ['search_cats' => $search_cats]),
+  ];
+
+  return $form;
+}
+
+/**
+ * before send query to solr, check the keys (search input) for count of
+ * documents if count < 1 then is bad search, so correct the input with solr
+ * spellcheck suggest
+ *
+ * @param array $call_args
+ * @param SearchApiQueryInterface $query
+ */
+function salto_search_search_api_solr_query_alter(array &$call_args, SearchApiQueryInterface $query) {
+  $keys = $query->getKeys();
+  if (is_array($keys)) {
+    unset($keys['#conjunction']);
+    $keys = implode(' ', $keys);
+  }
+  $call_args['params']['spellcheck'] = 'true';
+  $call_args['params']['spellcheck.q'] = $keys;
+  $call_args['params']['spellcheck.count'] = 10;
+  $call_args['params']['spellcheck.accuracy'] = 0.6;
+  $call_args['params']['spellcheck.collate'] = 'true';
+
+  drupal_add_js(drupal_get_path('module', 'salto_search') . '/js/salto_search_solr.js');
+  $searchWord = $keys;
+
+  if (salto_search_session('solr_query_keys') == $keys) {
+    $count = salto_search_session('solr_search_count');
+    $count++;
+    salto_search_session('solr_search_count', $count);
+
+  }
+
+  salto_search_session('solr_query_collation', 'n');
+  if (salto_search_session('solr_query_keys') != $keys) {
+    //check if search word get return docs,
+    // if docs = 0, query with first suggestion
+    $response = salto_search_search_api_solr_query_suggestion($keys, $query->getKeys());
+
+    if ((count($response->response->docs) < 1) && isset($response->spellcheck->collations->collation)) {
+      salto_search_session('solr_query_keys', $keys);
+      salto_search_session('solr_search_count', 1);
+
+      $collation = $response->spellcheck->collations->collation;
+      $call_args['query'] = str_replace(' ', ' AND ', $collation);
+      $searchWord = $collation;
+      drupal_add_js(["sync_words" => [$collation]], 'setting');
+      drupal_add_js(["mean_hide" => FALSE], 'setting');
+
+      salto_search_session('solr_query_collation', $collation);
+      //set session var for facetapi url processor
+      salto_search_session('solr_search_param', $collation);
+    }
+  }
+}
+
+/**
+ * get spellcheck suggestions
+ *
+ * @param $spellKeys
+ * @param $queryKeys
+ *
+ * @return mixed
+ */
+function salto_search_search_api_solr_query_suggestion($spellKeys, $queryKeys) {
+  $conjunct = ' ' . $queryKeys['#conjunction'] . ' ';
+  if (is_array($queryKeys)) {
+    unset($queryKeys['#conjunction']);
+    $queryKeys = implode($conjunct, $queryKeys);
+  }
+
+  $params = [
+    'q' => $queryKeys,
+    'spellcheck' => 'true',
+    'spellcheck.q' => $spellKeys,
+    'spellcheck.count' => 10,
+    'spellcheck.accuracy' => 0.6,
+    'spellcheck.collate' => 'true',
+  ];
+  $server = search_api_server_load('apache_solr');
+  $server->connect();
+  $response = $server->getSolrConnection()->search($queryKeys, $params, 'AUTO');
+
+  return $response;
+}
+
+function salto_search_preprocess_salto_search_authors_and_editors_theme(&$variables) {
+
+  if (arg(0) !== "search") {
+    return;
+  }
+
+  $type = arg(1);
+  list($global_authors, $global_editors, $global_authors_and_editors) = salto_search_get_authors_and_editors_from_view_result($type);
+
+  //render data
+  $rendered_authors = [];
+  foreach ($global_authors_and_editors as $author_uid) {
+    $author = user_load($author_uid);
+
+    //ignore guest and deleted user
+    if ($author->uid == 0 || $author->uid == USER_DELETED_UID) {
+      continue;
+    }
+
+    $author_editor_text = "";
+    $author_flag = array_search($author_uid, $global_authors) !== FALSE ? TRUE : FALSE;
+    $editor_flag = array_search($author_uid, $global_editors) !== FALSE ? TRUE : FALSE;
+    if ($author_flag && !$editor_flag) {
+      $author_editor_text = "Autor";
+    }
+    else {
+      if (!$author_flag && $editor_flag) {
+        $author_editor_text = "Bearbeiter";
+      }
+      else {
+        $author_editor_text = "Autor, Bearbeiter";
+      }
+    }
+
+    $rendered_authors[] = [
+      'picture' => l(theme('user_picture',
+        [
+          'account' => $author,
+          'style' => "user_30x30",
+        ]),
+        'user/' . $author->uid,
+        [
+          'html' => TRUE,
+          'attributes' => ['title' => format_username($author)],
+        ]
+      ),
+      'realname' => l(format_username($author), 'user/' . $author->uid),
+      'author' => $author_flag,
+      'editor' => $editor_flag,
+      'author_editor' => $author_editor_text,
+    ];
+  }
+
+  $variables['authors'] = $rendered_authors;
+
+}
+
+/**
+ * @param String $type 'node' | 'comment' | 'file'
+ *
+ * @return array
+ */
+function salto_search_get_authors_and_editors_from_view_result($type) {
+  //get search view result data
+  $global_authors = [];
+  $global_editors = [];
+  //nodes comments or files
+  switch ($type) {
+    case 'node':
+      $view_result = views_get_view_result('salto_search_node');
+      if (!empty($view_result)) {
+        //for each result build authors and editors array
+        foreach ($view_result as $result) {
+          //entity is id if no search query is set, entity object otherwise
+          if (is_numeric($result->entity)) {
+            $node = node_load($result->entity);
+          }
+          else {
+            $node = $result->entity;
+          }
+
+          $editors = salto_knowledgebase_post_get_revision_authors($node->nid);
+          $authors = salto_knowledgebase_post_get_authors($node);
+
+          $editors = array_diff((array) $editors, (array) $authors);
+
+          $global_authors = array_merge($global_authors, (array) $authors);
+          $global_editors = array_merge($global_editors, (array) $editors);
+        }
+      }
+      break;
+    case 'comment':
+      $view_result = views_get_view_result('salto_search_comment');
+
+      if (!empty($view_result)) {
+        //for each result build authors and editors array
+        foreach ($view_result as $result) {
+          //entity is id if no search query is set, entity object otherwise
+          if (is_numeric($result->entity)) {
+            $comment = comment_load($result->entity);
+          }
+          else {
+            $comment = $result->entity;
+          }
+
+          $global_authors[] = $comment->uid;
+        }
+      }
+      break;
+    case 'file':
+      $view_result = views_get_view_result('salto_search_file');
+      if (!empty($view_result)) {
+        //for each result build authors and editors array
+        foreach ($view_result as $result) {
+          //entity is id if no search query is set, entity object otherwise
+          if (is_numeric($result->entity)) {
+            $comment = file_load($result->entity);
+          }
+          else {
+            $comment = $result->entity;
+          }
+
+          $global_authors[] = $comment->uid;
+        }
+      }
+      break;
+  }
+
+  $global_authors_and_editors = array_merge($global_authors, $global_editors);
+  $global_authors_and_editors = array_unique($global_authors_and_editors);
+
+  //save the authors & editors in session var, (by spellcheck/suggest is view result in second execute empty)
+  if (!empty($global_authors_and_editors)) {
+    salto_search_session('result_authors_and_editors', $global_authors_and_editors);
+  }
+  else {
+    salto_search_session('result_authors_and_editors', [0]);
+  }
+  return [$global_authors, $global_editors, $global_authors_and_editors];
+}
+
+function salto_search_preprocess_salto_search_organisations_theme(&$variables) {
+  if (arg(0) !== "search") {
+    return;
+  }
+
+  $global_authors_and_editors = salto_search_session('result_authors_and_editors');
+
+  $result = [];
+  foreach ($global_authors_and_editors as $author_uid) {
+    $author = user_load($author_uid);
+    //ignore guest and deleted user
+    if ($author->uid == 0 || $author->uid == USER_DELETED_UID) {
+      continue;
+    }
+
+    foreach ($author->field_user_organisations[LANGUAGE_NONE] as $org) {
+      $result[] = $org['target_id'];
+    }
+  }
+  $result = array_unique($result);
+
+  //render data
+  $rendered = [];
+  foreach ($result as $og_id) {
+    $og = node_load($og_id);
+
+    $rendered[] = [
+      'name' => l($og->title, 'node/' . $og->nid),
+    ];
+  }
+
+  $variables['organisations'] = $rendered;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function salto_search_block_info() {
+  $blocks = [];
+  $blocks['salto_block_search'] = [
+    'info' => t('Salto site search'),
+  ];
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function salto_search_block_view($delta = '') {
+  $block = [];
+  switch ($delta) {
+    case 'salto_block_search':
+      $block['subject'] = '';
+      $block['content'] = salto_search_render_search_form();
+      break;
+  }
+  return $block;
+}
+
+/**
+ * compute value for search index editors field in posts
+ *
+ * @param $nid
+ *
+ * @return string
+ */
+function salto_search_compute_field_search_index_post_editors($nid) {
+  $realnames = _salto_knowledgebase_get_post_editors_realnames($nid);
+
+  $output = implode(' ', $realnames);
+
+  return $output;
+}
+
+/**
+ * compute value for search index editors field in posts
+ *
+ * @param $nid
+ *
+ * @return string
+ */
+function salto_search_compute_field_search_index_post_authors($nid) {
+
+  $realnames = [];
+  $node = node_load($nid);
+  $author_uids = salto_knowledgebase_post_get_authors($node);
+  foreach ($author_uids as $uid) {
+    $acc = user_load($uid);
+    $realnames[$uid] = $acc->realname;
+  }
+
+  $output = implode(' ', $realnames);
+
+  return $output;
+}
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function salto_search_entity_property_info_alter(&$info) {
+  $info['node']['properties']['search_index_post_authors'] = [
+    'type' => 'text',
+    'label' => t('Search Index Post Authors'),
+    'sanitized' => TRUE,
+    'getter callback' => 'search_index_post_authors_getter_callback',
+  ];
+
+  $info['comment']['properties']['search_index_comment_author'] = [
+    'type' => 'text',
+    'label' => t('Search Index Comment Author'),
+    'sanitized' => TRUE,
+    'getter callback' => 'search_index_comment_author_getter_callback',
+  ];
+
+  $info['file']['properties']['search_index_file_author'] = [
+    'type' => 'text',
+    'label' => t('Search Index File Author'),
+    'sanitized' => TRUE,
+    'getter callback' => 'search_index_file_author_getter_callback',
+  ];
+}
+
+/**
+ * Getter callback for search_index_post_authors property.
+ */
+function search_index_post_authors_getter_callback($item) {
+  if ($item->type == 'post') {
+    return salto_knowledgebase_search_index_post_get_authors_and_editors($item);
+  }
+
+  return "";
+}
+
+/**
+ * Getter callback for search_index_comment_authors property.
+ */
+function search_index_comment_author_getter_callback($item) {
+
+  $author = user_load($item->uid);
+  return $author->realname;
+}
+
+/**
+ * Getter callback for search_index_file_authors property.
+ */
+function search_index_file_author_getter_callback($item) {
+
+  $author = user_load($item->uid);
+  return $author->realname;
+}
+
+function salto_search_preprocess_salto_363_toolbar_alter(&$variables) {
+  if (arg(0) !== 'search') {
+    return;
+  }
+  $variables['toolbar']['title'] = t('Search');
+  $variables['toolbar']['context_menu'] = [];
+}
+
+/**
+ * Implements hook_preprocess_salto_363_modal_alter().
+ *
+ * @param $variables
+ */
+function salto_search_preprocess_salto_363_modal_alter(&$variables) {
+  if (arg(0) !== 'search') {
+    return;
+  }
+
+  $html = '';
+  $left = $variables['display']->panels['left'];
+  foreach ($left as $panel) {
+    if (!$variables['display']->content[$panel]) {
+      continue;
+    }
+    if (stripos($variables['display']->content[$panel]->subtype, 'facetapi') === FALSE) {
+      continue;
+    }
+    $html .= $variables['display']->renderer_handler->rendered['panes'][$panel];
+  }
+
+  $variables['modals']['filter']['title'] = t('Filter');
+  $variables['modals']['filter']['html'] = $html;
+  $variables['modals']['filter']['icon'] = 'filter';
+  $variables['modals']['filter']['accordion']['buttonClassName'] = 'panel-heading';
+  $variables['modals']['filter']['accordion']['containerClassName'] = 'salto-facet-search-wrapper';
+}
+
+function salto_search_preprocess_views_view_unformatted(&$variables) {
+  $view = $variables['view'];
+  if (stripos($view->name, 'salto_search') === FALSE) {
+    return;
+  }
+
+  foreach ($variables['classes_array'] as $key => $str) {
+    $variables['classes_array'][$key] = $str . ' card';
+  }
+}
+
+function salto_search_preprocess_views_view_fields(&$variables) {
+  $view = $variables['view'];
+  if (stripos($view->name, 'salto_search') === FALSE) {
+    return;
+  }
+
+  if (stripos($view->name, 'salto_search_node') !== FALSE) {
+    $post = $variables['fields']['nothing_1']->wrapper_prefix;
+    $post .= $variables['fields']['nothing_1']->content;
+    $post .= $variables['fields']['nothing_1']->wrapper_suffix;
+
+    unset($variables['fields']['nothing_1']);
+  }
+  if (stripos($view->name, 'salto_search_file') !== FALSE) {
+    $post = $variables['fields']['rendered_entity']->wrapper_prefix;
+    $post .= $variables['fields']['rendered_entity']->content;
+    $post .= $variables['fields']['rendered_entity']->wrapper_suffix;
+
+    unset($variables['fields']['rendered_entity']);
+  }
+
+  $title = $variables['fields']['php_title']->wrapper_prefix;
+  $title .= $variables['fields']['php_title']->content;
+  $title .= $variables['fields']['php_title']->wrapper_suffix;
+
+  if (stripos($view->name, 'salto_search_comment') !== FALSE) {
+    $title = $variables['fields']['subject']->wrapper_prefix;
+    $title .= $variables['fields']['subject']->content;
+    $title .= $variables['fields']['subject']->wrapper_suffix;
+
+    unset($variables['fields']['subject']);
+  }
+
+  $picture = $variables['fields']['field_user_picture']->wrapper_prefix;
+  $picture .= $variables['fields']['field_user_picture']->content;
+  $picture .= $variables['fields']['field_user_picture']->wrapper_suffix;
+  $variables['fields']['card_header']->wrapper_prefix = '<div class="views-field views-field-nothing header">';
+  $variables['fields']['card_header']->content = $picture . $title . $post;
+
+  unset($variables['fields']['field_user_picture']);
+  unset($variables['fields']['php_title']);
+}

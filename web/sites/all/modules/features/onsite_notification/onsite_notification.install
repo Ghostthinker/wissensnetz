@@ -1,0 +1,254 @@
+<?php
+
+
+/**
+ * Implements hook_schema().
+ */
+function onsite_notification_schema() {
+
+  $schema['notification_setting'] = [
+    'description' => 'Notification settings per user',
+    'fields' => [
+      'uid' => [
+        'description' => 'uid of the user',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ],
+      'message_type' => [
+        'description' => 'message_type of the message',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ],
+      'data' => [
+        'description' => 'Serialized data of the settings',
+        'type' => 'blob',
+        'not null' => TRUE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'object default' => [],
+      ],
+      'status' => [
+        'type' => 'int',
+        'description' => '0 = disabled; 1 = blocked',
+        'not null' => TRUE,
+        'size' => 'tiny',
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['uid', 'message_type'],
+  ];
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function onsite_notification_install() {
+  variable_set('mail_system', [
+    'default-system' => 'DefaultMailSystem',
+    'onsite_notification' => 'SaltoMailSystem',
+  ]);
+
+  //create the menu for onsite notifications
+  $menu = [
+    'menu_name' => 'onsite_notifications',
+    'title' => 'Notifications',
+    'description' => 'Onsite notification menu',
+  ];
+
+  $exists = db_query("SELECT title FROM {menu_custom} WHERE menu_name=:menu_name", [':menu_name' => $menu['menu_name']])->fetchField();
+  if (!$exists) {
+    menu_save($menu);
+  }
+}
+
+/**
+ * set default access for existing users
+ */
+function onsite_notification_update_9000() {
+
+  //get all users
+  $users = db_select('users', 'u')
+    ->fields('u', ['uid'])
+    ->condition('uid', 1, '>')
+    ->execute()
+    ->fetchAll();
+
+  //set default settings for all users
+  foreach ($users as $u) {
+    onsite_notification_set_default_settings($u->uid);
+  }
+}
+
+/**
+ * Resave comment notifications
+ */
+function onsite_notification_update_12000() {
+  $query = new EntityFieldQuery();
+  $result1 = $query->entityCondition('entity_type', 'message')
+    ->entityCondition('bundle', 'notification_create_comment')
+    ->execute();
+
+  $result2 = $query->entityCondition('entity_type', 'message')
+    ->entityCondition('bundle', 'notification_create_comment_reply')
+    ->execute();
+
+  $result = array_merge($result1['message'], $result2['message']);
+
+  foreach ($result as $m) {
+    if ($m = message_load($m->mid)) {
+      $wrapper = entity_metadata_wrapper('message', $m);
+      $node = $wrapper->field_notification_node_ref->value();
+      $comment = $wrapper->field_notification_comment_ref->value();
+
+      if ($node) {
+        $wrapper->field_notification_node_ref->value();
+
+        $link = url('node/' . $node->nid, ['fragment' => 'comment-' . $comment->cid]);
+        $wrapper->field_notification_link->set($link);
+        $wrapper->save();
+      }
+    }
+  }
+}
+
+
+/**
+ * set default access for existing users
+ */
+function onsite_notification_update_14000() {
+  //set the notification settings to default settings for all users
+  $users = array_keys(db_select('users', "u")
+    ->fields("u")
+    ->condition("status", 1, "=")
+    ->execute()
+    ->fetchAllKeyed());
+  foreach ($users as $uid) {
+    onsite_notification_settings_save($uid, 'notification_private_message_received', ["mail" => 1], 1);
+  }
+}
+
+/**
+ * set notification default setting
+ */
+function onsite_notification_update_16001() {
+  //set the notification settings to default settings for all users
+  $users = array_keys(db_select('users', "u")
+    ->fields("u")
+    ->condition("status", 1, "=")
+    ->execute()
+    ->fetchAllKeyed());
+  foreach ($users as $uid) {
+    //set notification checkbox
+    onsite_notification_settings_save($uid, 'notification_post_created', ["mail" => 1], 1);
+    $community_area_data = ['auto_subscribe' => "1"];
+    //set auto abo notification radiobx
+    onsite_notification_settings_save($uid, 'community_area', $community_area_data, 0);
+  }
+
+  //auto abo for users in groups
+  //select all user group memberships
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->entityCondition('bundle', 'group_membership ');
+  $query->propertyCondition('entity_type', 'user');
+  $query->propertyCondition('state', OG_STATE_ACTIVE);
+  $og_memberships = $query->execute();
+
+  $loaded_memberships = og_membership_load_multiple(array_keys($og_memberships['og_membership']));
+
+  //loop though all memberships
+  foreach ($loaded_memberships as $og_membership) {
+    $gid = $og_membership->gid;
+    $account = user_load($og_membership->etid);
+    flag('flag', 'notification_subscribe_node', $gid, $account);
+  }
+
+}
+
+/**
+ * Set default settings for new notification notification_license_migrate
+ */
+function onsite_notification_update_20000() {
+  //set the notification settings to default settings for all users
+  $users = array_keys(db_select('users', "u")
+    ->fields("u")
+    ->condition("status", 1, "=")
+    ->execute()
+    ->fetchAllKeyed());
+  foreach ($users as $uid) {
+    onsite_notification_settings_save($uid, 'notification_license_migrate', ["mail" => 1], 1);
+  }
+}
+
+/**
+ * Set default settings for license managers
+ */
+function onsite_notification_update_27001() {
+  $query = db_select('users', 'u')
+    ->fields('u', ['uid', 'name'])
+    ->fields('ur', ['rid'])
+    ->condition('u.uid', 0, '>')
+    ->condition('u.status', 0, '>')
+    ->condition('ur.rid', SALTO_ROLE_LICENSE_MANAGER_RID);
+  $query->leftJoin('users_roles', 'ur', 'u.uid = ur.uid');
+  $users = $query->execute()->fetchAllAssoc("uid");
+
+  foreach ($users as $uid => $values) {
+    onsite_notification_settings_save($uid, 'notification_licenses_marked_for_extension', ["mail" => 1], 1);
+  }
+
+}
+
+/**
+ * Set default settings for new notification notification_license_correct_by
+ */
+function onsite_notification_update_30000() {
+  //set the notification settings to default settings for all users
+  $users = array_keys(db_select('users', "u")
+    ->fields("u")
+    ->condition("status", 1, "=")
+    ->execute()
+    ->fetchAllKeyed());
+  foreach ($users as $uid) {
+    onsite_notification_settings_save($uid, 'notification_license_correct_by', ["mail" => 1], 1);
+  }
+}
+
+/**
+ * set notification default setting
+ */
+function onsite_notification_update_31000() {
+  //set the notification settings to default settings for all users
+  $users = array_keys(db_select('users', "u")
+    ->fields("u")
+    ->condition("status", 1, "=")
+    ->execute()
+    ->fetchAllKeyed());
+  foreach ($users as $uid) {
+    //set notification checkbox
+    onsite_notification_settings_save($uid, 'notification_material_created', ["mail" => 1], 1);
+    onsite_notification_settings_save($uid, 'notification_material_updated', ["mail" => 1], 1);
+    $community_area_data = ['auto_subscribe_materials' => "1"];
+    //set auto abo notification radiobx
+    onsite_notification_settings_save($uid, 'community_area', $community_area_data, 0);
+  }
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'og_membership');
+  $query->entityCondition('bundle', 'group_membership ');
+  $query->propertyCondition('entity_type', 'user');
+  $query->propertyCondition('state', OG_STATE_ACTIVE);
+  $og_memberships = $query->execute();
+
+  $loaded_memberships = og_membership_load_multiple(array_keys($og_memberships['og_membership']));
+
+  foreach ($loaded_memberships as $og_membership) {
+    $gid = $og_membership->gid;
+    $account = user_load($og_membership->etid);
+    flag('flag', 'notification_subscribe_material', $gid, $account);
+  }
+
+}

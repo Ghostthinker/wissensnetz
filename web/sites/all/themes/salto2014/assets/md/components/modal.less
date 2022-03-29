@@ -1,0 +1,166 @@
+
+@import "../../../less/variables";
+
+/* The Modal (background) */
+.modal-tb {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1000; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+
+  /* Modal Content */
+  .modal-content {
+    background-color: #fefefe;
+    margin: auto auto 2em;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    h2 {
+      text-align: center;
+      margin: 0.8em;
+    }
+    .panel-heading,
+    .panel-body {
+      background-color: white;
+    }
+    .panel-heading {
+      display: none;
+    }
+    #edit-field-taxonomy-post-tags-tid-wrapper {
+      padding: 0;
+    }
+    .views-exposed-form .views-exposed-widget.views-submit-button {
+      padding: 0 2em 0 0;
+    }
+  }
+
+  /* The Close Button */
+  .close {
+    color: #aaaaaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .close:hover,
+  .close:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  &.full {
+    /* Modal Content */
+    .modal-content {
+      width: 100%;
+      padding: 0;
+    }
+
+    /* The Close Button */
+    .close {
+      font-size: 2.5em;
+      padding: 0.2em 1em;
+    }
+  }
+
+  div.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0.5em 1em;
+    &.v-center {
+      align-items: center;
+    }
+  }
+  div.container > label, div > label {
+    width: 100%;
+    font-size: 1.1em;
+    padding: 0.5em;
+    font-weight: 600;
+    color: @dosb-light-grey;
+    flex: 1;
+  }
+  div.container > input, div.container > select {
+    flex: 2;
+  }
+  div.container > input {
+    padding: .5em;
+    font-size: 1.1em;
+  }
+
+  select.form-select,
+  .custom-select select {
+    width: 100%;
+    color: black;
+    background-color: #ffffff;
+    padding: 0.8em;
+    font-size: inherit;
+    cursor: pointer;
+    height: unset;
+  }
+
+  .modal-button {
+    padding: 1em 2em;
+    margin: 1em;
+    background-color: @dosb-grey;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+  }
+
+  /* Fixed sidenav, full height */
+  .dropdown {
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+    background-color: lighten(lightgrey, 10%);
+    overflow-x: hidden;
+
+    /* Style the links and the dropdown button */
+    a, .dropdown-btn {
+      padding: 0.7em 1em;
+      text-decoration: none;
+      font-size: 18px;
+      color: lighten(#000, 10%);
+      display: block;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      outline: none;
+      border-top: 1px dotted @dosb-light-grey;
+    }
+    /* On mouse-over */
+    a:hover, .dropdown-btn:hover {
+      color: #f1f1f1;
+      background-color: @dosb-grey;
+    }
+
+    /* Add an active class to the active dropdown button */
+    .active {
+      background-color: @dosb-orange;
+      color: white;
+    }
+
+    /* Dropdown container (hidden by default). Optional: add a lighter background color and some left padding to change the design of the dropdown content */
+    .dropdown-container {
+      display: none;
+      padding-left: 8px;
+    }
+
+    /* Optional: Style the caret down icon */
+    .fa-caret-down {
+      float: right;
+      padding-right: 8px;
+    }
+  }
+}
+
