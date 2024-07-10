@@ -109,6 +109,7 @@
 
   .node-buttons {
     margin-bottom: 20px;
+
   }
 
   .col-md-3 > .inside > .form-group {
@@ -223,9 +224,9 @@
     }
 
     .attachment_link, .remove.btn {
-      width: 100%;
-      padding: 0.7em;
+      padding: 10px 20px 10px 10px;
       margin: 0.2em 0;
+      border: unset;
     }
 
     .button.edit {
@@ -672,3 +673,72 @@ input[type=file].form-control {
   }
 }
 
+
+#online-meeting-node-form {
+  .checkbox-mark.form-item-salto-notification {
+    padding-bottom: 0;
+    label.control-label {
+      margin: 0;
+    }
+  }
+
+  #salto_notification_description {
+    margin-top: 10px;
+    padding-top: 0;
+  }
+}
+
+#post-node-form {
+  #edit-field-publishing-date-und-0-value {
+    display: flex;
+    flex-direction: row;
+    align-self: flex-start;
+    padding-left: unset;
+
+    .control-label {
+      display: block;
+    }
+  }
+
+  .form-item-field-publishing-date-und-0-value {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-item-field-publishing-date-und-0-value {
+    .help-block {
+      font-weight: 300;
+    }
+  }
+
+
+  fieldset {
+    border: none;
+  }
+}
+
+.form-type-password-confirm {
+  display: flex;
+  flex-direction: column;
+
+  .row {
+    margin-bottom: -30px;
+  }
+
+  .alert-success:before {
+    content: unset !important;
+
+  }
+
+  .help-block.password-help {
+    margin-top: 0;
+    padding: 15px;
+  }
+}
+
+
+#views-exposed-form-people-directory {
+  #edit-nid-wrapper {
+    display: none;
+  }
+}

@@ -75,16 +75,36 @@
  */
 
 ?>
-<div
-  class="userbar-desktop <?php print $wn_blanko_instance_key ? $wn_blanko_instance_key : ''; ?>">
-  <div class="container">
-    <div class="navbar-collapse collapse navbar-user pull-right">
-      <?php if (!empty($secondary_nav)): ?>
-        <?php print render($secondary_nav); ?>
-      <?php endif; ?>
+<meta name="auth-token" content="<?php print  $_SESSION['sso']['access_token']?>">
+<meta name="tum-url" content="<?php print $global_header['tumUrl'];?>">
+<?php if(!$show_global_header): ?>
+  <div
+    class="userbar-desktop <?php print $wn_blanko_instance_key ? $wn_blanko_instance_key : ''; ?>">
+    <div class="container">
+      <div class="navbar-collapse collapse navbar-user pull-right">
+        <?php if (!empty($secondary_nav)): ?>
+          <?php print render($secondary_nav); ?>
+        <?php endif; ?>
+      </div>
     </div>
   </div>
-</div>
+
+
+
+<?php else: ?>
+  <div id="global-header">
+    <script src="<?php print $global_header['global_header_url']; ?>" type="module"></script>
+    <style></style>
+    <global-header
+      logo="<?php print $global_header['logoUrl']; ?>"
+      backendUrl="<?php print $global_header['backendUrl']; ?>"
+      ogTitle="<?php print $global_header['ogTitle'] ?>"
+      localMenu="<?php print $global_header['localMenu'] ?>"
+      hideLogo
+    >
+    </global-header>
+  </div>
+<?php endif; ?>
 <?php if (WN_TESTS_RUNNING === FALSE): ?>
   <div class="userbar">
     <div class="container">
@@ -152,7 +172,6 @@
         </div>
 
       <?php endif; ?>
-
     </div>
 </header>
 

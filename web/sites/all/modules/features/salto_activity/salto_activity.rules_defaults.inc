@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_activity.rules_defaults.inc
@@ -28,7 +29,7 @@ function salto_activity_default_rules_configuration() {
             }
           }
         },
-        { "php_eval" : { "code" : "global $user;\\r\\n\\/\\/http:\\/\\/support.ghostthinker.de\\/scp\\/tickets.php?id=8051\\r\\n\\/\\/temporarily deactivating for 1798\\r\\nreturn ((($node-\\u003Ecreated \\u003C= strtotime(\\u0022-4 hours\\u0022)) \\u0026\\u0026 $node-\\u003Euid == $user-\\u003Euid) || $node-\\u003Euid != $user-\\u003Euid) \\u0026\\u0026 $user-\\u003Euid != 1798;\\r\\n\\r\\n" } },
+        { "php_eval" : { "code" : "global $user;\\r\\n\\/\\/http:\\/\\/support.ghostthinker.de\\/scp\\/tickets.php?id=8051\\r\\n\\/\\/temporarily deactivating for 1798\\r\\nif ($node-\\u003Esalto_ignore_notification) {\\r\\n  return FALSE;\\r\\n} else {\\r\\n  return ((($node-\\u003Ecreated \\u003C= strtotime(\\u0022-4 hours\\u0022)) \\u0026\\u0026 $node-\\u003Euid == $user-\\u003Euid) || $node-\\u003Euid != $user-\\u003Euid) \\u0026\\u0026 $user-\\u003Euid != 1798;\\r\\n}\\r\\n\\r\\n\\r\\n" } },
         { "user_has_role" : {
             "account" : [ "site:current-user" ],
             "roles" : { "value" : { "2" : "2" } }
@@ -89,7 +90,7 @@ function salto_activity_default_rules_configuration() {
       "PLUGIN" : "reaction rule",
       "OWNER" : "rules",
       "TAGS" : [ "salto_activity" ],
-      "REQUIRES" : [ "rules", "heartbeat_rules" ],
+      "REQUIRES" : [ "rules", "php", "heartbeat_rules" ],
       "ON" : { "node_insert" : [] },
       "IF" : [
         { "node_is_published" : { "node" : [ "node" ] } },

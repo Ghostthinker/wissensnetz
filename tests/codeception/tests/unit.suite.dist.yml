@@ -7,5 +7,10 @@ modules:
     enabled:
         - Asserts
         - \Helper\Unit
-        - \Helper\Bildungsnetz
-error_level: "E_ALL & ~E_STRICT & E_DEPRECATED & ~E_NOTICE"
+        - \Helper\Wissensnetz
+    config:
+        #\Helper\Unit:
+            #base_uri: 'uri'
+            #mail: 'test@example.com'
+            #password: '123'
+error_level: "E_ALL & ~E_STRICT & ~E_DEPRECATED & ~E_NOTICE"

@@ -81,7 +81,11 @@ class views_handler_filter_salto_themenfelder_tid extends views_handler_filter_i
         $form[$value]['#default_value'] = 'All';
       }
 
-      $form[$value]['#default_value'] = -1;
+      if (salto_core_get_default_value_themenfeld_filter()){
+        $form[$value]['#default_value'] = 'All';
+      }else{
+        $form[$value]['#default_value'] = -1;
+      }
 
       reset($form[$value]["#options"]);
       $option_all_key = key($form[$value]["#options"]);

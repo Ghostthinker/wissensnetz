@@ -1,6 +1,6 @@
 <?php
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * Class FeedContentsCest

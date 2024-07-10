@@ -167,4 +167,61 @@ class DialogGatewayAPI {
     }
   }
 
+  function getDialogRecordings($host_id) {
+    $client = new \GuzzleHttp\Client(['base_uri' => $this->settings['online_meeting_url']]);
+
+    try {
+      $response = $client->request('GET', '/api/recordings',
+        [
+          'query' => ['host' => $host_id],
+          'headers' => ['Authorization' => 'Bearer ' . $this->settings['online_meeting_access_token']],
+          'debug' => FALSE
+        ]);
+    } catch (\GuzzleHttp\Exception\GuzzleException $e) {
+      //TODO check the 404 which means no diag session  has been started yet
+      return FALSE; //TODO better exception
+    }
+
+    try {
+      $result = json_decode($response->getBody(), TRUE);
+      if (json_last_error() !== JSON_ERROR_NONE) {
+        //TODO better exception
+        return FALSE;
+      }
+
+      return $result;
+    } catch (\Exception $e) {
+      watchdog_exception('dialog_gateway', $e);
+    }
+
+  }
+
+  public function deleteDialogRecordings($recordingId, $host_id) {
+    $client = new \GuzzleHttp\Client(['base_uri' => $this->settings['online_meeting_url']]);
+
+    try {
+      $response = $client->request('DELETE', '/api/recordings/' . $recordingId,
+        [
+          'query' => ['host' => $host_id],
+          'headers' => ['Authorization' => 'Bearer ' . $this->settings['online_meeting_access_token']],
+          'debug' => FALSE
+        ]);
+    } catch (\GuzzleHttp\Exception\GuzzleException $e) {
+      //TODO check the 404 which means no diag session  has been started yet
+      return FALSE; //TODO better exception
+    }
+
+    try {
+      $result = json_decode($response->getBody(), TRUE);
+      if (json_last_error() !== JSON_ERROR_NONE) {
+        //TODO better exception
+        return FALSE;
+      }
+
+      return $result;
+    } catch (\Exception $e) {
+      watchdog_exception('dialog_gateway', $e);
+    }
+  }
+
 }

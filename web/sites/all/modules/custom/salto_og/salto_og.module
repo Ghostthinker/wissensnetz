@@ -797,8 +797,7 @@ function _salto_og_get_organisation_options_recursion($users_organisation, $acco
  *
  * @return array
  */
-function _salto_og_get_organisation_options_recursion_without_access($organisations, $level = 0) {
-  $options = [];
+function _salto_og_get_organisation_options_recursion_without_access(&$options, $organisations, $level = 0) {
 
   $prefix = "";
   $i = 0;
@@ -811,11 +810,11 @@ function _salto_og_get_organisation_options_recursion_without_access($organisati
 
   foreach ($organisations as $nid => $org) {
     if (array_key_exists($nid, $options)) {
-      continue;
+      unset($options[$nid]);
     }
     $options[$nid] = $prefix . $org['title'];
     if (!empty($org['suborganisations'])) {
-      $options += _salto_og_get_organisation_options_recursion_without_access($org['suborganisations'], $level);
+      _salto_og_get_organisation_options_recursion_without_access($options, $org['suborganisations'], $level);
     }
   }
   return $options;
@@ -1201,11 +1200,13 @@ function salto_og_create_accept_invite($data, $group, $custom_message) {
  *
  * @return [type]       [description]
  */
-function salto_og_create_new_user_invite($data, $group, $custom_message) {
+function salto_og_create_new_user_invite($data, $group, $custom_message, $account = NULL) {
 
-  global $user;
+  if(empty($account)){
+    global $user;
+    $account = clone $user;
+  }
 
-  $account = clone $user;
 
   try {
     $invite = new SaltoInvite();
@@ -1719,11 +1720,15 @@ function salto_og_og_membership_delete(OgMembership $og_membership) {
 
   $organisation_count = !empty($account->field_user_organisations[LANGUAGE_NONE]) ? count($account->field_user_organisations[LANGUAGE_NONE]) : 0;
 
-  $fallback_nid = variable_get('salto_organisation_fallback_nid');
+  $fallback_nid = salto_organisation_get_fallback_nid();
 
   if ($organisation_count == 1 && $og_membership->gid != $fallback_nid) {
 
     $fallback_node = node_load($fallback_nid);
+
+    if(!$fallback_node) {
+      return;
+    }
 
     $og_membership = og_membership_create('node', $fallback_nid, 'user', $account->uid, 'field_user_organisations', ['state' => 1]);
     $og_membership->save();
@@ -1767,7 +1772,7 @@ function salto_og_og_membership_delete_entity_delete_callback($id) {
 function salto_og_og_membership_insert(OgMembership $og_membership) {
   $uid = $og_membership->etid;
   $account = user_load($uid, TRUE);
-  $fallback_nid = variable_get('salto_organisation_fallback_nid');
+  $fallback_nid = salto_organisation_get_fallback_nid();
 
   if ($og_membership->type != "organisation_membership") {
     return;

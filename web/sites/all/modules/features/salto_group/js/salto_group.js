@@ -38,6 +38,39 @@
         }
       });
 
+      if ($('#edit-field-post-collaboration-und-0-read option[value="3"]').text() === '') {
+        $('#edit-field-post-collaboration-und-0-read option[value="3"]').remove();
+        $('#edit-field-post-collaboration-und-0-edit option[value="3"]').remove();
+      }
+
+      $('#edit-field-og-group-und-0-default').change(function (){
+
+        const selectedOption = $(this).val();
+        const selectedText = $('option:selected', this).text();
+
+        if ($('#edit-field-post-collaboration-und-0-read option[value="3"]').length > 0) {
+          $('#edit-field-post-collaboration-und-0-read option[value="3"]').remove();
+          $('#edit-field-post-collaboration-und-0-edit option[value="3"]').remove();
+        }
+
+        if(selectedOption === '_none'){
+          return;
+        }
+
+        $('#edit-field-post-collaboration-und-0-read').append($('<option>', {
+          value: '3',
+          text: Drupal.t('Only group') + ' "' + selectedText + '"'
+        })).val(3);
+
+        $('#edit-field-post-collaboration-und-0-edit').append($('<option>', {
+          value: '3',
+          text: Drupal.t('Only group') + ' "' + selectedText + '"'
+        })).val(3);
+
+
+      });
+
+
       //manager action links on members
       $('.salto-og-action-links a').once('salto_group').click(function () {
         //ajax response

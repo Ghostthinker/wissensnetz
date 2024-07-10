@@ -1,6 +1,6 @@
 <?php
 
-define('SALTO_GROUP_MAX_USER_PICS', 4);
+define('SALTO_GROUP_MAX_USER_PICS', 3);
 define('SALTO_GROUP_API_USERS_NID', 3185);
 define('SALTO_GROUPS_MENU_NAME', 'menu-groups');
 
@@ -608,7 +608,7 @@ function salto_group_render_group_members_user_pictures($gid) {
     $u_item = user_load($member->etid);
     if ($profile = profile2_load_by_user($u_item, 'main')) {
 
-      $field_view = field_view_field('profile2', $profile, 'field_user_picture', ['settings' => ['image_style' => 'user_30x30']]);
+      $field_view = field_view_field('profile2', $profile, 'field_user_picture', ['settings' => ['image_style' => 'user_100x100']]);
       $field_view['#label_display'] = 'hidden';
 
       $output .= l(render($field_view), 'user/' . $member->etid, [
@@ -643,6 +643,18 @@ function salto_group_form_alter(&$form, &$form_state, $form_id) {
     }
 
     $form["field_group_categories"][LANGUAGE_NONE]["#options"] = $options;
+
+    //Description for collaboration
+    $form['field_default_access_post'][LANGUAGE_NONE][0]['read']['#title'] = t('Group contents') . ': ' . $form['field_default_access_post'][LANGUAGE_NONE][0]['read']['#title'];
+    $form['field_default_access_post'][LANGUAGE_NONE][0]['read']['#description'] = t('Specify who can view the group content, such as posts or files, by default');
+    $form['field_default_access_post'][LANGUAGE_NONE][0]['edit']['#title'] = t('Group contents') . ': ' . $form['field_default_access_post'][LANGUAGE_NONE][0]['edit']['#title'];
+    $form['field_default_access_post'][LANGUAGE_NONE][0]['edit']['#description'] = t('Specify who can change the group content, such as posts and files, by default.');
+
+    //Default online meeting access
+    unset($form['field_meeting_collaboration'][LANGUAGE_NONE][0]['read']);
+    $form['field_meeting_collaboration'][LANGUAGE_NONE][0]['edit']['#title'] = t('Online-meeting: Change access incl. starting online meetings');
+    $form['field_meeting_collaboration'][LANGUAGE_NONE][0]['edit']['#description'] = t('Specify who can edit online meetings in this group by default. This also includes the option to start the online meeting.');
+
   }
 
   if ($form_id == "node_delete_confirm") {
@@ -660,6 +672,16 @@ function salto_group_form_alter(&$form, &$form_state, $form_id) {
     //populate role in organisation options
     $form['field_group_target_audience_role_value']['#options'] = salto_og_organisation_get_roles();
     $form['field_group_target_audience_role_value']['#attributes'] = ['data-placeholder' => ' '];
+
+    if(\salto_core\service\SettingsService::relevantGroupFilterEnabled()){
+
+      if($form_state['input']['state'] == 1 && $form_state['input']['op'] != 'Zurücksetzen'){
+        drupal_set_message(t('Only your active groups are displayed. If you want to see all groups, please adjust the filter on the left accordingly'), 'warning', FALSE);
+      }
+      unset($form['state']['#options'][2]);
+      unset($form['state']['#options'][3]);
+    }
+
   }
 
 
@@ -684,6 +706,38 @@ function salto_group_form_alter(&$form, &$form_state, $form_id) {
       $form['field_post_collaboration'][LANGUAGE_NONE][0]['edit']['#default_value'] = $edit_value;
     }
   }
+}
+
+function salto_group_filter_relevant_group($ogNid, $account = NULL){
+
+  if(empty($account)){
+    $drupalUser = \Wissensnetz\User\DrupalUser::current();
+  }
+
+
+  if(!\salto_core\service\SettingsService::relevantGroupFilterEnabled()){
+    return FALSE;
+  }
+
+  if($drupalUser->isCommunityManager()){
+    return FALSE;
+  }
+
+  if (og_is_member('node', $ogNid, 'user', $drupalUser->getUser(), [OG_STATE_ACTIVE, OG_STATE_PENDING])) {
+    return FALSE;
+  }
+
+  $ogDrupalNode = \Wissensnetz\Core\Node\DrupalNode::make($ogNid);
+
+  $join_mode = $ogDrupalNode->getJoinMode();
+  if($join_mode == SALTO_GROUP_JOIN_OPEN || $join_mode == SALTO_GROUP_JOIN_REQUIRE_APPROVAL){
+    return FALSE;
+  }
+
+
+
+  return !salto_group_user_is_in_one_of_organisations($ogDrupalNode->getNode());
+
 }
 
 function salto_group_node_delete_form_submit(&$form, &$form_state) {
@@ -1295,6 +1349,50 @@ function salto_group_salto_action_links($category, $context) {
           $links["add_file"] = $link;
         }
 
+        //files for download
+        if (og_user_access('node', $group_nid, "create file")) {
+          $path = 'groups/'. $node->nid.'/files/download';
+          $text = t('Download files');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => $base_query, // $base_query, //$query,
+              'attributes' => [
+                'title' => t('Download multiple files'),
+                'class' => 'action_link action_download_file',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["download_files"] = $link;
+        }
+
+        //files for edit
+        if (og_user_access('node', $group_nid, "create file")) {
+          $path = 'groups/'. $node->nid.'/files/edit';
+          $text = t('Edit files');
+          $dest = drupal_get_destination();
+          $link = [
+            '#theme' => 'link',
+            '#text' => $text,
+            '#path' => $path,
+            '#options' => [
+              'query' => $base_query, // $base_query, //$query,
+              'attributes' => [
+                'title' => t('Edit multiple files'),
+                'class' => 'action_link action_edit_file',
+              ],
+              'html' => TRUE,
+            ],
+          ];
+          $links["edit_files"] = $link;
+        }
+
+
+
         //manage categories
         if (og_user_access('node', $group_nid, "manage group category")) {
           $path = 'groups/' . $group_nid . '/category';
@@ -1315,6 +1413,7 @@ function salto_group_salto_action_links($category, $context) {
           ];
           $links["manage_categories"] = $link;
         }
+
 
         //revisions
         if (!empty($node) && $node->type == 'post' && _node_revision_access($node)) {
@@ -1572,11 +1671,11 @@ function salto_group_category_manage_callback($group_gid) {
 
 
   $output = '<div class="salto-group-manage-categories row">';
-  $output .= '<div class="col-md-6">';
+  $output .= '<div class="col-md-12">';
   $output .= "<h3>" . t('Posts') . "</h3>";
   $output .= $output_form_posts;
   $output .= '</div>';
-  $output .= '<div class="col-md-6">';
+  $output .= '<div class="col-md-12">';
   $output .= "<h3>" . t('Materials') . "</h3>";
   $output .= $output_form_materials;
   $output .= '</div>';
@@ -2097,9 +2196,73 @@ function salto_group_get_group_id_from_node($node) {
  */
 function salto_group_node_delete($node) {
   if ($node->type == 'group') {
-    $groupController = new \salto_group\GroupService($node);
+    $groupController = new \salto_group\GroupDeleteService($node);
     $groupController->deleteGroupContent();
   }
 }
 
 
+/**
+ * @return mixed
+ */
+function salto_group_orphaned_posts_find() {
+  $type = 'post';
+  $query = db_select('field_data_field_post_collaboration', 'fpc')->fields('fpc', ['entity_id']);
+  $query->condition('fpc.field_post_collaboration_read', SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP);
+  $query->leftJoin('og_membership','ogm','ogm.etid = fpc.entity_id');
+  $query->condition('ogm.gid', null);
+
+  $query->condition('fpc.entity_type','node');
+  $query->leftJoin('node','n','n.nid = fpc.entity_id');
+  $query->condition('n.type', $type);
+
+  return $query->execute()->fetchAll();
+}
+
+/**
+ * @param int   $readAccess
+ * @param int   $editAccess
+ * @param array $nodeIds
+ *
+ * @return mixed
+ * @throws Exception
+ */
+function salto_group_orphaned_posts_set_access(
+  int $readAccess = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS,
+  int $editAccess = SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS,
+  array $nodeIds = []
+) {
+  if (empty($nodeIds)) {
+    $nodeIds = salto_group_orphaned_posts_find();
+  }
+
+  foreach ($nodeIds as $clazz) {
+    $post = node_load($clazz->entity_id);
+    $post->field_post_collaboration[LANGUAGE_NONE]['read'] = $readAccess;
+    $post->field_post_collaboration[LANGUAGE_NONE]['edit'] = $editAccess;
+    node_save($post);
+  }
+  return $nodeIds;
+}
+
+/**
+ * @param array $nodeIds
+ *
+ * @return array|mixed
+ */
+function salto_group_orphaned_posts_delete(array $nodeIds = []) {
+  if (empty($nodeIds)) {
+    $nodeIds = salto_group_orphaned_posts_find();
+  }
+
+  foreach ($nodeIds as $clazz) {
+    node_delete($clazz->entity_id);
+  }
+  return $nodeIds;
+}
+
+function salto_group_people_in_og_header(){
+  $og = og_context();
+  $members = salto_og_get_users_by_og($og['gid']);
+  return '<div class="people-in-og-header">' . t('Diese Gruppe hat insgesamt !count !format.',['!count' => count($members), '!format' => format_plural(count($members),t('Member'), t('Members'))]) . '</div>';
+}

@@ -100,7 +100,7 @@ function views_bulk_operations_archive_action_form($context) {
   $form['filename'] = array(
     '#type' => 'textfield',
     '#title' => t('Filename'),
-    '#default_value' => 'vbo_archive_' . date('Ymd'),
+    '#default_value' => 'download-' . time(),
     '#field_suffix' => '.zip',
     '#description' => t('The name of the archive file.'),
   );

@@ -79,6 +79,14 @@ function onsite_notification_cron_queue_info() {
     'worker callback' => '_onsite_notification_queue_resolve_create',
     'time' => 30, //seconds to spend working on the queue
   ];
+  $queues['onsite_notification_create_' . MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED] = [
+    'worker callback' => '_onsite_notification_queue_resolve_create',
+    'time' => 30, //seconds to spend working on the queue
+  ];
+  $queues['onsite_notification_create_' . MESSAGE_TYPE_NOTIFICATION_ONLINE_MEETING_SCHEDULED] = [
+    'worker callback' => '_onsite_notification_queue_resolve_create',
+    'time' => 30, //seconds to spend working on the queue
+  ];
   return $queues;
 }
 
@@ -132,7 +140,6 @@ function _onsite_notification_queue_resolve_comment_insert($data) {
 }
 
 
-
 /**
  * Queue wrapper for onsite_notification_create
  * Create new queue items, split audiences in chunks (for next run)
@@ -151,11 +158,11 @@ function _onsite_notification_queue_resolve_comment_insert($data) {
  * @param bool   $filter_audience
  */
 function onsite_notification_create($message_type, $audience, $link, $context = array(), $filter_audience = TRUE){
-  watchdog('onsite_notification_queue', 'Queue create for type %type', ['%type' => $message_type], WATCHDOG_INFO);
 
   $queue = CoreSystemQueue::create('onsite_notification_create_' . $message_type);
 
   $chunks = array_chunk($audience, variable_get('notification_queue_create_audience_chunk', 800), true);
+
   foreach ($chunks as $chunk) {
     $data = [
       'type' => $message_type,
@@ -164,6 +171,7 @@ function onsite_notification_create($message_type, $audience, $link, $context = 
       'context' => $context,
       'filter' => $filter_audience
     ];
+
     $queue->createItem($data);
   }
 }

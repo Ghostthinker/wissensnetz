@@ -120,6 +120,13 @@
     return ts;
   };
 
+  Drupal.salto_core.showPlayerModal = function (url, title) {
+    bootbox.dialog({
+      message: "<div class=modal-titel>" + title + "</div><iframe allowfullscreen sandbox=\"allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation\" allow=\"fullscreen; clipboard-read; clipboard-write; microphone; camera\" style='width:100%; height: calc(100% - 1rem); border:none' src='" + url + "'></iframe>",
+      className: "video-modal"
+    });
+  }
+
 
   /**
    * Get last day of the current quarter of date

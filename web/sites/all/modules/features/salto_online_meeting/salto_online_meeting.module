@@ -7,6 +7,7 @@
 
 include_once 'salto_online_meeting.features.inc';
 include_once 'inc/OnlineMeetingService.inc';
+include_once('inc/OnlineMeetingShareLink.inc');
 
 define('ONLINE_MEETING_STATUS_ACTIVE', 1);
 define('ONLINE_MEETING_STATUS_INACTIVE', 0);
@@ -52,25 +53,99 @@ function salto_online_meeting_menu() {
     'type' => MENU_CALLBACK,
   ];
 
-  $items['groups/%node/online-meetings/ajax/%'] = [
+  $items['online-meetings/ajax/%'] = [
     'page callback' => 'salto_online_meeting_current_meetings_ajax_callback',
     'page arguments' => [1],
-    'access callback' => 'salto_online_meeting_group_access',
-    'access arguments' => [1],
+    'access callback' => 'salto_online_meeting_listing_ajax_access',
     'type' => MENU_CALLBACK,
   ];
+  $items['download/%node/ics'] = [
+    'page callback' => 'salto_online_meeting_download_ics',
+    'page arguments' => [1],
+    'access callback' => 'node_access',
+    'access arguments' => ['view', 1],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['online-meeting/attend/%'] = array(
+    'page callback' => 'salto_online_meeting_attend_page_callback',
+    'page arguments' => array(2),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
 
   return $items;
 }
 
-
 /**
- * Implements hook_menu_alter().
+ * @param $node
  */
-function salto_online_meeting_menu_alter(&$items) {
+function salto_online_meeting_download_ics($node) {
 
-dpm($items);
+  //check token
+  if (!drupal_valid_token($_GET['token'], 'salto_online_meeting_ics')) {
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  $token = check_plain($_GET['token']);
+  drupal_valid_token($token);
+
+  if (!empty($node->field_recurring_meeting[LANGUAGE_NONE][0]["value"])) {
+    //todo
+    //wiederkehrende meetings haben im formular kein(en) Beginn/Ende
+    print t('No start and end dates available');
+    drupal_access_denied();
+    drupal_exit();
+  }
+
+  $vCalendar = new \Eluceo\iCal\Component\Calendar(url('download/' . $node->nid . '/ics'));
+
+  $vCalendar->setName("Wissensnetz");
+
+  $vEvent = new \Eluceo\iCal\Component\Event();
+
+  $eventUrl = url('/node/' . $node->nid, ['absolute' => TRUE]);
+  $eventLink = l(t('Here'), $eventUrl);
+
+  $eventDescription = $node->body[LANGUAGE_NONE][0]['value'] . '<br/><br/>' .
+    t('Click !here to join the meeting', ['!here' => $eventLink]) . ': ' . $eventUrl;
+
+  //specify event properties
+  $vEvent
+    ->setDtStart(new \DateTime($node->field_online_meeting_date[LANGUAGE_NONE][0]["value"]))
+    ->setDtEnd(new \DateTime($node->field_online_meeting_date[LANGUAGE_NONE][0]["value2"]))
+    //->setNoTime(!empty(eEvent['allDay']) && $event['allDay'] == TRUE)
+    //->setDescription(strip_tags($node->body))
+    ->setLocation($eventUrl)
+    ->setDescription($eventDescription)
+    ->setSummary(strip_tags($node->title));
+
+  //add event to calendar component
+  $vCalendar->addComponent($vEvent);
+
+  header('Content-Type: text/calendar; charset=utf-8');
+  header('Content-Disposition: attachment; filename="cal.ics"');
+  print $vCalendar->render();
+  drupal_exit();
+
 }
+
+
+function salto_online_meeting_attend_page_callback($uuid) {
+  salto_core_disable_page_cache();
+
+  try {
+    $online_meeting = OnlineMeetingShareLink::decode($uuid, TRUE);
+  } catch (Exception $e) {
+    return "Access denied: " . time();
+  }
+
+  drupal_goto("node/" . $online_meeting->nid, ['token' => $uuid, 'valid' => 1] );
+
+  return "";
+}
+
 
 /**
  * Access callback for dialog ajax requests
@@ -85,8 +160,16 @@ function salto_online_meeting_ajax_access_callback($node) {
 
 }
 
-function salto_online_meeting_group_access($node) {
-  return $node->type == 'group' && node_access('view', $node) && salto_online_meeting_enabled();
+function salto_online_meeting_listing_ajax_access() {
+
+  $group_node = isset($_GET['og_nid']) ? node_load($_GET['og_nid']) : NULL;
+
+  if($group_node){
+    return $group_node->type == 'group' && node_access('view', $group_node) && salto_online_meeting_enabled();
+  }
+
+  return TRUE;
+
 }
 
 /**
@@ -103,6 +186,9 @@ function salto_online_meeting_ajax_callback($node, $op) {
       $data['status'] = $status;
       $data['joinlink'] = $online_meeting->renderJoinLink();
       break;
+    case 'recordings':
+      $data['content'] = $online_meeting->renderRecordings(FALSE);
+      break;
   }
 
   drupal_alter("dialog_ajax", $data, $dialog, $op);
@@ -115,8 +201,9 @@ function salto_online_meeting_ajax_callback($node, $op) {
  *
  * @param $group_nid
  */
-function salto_online_meeting_current_meetings_ajax_callback($group_node) {
+function salto_online_meeting_current_meetings_ajax_callback() {
 
+  $group_node = isset($_GET['og_nid']) ? node_load($_GET['og_nid']) : NULL;
   $output = theme('active_group_online_meetings', ['group_node' => $group_node]);
   drupal_json_output($output);
 }
@@ -132,19 +219,39 @@ function salto_online_meeting_theme() {
       'template' => 'templates/salto_online_meeting_active_online_meeting',
       'arguments' => ['group_node' => NULL],
     ],
+    'gateway_recording_downloads_info' => [
+      'arguments' => [
+        'variables' => NULL,
+        'recordings' => [],
+      ],
+    ],
+    'gateway_recording_download_form' => [
+      'render element' => 'form',
+      'arguments' => array(
+        'form' => NULL,
+        'node' => NULL,
+        'recordings' => [],
+      ),
+      'template' => 'templates/gateway_recording_download_form',
+
+    ],
+    'salto_online_meeting_share_button' => [
+      'template' => 'templates/salto_online_meeting_share_button',
+      'arguments' => [
+        'node' => NULL,
+      ],
+    ],
+
   ];
 }
-
 
 function salto_online_meeting_preprocess_active_group_online_meetings(&$variables) {
 
   drupal_add_css(drupal_get_path('module', 'salto_group') . '/less/salto_group.less');
 
   $group_node = $variables['group_node'];
-  if (empty($group_node)) {
-    return;
-  }
-  $og_nid = $group_node->nid;
+
+  $og_nid = $group_node->nid ?? NULL;
 
   $all_active_dialogs = salto_online_meeting_get_active_dialogs($og_nid);
   $real_active_dialogs = [];
@@ -165,20 +272,43 @@ function salto_online_meeting_preprocess_active_group_online_meetings(&$variable
         ],
       ]);
 
+      $additionalInfo = '';
+      if (empty($og_nid)) {
+        $linkText = t('Community area');
+        $url = '/';
+        if (!empty($node->field_og_group)) {
+          $ogNode = node_load($node->field_og_group[LANGUAGE_NONE][0]['target_id']);
+          $linkText = t('Group') . ': ' . $ogNode->title;
+          $url = url('node/' . $ogNode->nid, ['absolute' => TRUE]);
+        }
+        $additionalInfo = '<a href="' . $url . '">(' . $linkText . ')<a/>';
+      }
 
       $real_active_dialogs[] = [
         'nid' => $node->nid,
+        'node_url' => url('node/' . $node->nid, ['absolute' => TRUE]),
         'title' => $node->title,
         'time' => substr($start_time[1], 0, -3) . ' - ' . substr($end_time[1], 0, -3) . ' Uhr',
         'url' => $url,
+        'additionalInfo' => $additionalInfo
       ];
+
+
+
     }
     $variables['online_meetings'] = $real_active_dialogs;
   }
 }
 
 function salto_online_meeting_form_alter(&$form, $form_state) {
+
   if ($form['#form_id'] == 'online_meeting_node_form') {
+
+    if(!\Wissensnetz\Group\GroupDrupalNode::current()){
+      unset($form['field_og_group']);
+    }
+
+
     $form['#validate'][] = 'salto_online_meeting_form_validate';
     $form['#after_build'][] = 'salto_online_meeting_form_afterbuild';
     $form['field_recurring_meeting']['und']['#options'][0] = t($form['field_recurring_meeting']['und']['#options'][0]);
@@ -187,12 +317,17 @@ function salto_online_meeting_form_alter(&$form, $form_state) {
     unset($form['field_online_meeting_status']);
 
     //unset public read access
-    unset($form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#options']['-1']);
+    //unset($form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#options']['-1']);
+
+    //hide recordings
+    $form['field_online_meeting_recordings']['#prefix'] = '<div style="display:none">';
+    $form['field_online_meeting_recordings']['#suffix'] = '</div>';
 
     $form['actions']['submit']['#submit'][] = 'salto_online_meeting_redirect_callback';
 
   }
 }
+
 
 /**
  * Redirect after node save
@@ -243,6 +378,47 @@ function salto_online_meeting_form_validate($form, &$form_state) {
   }
 }
 
+
+/**
+ * @param $node
+ * @param $op
+ * @param $account
+ *
+ * @return string|null
+ */
+function salto_online_meeting_node_access($node, $op, $account) {
+  // Check if the operation is 'create'.
+  if ($op == 'create') {
+    // Get the content type of the node being created.
+    //$type = isset($node->type) ? $node->type : NULL;
+
+    // global permission
+    if (user_access('create online_meeting content')) {
+      return NODE_ACCESS_IGNORE;
+    }
+
+    //og permission only, if context set
+    if ($node == 'online_meeting') {
+      // Check if the user has selected an OG context.
+      if (empty($_GET['field_og_group'])) {
+        $group = node_load($_GET['field_og_group']);
+
+        if ($group && $group->type == 'group') {
+          if (!og_user_access('node', $group->gid, 'create online_meeting content', $account)) {
+            return NODE_ACCESS_DENY;
+          }
+
+          return NODE_ACCESS_IGNORE;
+        }
+        // If no OG context is found, deny access.
+        return NODE_ACCESS_DENY;
+      }
+    }
+  }
+  // Default behavior, allow access.
+  return NODE_ACCESS_IGNORE;
+}
+
 /**
  * alter groups navigation items block
  *
@@ -250,33 +426,29 @@ function salto_online_meeting_form_validate($form, &$form_state) {
  * @param type $config
  */
 function salto_online_meeting_menu_block_tree_alter(&$tree, &$config) {
-  global $user;
-  if ($config['menu_name'] != 'menu-groups') {
-    return;
-  }
 
-  $context = og_context();
-  if (!empty($context)) {
-    $group = node_load($context['gid']);
+  $group = og_context() ? node_load(og_context()['gid']) : null;
 
-    foreach ($tree as $k => &$ti) {
-      switch ($ti['link']['link_path']) {
-        case 'http://online-meetings':
-          $tree[$k]['link']['title'] = t($tree[$k]['link']['title']);
-          $ti['link']['href'] = url('groups/' . $context['gid'] . '/online-meetings/status');
+  foreach ($tree as $k => &$ti) {
+    switch ($ti['link']['link_path']) {
+      case 'http://online-meetings':
+        $tree[$k]['link']['title'] = t($tree[$k]['link']['title']);
+        $ti['link']['href'] = url(($group ? 'groups/' . $group->nid . '/' : '') . 'online-meetings/status');
 
-          $ti['below'] = salto_online_meeting_build_taxonomy_menu($group);
-          if (!empty($ti['below'])) {
-            //set children flag
-            $ti['link']['has_children'] = 1;
-          }
-          if (!salto_online_meeting_enabled()){
-            $tree[$k]['link']['access'] = 0;
-          }
-          break;
-      }
+        $ti['below'] = salto_online_meeting_build_taxonomy_menu($group);
+        if (!empty($ti['below'])) {
+          // Set children flag
+          $ti['link']['has_children'] = 1;
+        }
+        if (!salto_online_meeting_enabled()) {
+          $tree[$k]['link']['access'] = 0;
+        }
+        break;
     }
   }
+
+
+
 }
 
 /**
@@ -300,7 +472,10 @@ function salto_online_meeting_build_taxonomy_menu($group_node) {
   foreach ($items as $category => $label) {
 
     $generic_item = [];
-    $generic_item['link']['href'] = 'groups/' . $group_node->nid . '/online-meetings/status/' . $category;
+    $generic_item['link']['href'] = 'online-meetings/status/' . $category;
+    if($group_node->nid){
+      $generic_item['link']['href'] = 'groups/' . $group_node->nid . '/online-meetings/status/' . $category;
+    }
 
     $generic_item['link']['title'] = $label;
     $generic_item['link']['link_title'] = $label;
@@ -373,9 +548,11 @@ function salto_online_meeting_salto_action_links($category, $context) {
       if ($node = $context['node_context']) {
         $base_query = drupal_get_destination();
 
-        $og_nid = salto_group_get_group_id_from_node($node);
+        if (node_access('update', $node)) {
+          $canEdit = TRUE;
+        }
 
-        if ($node->type == "online_meeting" && og_user_access('node', $og_nid, "create online_meeting content")) {
+        if ($canEdit) {
           $path = 'node/' . $node->nid . '/edit';
           $text = t('Edit online meeting');
           $link = [
@@ -391,11 +568,10 @@ function salto_online_meeting_salto_action_links($category, $context) {
               'html' => TRUE,
             ],
           ];
-          $links["online_meeting"] = $link;
+          $links["online-meeting"] = $link;
         }
       }
       break;
-
   }
 
   return $links;
@@ -411,16 +587,18 @@ function salto_online_meeting_salto_action_links($category, $context) {
  */
 function salto_online_meeting_salto_action_links_alter(&$links, $category, $context) {
 
-  if ($category != 'groups' || $_GET['q'] == 'groups') {
+  global $user;
+  $dest = drupal_get_destination();
+  $args = explode('/', $dest['destination']);
+
+  if (($category != 'groups' || $_GET['q'] == 'groups') && $args[0] != 'online-meetings') {
     return;
   }
-
 
   $node = $context['node_context'];
   $group_nid = $node->nid;
 
-  if (og_user_access('node', $group_nid, "create online_meeting content") && salto_online_meeting_enabled()) {
-
+  if (empty($group_nid) && node_access('create', 'online_meeting') || !empty($group_nid) && og_user_access('node', $group_nid, 'create online_meeting content')) {
     $path = 'node/add/online-meeting';
     $text = t('Create online meeting');
     $dest = drupal_get_destination();
@@ -428,40 +606,57 @@ function salto_online_meeting_salto_action_links_alter(&$links, $category, $cont
       '#theme' => 'link',
       '#text' => $text,
       '#path' => $path,
-      '#options' => [
-        'query' => [
-          'field_og_group' => $group_nid,
-          ['destination' => $group_nid],
-        ],
         //$dest, // $base_query, //$query,
         'attributes' => [
           'title' => $text,
           'class' => 'action_link add_online_meeting',
         ],
         'html' => TRUE,
-
-      ],
     ];
+
+    if($group_nid){
+      $link['#options'] = ['query' => [
+        'field_og_group' => $group_nid,
+        ['destination' => $group_nid],
+      ]];
+    }
+
     array_insert_after_key($links, 'add_file', ['online_meeting' => $link]);
   }
 
   $dest = drupal_get_destination();
   $args = explode('/', $dest['destination']);
+
   if (in_array('online-meetings', $args)) {
     unset($links['add_post']);
     unset($links['add_file']);
     unset($links['manage_categories']);
     unset($links['invite_people']);
     unset($links['edit_node']);
+    unset($links['download_files']);
+    unset($links['edit_files']);
   }
-
-  if (in_array('groups', $args) && in_array('files', $args)) {
+  else if(in_array('groups', $args) && in_array('files', $args)) {
     unset($links['add_post']);
     unset($links['online_meeting']);
     unset($links['invite_people']);
     unset($links['edit_node']);
   }
+  else if(in_array('groups', $args) && in_array('people', $args)) {
+    unset($links['add_post']);
+    unset($links['add_file']);
+    unset($links['download_files']);
+    unset($links['edit_files']);
+    unset($links['online_meeting']);
+    unset($links['edit_node']);
+  }else{
+    unset($links['add_file']);
+    unset($links['download_files']);
+    unset($links['edit_files']);
+    unset($links['online_meeting']);
+  }
 }
+
 
 /**
  * Returns the dialog gateway settings from the admin settings
@@ -521,19 +716,19 @@ function salto_online_meeting_gateway_process_webhook($data) {
     return;
   }
 
-  $dialog_node = node_load($nid);
+  $online_meeting_node = node_load($nid);
 
-  if (empty($dialog_node)) {
+  if (empty($online_meeting_node)) {
     watchdog('online_meeting', 'empty node');
     return;
   }
 
-  if ($dialog_node->type != 'online_meeting') {
+  if ($online_meeting_node->type != 'online_meeting') {
     watchdog('online_meeting', 'node type wrong');
     return;
   }
 
-  $dialogServiceController = new OnlineMeetingService($dialog_node);
+  $dialogServiceController = new OnlineMeetingService($online_meeting_node);
 
   switch ($data['event']) {
     case 'dialog_session.ended':
@@ -542,6 +737,32 @@ function salto_online_meeting_gateway_process_webhook($data) {
     case 'dialog_session.started':
       $dialogServiceController->setStatus(ONLINE_MEETING_STATUS_ACTIVE);
       return;
+  }
+}
+
+/**
+ * Preprocess form
+ *
+ * @param $variables
+ */
+function salto_online_meeting_preprocess_gateway_recording_download_form(&$variables) {
+
+  $form = &$variables['form'];
+
+  $variables['items'] = array();
+
+  $variables['recordings'] = $form['#recordings'];
+
+  $num_recordings = count($variables['recordings']);
+
+  $variables['description'] = format_plural($num_recordings,
+    'A new recording is available for this online meeting. What do you want to do?',
+    '!num new recordings are available for this online meeting. What do you want to do?',
+    array("!num" => $num_recordings));
+
+  foreach ($form['#recordings'] as $r) {
+    $variables['items'][] = $variables['form']['recordings'][$r['id']];
+    unset($variables['form']['recordings'][$r['id']]);
   }
 }
 
@@ -562,6 +783,23 @@ function salto_online_meeting_gateway_webhook_access() {
     ], WATCHDOG_EMERGENCY);
   }
   return $access;
+}
+
+/**
+ * Data for dialog share button
+ * @param $vars
+ */
+function salto_online_meeting_preprocess_salto_online_meeting_share_button(&$vars) {
+
+  $node = $vars['node'];
+  $drupalNode = \Wissensnetz\Core\Node\DrupalNode::make($node);
+
+  $vars['title'] = t('Link to online-meeting');
+  $vars['share_link_url'] = OnlineMeetingShareLink::encode($node);
+  $vars['share_link_info'] = t('Copy this link to invite additional participants to the online meeting.');
+  $vars['share_link_access'] = t('Please note that access via this link is dependent on the read access set for the online meeting.');
+
+  drupal_add_js(drupal_get_path('module', 'salto_online_meeting') . '/js/salto_online_meeting.js');
 }
 
 function salto_online_meeting_get_header($key) {
@@ -661,6 +899,7 @@ function salto_online_meeting_get_active_dialogs($og_nid = NULL) {
   if (!empty($og_nid)) {
     $query->condition('om.gid', $og_nid);
   }
+  $query->addTag('node_access');
   $result = $query->execute()->fetchAll();
   return $result;
 }
@@ -682,8 +921,8 @@ function salto_online_meeting_preprocess_page_toolbar_alter(&$variables) {
 
   $variables['toolbar']['context_links'] = salto_online_meeting_salto_action_links('online_meeting', ['node_context' => $variables['node']]);
 
-  if ($variables['toolbar']['context_links']['online_meeting']) {
-    $edit = $variables['toolbar']['context_links']['online_meeting'];
+  if ($variables['toolbar']['context_links']['online-meeting']) {
+    $edit = $variables['toolbar']['context_links']['online-meeting'];
     $variables['toolbar']['action_links'][] = [
       'icon' => 'pen',
       'target' => '/' . $edit['#path'] . '?destination=' . $edit['#options']['query']['destination'],
@@ -691,7 +930,7 @@ function salto_online_meeting_preprocess_page_toolbar_alter(&$variables) {
       'title' => $edit['#options']['attributes']['title'],
       'class' => $edit['#options']['attributes']['class'],
     ];
-    unset($variables['toolbar']['context_links']['online_meeting']);
+    unset($variables['toolbar']['context_links']['online-meeting']);
   }
 }
 
@@ -706,6 +945,331 @@ function salto_online_meeting_preprocess_page_floating_button_alter(&$variables)
 
 }
 
-function salto_online_meeting_enabled(){
-return variable_get('online_meeting_enabled', FALSE);
+function salto_online_meeting_enabled() {
+  return variable_get('online_meeting_enabled', FALSE);
 }
+
+function salto_online_meeting_community_area_enabled() {
+  return variable_get('online_meeting_community_area_enabled', FALSE);
+}
+
+function salto_online_meeting_community_area_show_menu_item() {
+  return variable_get('online_meeting_community_area_show_menu_item', FALSE);
+}
+
+function salto_online_notify_groupmembers_default_value_enabled() {
+  return variable_get('notify_groupmembers_default_value', TRUE);
+}
+
+function salto_online_cloud_recording_enabled() {
+  return variable_get('online_meetings_cloud_recording_enabled', TRUE);
+}
+
+/**
+ * @param $form
+ * @param $form_state
+ * @param $form_id
+ */
+function salto_online_meeting_form_node_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  $node = $form_state['node'];
+
+  if ($node->type != 'online_meeting') {
+    return;
+  }
+
+  try {
+    $groupDrupalNode = \Wissensnetz\Group\GroupDrupalNode::make($node->field_og_group[LANGUAGE_NONE][0]['target_id']);
+  } catch (\Wissensnetz\Core\Node\Exception\DrupalNodeNotExistsException $e) {
+    $groupDrupalNode = NULL;
+  }
+  //add notify checkbox
+
+
+  if(!empty($groupDrupalNode) || isset($_GET['field_og_group'])){
+  $form['salto_notification'] = [
+    '#title' => t('Notify group members'),
+    '#type' => 'checkbox',
+    '#suffix' => '<div id="salto_notification_description">'
+      . t('Notify all group members about the upcoming online meeting.') .
+      '<br/><br/><em>"' . t('Notification: Online Meeting scheduled') . '"</em>' .
+      '</div>',
+    '#default_value' => salto_online_notify_groupmembers_default_value_enabled(),
+  ];
+
+  $form['actions']['submit']['#submit'][] = 'salto_online_meeting_node_form_submitted';
+  }
+  //Description for collaboration
+  $form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#description'] = t('Specify who can view this online meeting.');
+  $form['field_post_collaboration'][LANGUAGE_NONE][0]['edit']['#description'] = t('Specify who can edit and start this online meeting.');
+
+  //Set default online meeting edit access for new online meetings
+  if (empty($form['nid']['#value'])){
+    if(!empty($groupDrupalNode)){
+      $form['field_post_collaboration'][LANGUAGE_NONE][0]['edit']['#default_value'] = $groupDrupalNode->getMeetingEditAccess();
+    }
+  }
+
+
+}
+
+
+/**
+ * Post form has been submitted and node has been created
+ *
+ * @param $form
+ * @param $form_state
+ */
+function salto_online_meeting_node_form_submitted(&$form, &$form_state) {
+
+  $node = $form_state['node'];
+  if ($node->type != 'online_meeting') {
+    return;
+  }
+
+  if (!empty($form_state['values']['salto_notification']) && $form_state['values']['salto_notification'] == TRUE) {
+    // trigger notification
+    module_invoke_all('salto_online_meeting_node_form_submitted', $node, empty($form['#node']->nid));
+  }
+
+}
+
+
+function salto_online_meeting_node_view($node, $view_mode, $langcode) {
+
+  // attachments
+  if ($node->type == 'online_meeting' && node_access('view', $node)) {
+    if (!empty($node->field_recurring_meeting[LANGUAGE_NONE][0]["value"])) {
+      //todo
+      //wiederkehrende meetings haben im formular kein(en) Beginn/Ende
+      return;
+    }
+
+    $token = drupal_get_token('salto_online_meeting_ics');
+    $download_link = l('<div class="salto-ics-download icon-calendar">' . t('Download') . '</div>', 'download/' . $node->nid . '/ics', [
+      'html' => TRUE,
+      'attributes' => ['target' => '_blank'],
+      'query' => ['token' => $token],
+    ]);
+    $node->content['calendar'] = [
+      '#markup' => '' . $download_link . '',
+      '#weight' => 10,
+      'html' => TRUE,
+    ];
+  }
+
+}
+
+
+
+/**
+ * Theme function for wrapping
+ * @param $wrapper
+ * @param $recordings
+ * @return string
+ */
+function theme_gateway_recording_downloads_info($variables) {
+  $form = drupal_get_form('salto_online_meeting_gateway_recording_download_form', $variables['node'], $variables['recordings']);
+
+  return drupal_render($form);
+
+}
+
+/**
+ * Accept form fro dialogs
+ *
+ * @param $form_state
+ * @param $online_meeting_node
+ * @param $recordings
+ *
+ * @return mixed
+ */
+function salto_online_meeting_gateway_recording_download_form($form, &$form_state, $online_meeting_node, $recordings) {
+
+
+  $form['#recordings'] = $recordings;
+  $form['#node'] = $online_meeting_node;
+
+  $options = array(
+    'import' => t('Import'),
+    'delete' => t('Delete'),
+  );
+
+  $online_meeting = salto_online_meeting_get_wrapper($online_meeting_node);
+
+  foreach ($recordings as $recording) {
+
+
+    $title = $online_meeting->getRecordingTitle($recording);
+
+    $id = $recording['recording_id'];
+
+
+    $form ['recordings'][$id] = array(
+      '#type' => 'fieldset',
+      '#title' => $title,
+      '#tree' => TRUE,
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+    );
+
+
+    $preview_image = ''; //Todo: get Preview Image
+
+
+    $form['recordings'][$id]['preview'] = array(
+      '#value' => "<img class='dialog-recording-preview' src='".$preview_image."' width='200'>"
+    );
+
+    $form['recordings'][$id]['options'] = array(
+      '#type' => 'radios',
+      '#options' => $options,
+      '#default_value' => 'import'
+    );
+  }
+  $form['#theme'] = 'gateway_recording_download_form';
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Process recordings'),
+    '#attributes' => array('class' => ['btn-success', 'process-recording-btn']),
+  );
+
+  return $form;
+
+}
+
+/**
+ * Form submit
+ * @param $form
+ * @param $form_state
+ */
+function salto_online_meeting_gateway_recording_download_form_submit($form, &$form_state) {
+
+  $recordings = $form['#recordings'];
+  $node = $form['#node'];
+
+  if (empty($recordings)) {
+    return;
+  }
+
+  $videos= [
+    'import' => [],
+    'delete' => [],
+  ];
+
+  foreach ($recordings as $recording) {
+    $action = NULL;
+    $id = $recording['recording_id'];
+
+    if (!empty($form_state['values'][$id]['options'])) {
+      $action = $form_state['values'][$id]['options'];
+
+      switch ($action) {
+        case 'import':
+        case 'delete':
+          $videos[] = [
+            'op'=> $action,
+            'recording' => $recording
+        ];
+          break;
+
+      }
+    }
+  }
+
+  //reset node and start batch
+  $online_meeting_node = node_load($node->nid, NULL, TRUE);
+  $online_meeting = salto_online_meeting_get_wrapper($online_meeting_node);
+  $online_meeting->processRecordings($videos);
+}
+
+/**
+ * Performs batch operation for online meeting recordings impoort.
+ *
+ * @param $recordings_to_import
+ * @param $recordingsDirectory
+ * @param $user
+ * @param $online_meeting_node
+ * @param $context
+ *
+ * @throws \Exception
+ */
+function salto_online_meeting_process_recordings($recordings, $online_meeting_node_nid, &$context) {
+  if (empty($context['sandbox'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['max'] = count($recordings);
+  }
+  $online_meeting_node = node_load($online_meeting_node_nid);
+  $onlineMeetingService = new OnlineMeetingService($online_meeting_node);
+
+  $item = $recordings[$context['sandbox']['progress']];
+
+  if ($item['op'] == 'import') {
+    $file = $onlineMeetingService->importRecording($item['recording']);
+    $context['sandbox']['field_online_meeting_recordings'][]['target_id'] = $file->fid;
+  }else if ($item['op'] == 'delete') {
+    $onlineMeetingService->deleteRecordingsFromGateway($item['recording']);
+  }
+
+  $context['sandbox']['progress']++;
+
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }else{
+    if (!isset($context['results']['node'])) {
+      $context['results']['node'] = $online_meeting_node;
+    }
+  }
+}
+
+/**
+ * Performs Import of online meeting recordings.
+ * @param $success
+ * @param $results
+ * @param $operations
+ */
+function salto_online_meeting_process_recordings_finished($success, $results, $operations) {
+  if ($success) {
+    drupal_set_message(t('Processing of online meeting recordings successful.'));
+    drupal_goto('node/' . $results['node']->nid);
+  }
+  else {
+    drupal_set_message(t('Error processing of online meeting recordings.'), 'error');
+  }
+  cache_clear_all();
+}
+
+function salto_online_meeting_render_community_area_dialog_info(){
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
+  $onlineTreffenService = new \salto_core\service\OnlineTreffenService();
+  $upcomingDialog = $onlineTreffenService->getLatestDialogByUser($drupalUser);
+
+  $nextDialogMessage = t('There are currently no online meetings in the community area') . '<br>';
+  $moreLink = l(t('More Online meetings in the community area'), 'online-meetings/status', ['absolute' => TRUE]);
+  if($upcomingDialog){
+    drupal_add_css(drupal_get_path('module', 'salto_online_meeting') . '/less/salto_online_meeting.less');
+
+    $nextDialogMessage = t('Next online meeting "!title" on !date at !time',
+      ['!title' => l($upcomingDialog->getTitle(), 'node/' . $upcomingDialog->getNid(), ['absolute' => TRUE]),
+       '!date' => $upcomingDialog->getStartDate(),
+       '!time' => $upcomingDialog->getStartTime()]);
+
+    $url = url('node/' . $upcomingDialog->getNid(), ['absolute' => TRUE]);
+    $nextDialogMessage .= '<br><br><div class="online-meeting-start-page">
+        <div class="online-meetings-items-icon-wrapper">
+          <div class="icon-calendar online-meetings-items-icon"></div>
+          <div class="online-meetings-item-status online"></div>
+        </div>
+        <div class="online-meeting-border-form-items">
+          <a href="' . $url .'">'. $upcomingDialog->getTitle() .'</a>
+          <div>
+          '. $upcomingDialog->getStartDate() .'
+          </div>
+        </div>
+      </div>';
+  }
+  return $nextDialogMessage . $moreLink;
+}
+
+

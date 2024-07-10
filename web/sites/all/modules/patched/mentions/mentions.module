@@ -1,0 +1,502 @@
+<?php
+
+/**
+ * @file
+ * Core functions for the Mentions module.
+ */
+
+/**
+ * Include additional files.
+ */
+$dirname = dirname(__FILE__);
+$includes = file_scan_directory($dirname . "/includes", '/.inc$/');
+foreach (module_list() as $module) {
+  $file = $dirname . "/includes/{$module}.inc";
+  if (isset($includes[$file])) {
+    require_once $file;
+  }
+}
+
+// Textcomplete library path (for users not using the Libraries module).
+define('MENTIONS_TEXTCOMPLETE_PATH', 'sites/all/libraries/textcomplete/dist');
+
+/**
+ * Implements hook_menu().
+ */
+function mentions_menu() {
+  $items['admin/config/content/mentions'] = array(
+    'title'            => 'Mentions',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('mentions_form'),
+    'access arguments' => array('administer filters'),
+    'file'             => 'mentions.admin.inc',
+    'type'             => MENU_NORMAL_ITEM,
+  );
+
+  $items['mentions/autocomplete/%'] = array(
+    'title'            => 'Mentions autocomplete',
+    'page callback'    => 'mentions_autocomplete',
+    'access callback'  => '_mentions_access',
+    'access arguments' => array(2),
+    'type'             => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Access callback for autocompletion menu item.
+ */
+function _mentions_access($format_id = '') {
+  global $user;
+
+  if ($user->uid > 0) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_load().
+ */
+function mentions_load($mid) {
+  $mention = db_select('mentions', 'm')
+    ->fields('m')
+    ->condition('mid', $mid)
+    ->execute()
+    ->fetchObject();
+
+  return is_object($mention) && $mention->mid == $mid ? $mention : FALSE;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function mentions_theme() {
+  $items = array();
+
+  $items['mentions'] = array(
+    'variables' => array(
+      'user' => array(),
+    ),
+  );
+
+  $items['mentions_input'] = array(
+    'variables' => array(
+      'text' => NULL,
+      'raw'  => FALSE,
+    ),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_filter_info().
+ */
+function mentions_filter_info() {
+  $filters = array();
+
+  $filters['filter_mentions'] = array(
+    'title'            => t("Mentions filter"),
+    'description'      => t("Converts @username and @uid into a link the user's profile page.", array(
+      '@username' => theme('mentions_input', array(
+        'text' => 'username',
+        'raw'  => TRUE,
+      )),
+      '@uid'      => theme('mentions_input', array(
+        'text' => '#uid',
+        'raw'  => TRUE,
+      )),
+    )),
+    'process callback' => 'mentions_filter_filter_mentions_process',
+    'tips callback'    => 'mentions_filter_filter_mentions_tips',
+  );
+
+  return $filters;
+}
+
+/**
+ * Process callback for Mentions filter.
+ */
+function mentions_filter_filter_mentions_process($text, $filter, $format) {
+  $counter = &drupal_static(__FUNCTION__, 0);
+  if ($counter++ > 99) {
+    // It's a very naive approach to eliminate recursion.
+    return $text;
+  }
+  foreach (mentions_get_mentions($text) as $match) {
+    $text = str_replace($match['text'], theme('mentions', array('user' => $match['user'])), $text);
+  }
+  $counter--;
+
+  return $text;
+}
+
+/**
+ * Tips callback for Mentions filter.
+ */
+function mentions_filter_filter_mentions_tips($format, $long = FALSE) {
+  return t("Converts !username and !uid into a link the user's profile page.", array(
+    '!username' => theme('mentions_input', array('text' => 'username')),
+    '!uid'      => theme('mentions_input', array('text' => '#uid')),
+  ));
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function mentions_entity_insert($entity, $type) {
+  $mentions = array();
+  $filters = array();
+  list($id, $vid, $bundle_name) = entity_extract_ids($type, $entity);
+  $instances = field_info_instances($type, $bundle_name);
+  foreach ($instances as $instance) {
+    if ('text' == $instance['widget']['module'] && $instance['settings']['text_processing']) {
+      $items = field_get_items($type, $entity, $instance['field_name']);
+      if (is_array($items)) {
+        foreach ($items as $item) {
+          if (!isset($filters[$item['format']])) {
+            $filter                   = filter_list_format($item['format']);
+            $filters[$item['format']] = isset($filter['filter_mentions']) && $filter['filter_mentions']->status;
+          }
+          if ($filters[$item['format']]) {
+            $mentions = array_merge($mentions, mentions_get_mentions($item['value']));
+          }
+        }
+      }
+    }
+  }
+
+  if (!empty($mentions)) {
+    $uid = isset($entity->uid) ? $entity->uid : $GLOBALS['user']->uid;
+    mentions_crud_update($type, $mentions, $id, $uid);
+  }
+
+  if(empty($mentions)){
+    mentions_crud_delete($type, $id);
+  }
+
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function mentions_entity_update($entity, $type) {
+  mentions_entity_insert($entity, $type);
+}
+
+/**
+ * Implements hook_entity_delete().
+ */
+function mentions_entity_delete($entity, $type) {
+  list($id, $vid, $bundle_name) = entity_extract_ids($type, $entity);
+  mentions_crud_delete($type, $id);
+}
+
+/**
+ * CRUD functon; Update mentions.
+ */
+function mentions_crud_update($entity_type, $mentions, $entity_id, $author) {
+  // Build array of old mentions.
+  $old_users = array();
+  $result    = db_select('mentions', 'm')
+    ->fields('m')
+    ->condition('entity_type', $entity_type, '=')
+    ->condition('entity_id', $entity_id, '=')
+    ->execute();
+  while ($mention = $result->fetchobject()) {
+    $old_users[$mention->uid] = $mention->mid;
+  }
+
+  // Build array of new mentions.
+  $new_users = array();
+  foreach ($mentions as $mention) {
+    if (!in_array($mention['user']->uid, $new_users)) {
+      $new_users[] = $mention['user']->uid;
+    }
+  }
+
+  // Add new mentions.
+  foreach (array_diff($new_users, array_keys($old_users)) as $uid) {
+    $mention = array(
+      'entity_type' => $entity_type,
+      'entity_id'   => $entity_id,
+      'uid'         => $uid,
+      'auid'        => $author,
+      'created'     => REQUEST_TIME,
+    );
+    drupal_write_record('mentions', $mention);
+
+    module_invoke_all('mentions_insert', $mention);
+  }
+
+  // Update existing mentions.
+  foreach (array_intersect($new_users, array_keys($old_users)) as $uid) {
+    $mention          = mentions_load($old_users[$uid]);
+    $mention->changed = REQUEST_TIME;
+    drupal_write_record('mentions', $mention, array('mid'));
+
+    module_invoke_all('mentions_update', $mention);
+  }
+
+  // Delete old mentions.
+  foreach (array_diff(array_keys($old_users), $new_users) as $uid) {
+    $mention = mentions_load($old_users[$uid]);
+    module_invoke_all('mentions_delete', $mention);
+    db_delete('mentions')->condition('mid', $mention->mid)->execute();
+  }
+}
+
+/**
+ * CRUD function; Delete mentions.
+ */
+function mentions_crud_delete($entity_type, $entity_id) {
+  $result = db_select('mentions', 'm')
+    ->fields('m')
+    ->condition('entity_type', $entity_type, '=')
+    ->condition('entity_id', $entity_id, '=')
+    ->execute();
+  while ($mention = $result->fetchObject()) {
+    module_invoke_all('mentions_delete', $mention);
+    db_delete('mentions')->condition('mid', $mention->mid)->execute();
+  }
+}
+
+/**
+ * Analyze text for [@username] and [@#uid] references.
+ *
+ * @param $text
+ *   Text string for analysis.
+ *
+ * @return array
+ *   An array of matched text and user accounts.
+ */
+function mentions_get_mentions($text) {
+  $users    = [];
+  $user = NULL;
+  $output_array = [];
+
+  preg_match_all('/(?=@)(.*?)(\d+)(?=])/', $text, $match);
+
+  $uids = end($match);
+
+  for ($i=0;$i<sizeof($uids); $i++){
+
+    if (!empty($uids[$i])) {
+      $user = user_load($uids[$i]);
+    }
+
+    preg_match_all('/(?=@)(.*?)(?=])+]/', $text, $output_array);
+
+    if (isset($user) && is_object($user)) {
+      $users[] = [
+        'text' => $output_array[0][$i],
+        'user' => $user,
+      ];
+    }
+  }
+
+  return $users;
+}
+
+/**
+ * Mentions autocomplete callback.
+ *
+ * @param string $string
+ */
+function mentions_autocomplete($string = '') {
+  $matches = array();
+  if(strlen($string) < 2){
+    drupal_json_output($matches);
+    return;
+  }
+  if ($string) {
+    $settings = variable_get('mentions', mentions_defaults());
+
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'user')
+      ->range(0, 5)
+      ->addMetaData('account', user_load(1));
+
+    $source = explode(':', $settings['input']['source']);
+
+    $search = '%' . $string . '%';
+
+    $result = db_query("SELECT * FROM realname WHERE realname LIKE :search LIMIT 10", [':search' => $search])->fetchAll();
+
+    $users = [];
+    foreach($result as $res){
+      $users['user'][$res->uid] = ['uid' => $res->uid];
+    }
+    $result = $users;
+
+    if (!empty($result['user'])) {
+      $users = user_load_multiple(array_keys($result['user']));
+      foreach ($users as $user) {
+        $match = NULL;
+        switch ($source[0]) {
+          case 'property':
+            if (isset($user->realname) && is_string($user->realname)) {
+              $match = $user->realname . ' [' . $user->uid . ']';
+            }
+            break;
+
+          case 'field':
+            $langcode = field_language('user', $user, 'realname');
+            if (isset($user->realname[$langcode][0][$source[2]]) && is_string($user->realname[$langcode][0][$source[2]])) {
+              $match = $user->realname[$langcode][0][$source[2]];
+            }
+            break;
+        }
+
+        $user_picture = theme('user_picture', [
+          'account' => $user,
+          'style' => 'user_100x100',
+        ]);
+
+        if (!is_null($match)) {
+          //$matches[] = '<div class="mentions-autocomplete-list">' .$user_picture . '<div id="mention-user-regex" data-uid="' . $user->uid . '" data-realname="' . $user->realname . '">' . $match . '</div></div>';
+          $matches[] = '<div class="mentions-autocomplete-list" data-uid="' . $user->uid . '" data-realname="' . $user->realname . '">' .$user_picture . '<div id="mention-user-regex">' . $match . '</div></div>';
+        }
+      }
+    }
+  }
+
+  drupal_json_output($matches);
+}
+
+/**
+ * Helper function; Returns Mentions default settings.
+ */
+function mentions_defaults() {
+  return array(
+    'input'  => array(
+      'prefix' => '@',
+      'suffix' => '',
+      'source' => 'property:name',
+    ),
+    'output' => array(
+      'prefix' => '@',
+      'suffix' => '',
+      'text'   => '[user:name]',
+      'link'   => 'user/[user:uid]',
+    ),
+  );
+}
+
+/**
+ * Return a '@username' link to user's profile.
+ */
+function theme_mentions($variables) {
+  $settings = variable_get('mentions', mentions_defaults());
+  $user     = $variables['user'];
+
+  foreach (array('text', 'link') as $type) {
+    if (!empty($settings['output'][$type])) {
+      $$type = filter_xss($settings['output'][$type]);
+      $$type = token_replace($$type, array('user' => $user));
+    }
+  }
+
+  // Allow other modules to modify the link text and destination.
+  drupal_alter('mentions_link', $text, $link, $user);
+
+  return l($settings['output']['prefix'] . $text . $settings['output']['suffix'], $link, array(
+    'attributes' => array(
+      'class' => array('mentions', 'mentions-' . $user->uid),
+      'title' => $text,
+    ),
+    'html' => TRUE,
+  ));
+}
+
+/**
+ * Return mentions input format.
+ */
+function theme_mentions_input($variables) {
+  $settings = variable_get('mentions', mentions_defaults());
+
+  $text = $settings['input']['prefix'] . $variables['text'] . $settings['input']['suffix'];
+
+  return $variables['raw'] ? $text : '<strong>' . $text . '</strong>';
+}
+
+/**
+ * Implements hook_help().
+ */
+function mentions_help($path, $arg) {
+  return '';
+}
+
+/**
+ * Load the Mentions textcomplete library.
+ */
+function mentions_library_load() {
+  if (variable_get('mentions_autocomplete')) {
+    drupal_add_css(drupal_get_path('module', 'mentions') . '/css/jquery.textcomplete.css');
+
+    drupal_add_js(drupal_get_path('module', 'mentions') . '/js/jquery.textcomplete.js');
+  }
+}
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function mentions_element_info_alter(&$type) {
+  if (variable_get('mentions_autocomplete') && isset($type['text_format']['#process'])) {
+    $type['text_format']['#process'][] = 'mentions_process_text_format';
+  }
+}
+
+/**
+ * Process callback for 'text_format' element.
+ *
+ * Adds textcomplete library for autocompletion functionality.
+ */
+function mentions_process_text_format($element, $form_state) {
+  // If library exists, attach Mentions javacript.
+  if (variable_get('mentions_autocomplete')) {
+    $formats         =& drupal_static(__FUNCTION__, array());
+    $filter_formats  = array();
+    $mentions_filter = FALSE;
+    if (isset($element['format']['format']['#options']) && is_array($element['format']['format']['#options'])) {
+      foreach (array_keys($element['format']['format']['#options']) as $format_id) {
+        if (!isset($formats[$format_id])) {
+          $formats[$format_id] = filter_list_format($format_id);
+        }
+
+        if (isset($formats[$format_id]['filter_mentions']) && $formats[$format_id]['filter_mentions']->status) {
+          $filter_formats[] = $format_id;
+          $mentions_filter  = TRUE;
+        }
+      }
+    }
+
+    if ($mentions_filter) {
+      mentions_library_load();
+      $settings = variable_get('mentions', mentions_defaults());
+
+      drupal_add_js(array(
+        'mentions' => array(
+          'textcomplete' => array(
+            'forms'        => array($element['#id']),
+            'formats'      => $filter_formats,
+            'prefix'       => $settings['input']['prefix'],
+            'prefix_regex' => preg_quote($settings['input']['prefix']),
+            'suffix'       => $settings['input']['suffix'],
+          )
+        ),
+      ), array(
+        'type'  => 'setting',
+        'scope' => JS_DEFAULT,
+      ));
+      drupal_add_js(drupal_get_path('module', 'mentions') . '/js/jquery.textcomplete.js');
+      drupal_add_js(drupal_get_path('module', 'mentions') . '/js/mentions.textcomplete.js');
+
+    }
+  }
+
+  return $element;
+}

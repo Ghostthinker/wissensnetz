@@ -2,7 +2,7 @@ class_name: ApiTester
 modules:
     enabled:
         - Asserts
-        - \Helper\Bildungsnetz
+        - \Helper\Wissensnetz
         - \Helper\Api
         - REST:
             url: http://apache/api/lims

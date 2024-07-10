@@ -1,0 +1,689 @@
+msgid "Notification: User mentioned"
+msgstr "Sie wurden in einem Kommentar oder Beitrag erwähnt"
+
+msgid "Select multiple files"
+msgstr "Mehrere Dateien auswählen"
+
+msgid "for download"
+msgstr "um sie herunterzuladen"
+
+msgid "Uploaddate"
+msgstr "Erstellungsdatum"
+
+msgid "Create an archive of selected files"
+msgstr "Mehrere Dateien als Zip herunterladen"
+
+msgid "An archive has been created and can be downloaded from: !url"
+msgstr "Die Zip Datei kann hier gedownloaded werden: !url"
+
+msgid "Create an archive of selected files"
+msgstr "Erstelle ein Zip Archiv von ausgewählten Dateien"
+
+msgid "Download selected files"
+msgstr "Ausgewählte Dateien herunterladen"
+
+msgid "Create online meeting"
+msgstr "Online-Treffen erstellen"
+
+msgid "Notify group members"
+msgstr "Gruppenmitglieder benachrichtigen"
+
+msgid "Notify all group members about the upcoming online meeting."
+msgstr "Informieren Sie alle Gruppenmitglieder über das Online-Treffen. Vorausgesetzt die Gruppenmitglieder haben nachfolgende Optionen in den Benachrichtigungs-Einstellungen aktiv:"
+
+msgid "Notification: Online Meeting scheduled"
+msgstr "Es wurde eine Benachrichtigung zu einem Online-Treffen in einer Ihrer Gruppe versandt"
+
+msgid "Set details for multiple files"
+msgstr "Details für mehrere Dateien festlegen"
+
+msgid "File location"
+msgstr "Ablageort"
+
+msgid "Structure (Group)"
+msgstr "Struktur (Gruppe)"
+
+msgid "for edit"
+msgstr "um sie zu editieren"
+
+msgid "New recordings for this online meeting"
+msgstr "Neue Aufnahmen für diesen Online-Treffen"
+
+msgid "A new recording is available for this online meeting. What do you want to do?"
+msgstr "Für dieses Online-Treffen ist eine neue Aufnahme verfügbar. Was möchten Sie tun?"
+
+msgid "!num new recordings are available for this online meeting. What do you want to do?"
+msgstr "!num neue Aufzeichnungen sind für dieses Online-Treffen verfügbar. Was möchten Sie tun?"
+
+msgid "Ignore"
+msgstr "Ignorieren"
+
+msgid "Process recordings"
+msgstr "Aufzeichnungen verarbeiten"
+
+msgid "Error processing of online meeting recordings."
+msgstr "Fehlerhafte Verarbeitung von Online-Treffen Aufzeichnungen."
+
+msgid "Processing of online meeting recordings successful."
+msgstr "Verarbeitung von Online-Treffen Aufzeichnungen erfolgreich."
+
+msgid "Recordings"
+msgstr "Aufzeichnungen"
+
+msgid "Select multiple files for download"
+msgstr "Mehrere Dateien auswählen zum downloaden"
+
+msgid "Select multiple files for edit"
+msgstr "Mehrere Dateien auswählen zum bearbeiten"
+
+msgid "Save and continue"
+msgstr "Speichern und weiter"
+
+msgid "DV can not be deleted. Please contact the site administrator. Hint: /node/%node/delete"
+msgstr "Eine Dachorganisation kann auf diesem Weg nicht gelöscht werden. Bitte wenden Sie sich an den Seitenadministrator. (Hinweis: /node/%node/delete)"
+
+msgid "Group size"
+msgstr "Gruppengröße"
+
+msgid "PLZ must be a number."
+msgstr "PLZ muss eine Zahl sein."
+
+msgid "PLZ must be 5 digits long"
+msgstr "PLZ muss 5 Zeichen lang sein."
+
+msgid "Activity"
+msgstr "Tätigkeit"
+
+msgid "Personal message"
+msgstr "Persönliche Nachricht"
+
+msgid "Membership request"
+msgstr "Beitrittsanfrage"
+
+msgid "Membership requests"
+msgstr "Beitrittsanfragen"
+
+msgid "Submit membership request"
+msgstr "Beitrittsanfrage"
+
+msgid "Thank you for your membership request. It will be reviewed immediately."
+msgstr "Vielen Dank für Ihre Beitrittsanfrage. Diese wird umgehend geprüft."
+
+msgid "What code is in the image?"
+msgstr "Welcher Code ist in dem Bild enthalten?"
+
+msgid "Enter the characters shown in the image."
+msgstr "Geben Sie die im Bild gezeigten Zeichen ein."
+
+msgid "Accept / Decline"
+msgstr "Annehmen / Ablehnen"
+
+msgid "Accept"
+msgstr "Annehmen"
+
+msgid "Membership request decision"
+msgstr "Über Beitrittsanfrage entscheiden"
+
+msgid "Membership request accept"
+msgstr "Beitrittsanfrage annehmen"
+
+msgid "Membership request decline"
+msgstr "Beitrittsanfrage ablehnen"
+
+msgid "Accept the membership request of"
+msgstr "Annehmen der Beitragsanfrage von"
+
+msgid "Decline the membership request of"
+msgstr "Ablehnen der Beitragsanfrage von"
+
+msgid "Message (optional)"
+msgstr "Nachricht (optional)"
+
+msgid "Missing user id!"
+msgstr "Fehlende Benutzer Id!"
+
+msgid "Conflict for user!"
+msgstr "Konflikt mit dem Benutzer gefunden!"
+
+msgid "Account was deleted, but mail could not send"
+msgstr "Benutzerkonto wurde gelöscht, aber E-Mail-Benachrichtigung konnte nicht versendet werden"
+
+msgid "Your membership request"
+msgstr "Ihre Beitrittsanfrage"
+
+msgid "Sort comments"
+msgstr "Sortierung der Kommentare"
+
+msgid "Sorted chronologically descending"
+msgstr "Chronologisch absteigend sortiert"
+
+msgid "Sorted chronologically ascending"
+msgstr "Chronologisch aufsteigend sortiert"
+
+msgid "Create online meeting"
+msgstr "Online-Treffen erstellen"
+
+msgid "Current Online meetings"
+msgstr "Laufende Online-Treffen"
+
+msgid "License statistics from @date"
+msgstr "Lizenzstatistik Stand @date"
+
+msgid "Loading License statistics ..."
+msgstr "Lizenzstatistik wird geladen ..."
+
+msgid "Verbändegruppen"
+msgstr "Verbändegruppen"
+
+msgid "This license overview refers to the current status of the valid or total number of licenses in LiMS"
+msgstr "Diese Lizenzübersicht bezieht sich auf den tagesaktuellen Stand der gültigen bzw. Gesamtzahl der Lizenzen in LiMS"
+
+msgid "Trainer:in"
+msgstr "Trainer:in"
+
+msgid "Übungsleiter:in"
+msgstr "Übungsleiter:in"
+
+msgid "Jugendleiter:in"
+msgstr "Jugendleiter:in"
+
+msgid "Vereinsmanager:in"
+msgstr "Vereinsmanager:in"
+
+msgid "Landessportbünde"
+msgstr "Landessportbünde"
+
+msgid "Spitzenverbände"
+msgstr "Spitzenverbände"
+
+msgid "Landesfachverbände"
+msgstr "Landesfachverbände"
+
+msgid "VmbA"
+msgstr "VmbA"
+
+msgid "Valid"
+msgstr "Gültig"
+
+msgid "Total"
+msgstr "Gesamt"
+
+msgid "Date is in the past"
+msgstr "Datum liegt in der Vergangenheit"
+
+msgid "Start time is in the past"
+msgstr "Startuhrzeit liegt in der Vergangenheit"
+
+msgid "The end time is before the start time"
+msgstr "Die Enduhrzeit liegt vor der Startuhrzeit"
+
+msgid "The start date must be 2 hours in the future"
+msgstr "Das Startdatum muss 2 Stunden in der Zukunft liegen"
+
+msgid "Starttime"
+msgstr "Startuhrzeit"
+
+msgid "Endtime"
+msgstr "Enduhrzeit"
+
+msgid "Pending"
+msgstr "Anstehende"
+
+msgid "Completed"
+msgstr "Vergangene"
+
+msgid "Online meetings"
+msgstr "Online-Treffen"
+
+msgid "Hour"
+msgstr "Stunde"
+
+msgid "Not recurring"
+msgstr "Nicht wiederkehrend"
+
+msgid "Recurring"
+msgstr "Wiederkehrend"
+
+msgid "Recurring meetings"
+msgstr "Wiederkehrende Meetings"
+
+msgid "At the moment there is no content here, but that will surely change soon."
+msgstr "Im Moment gibt es hier noch keine Inhalte, aber das wird sich sicherlich bald ändern."
+
+msgid "Join"
+msgstr "Beitreten"
+
+msgid "Recurring meeting"
+msgstr "Wiederkehrendes Meeting"
+
+msgid "Manage categories"
+msgstr "Struktur verwalten"
+
+msgid "Start Meeting"
+msgstr "Meeting starten"
+
+msgid "Start Webinar"
+msgstr "Webinar starten"
+
+msgid "Start Meeting Dialog"
+msgstr "Dialog Meeting starten"
+
+msgid "You cannot start a webinar at the moment, but you can start a Online-meeting instead."
+msgstr "Sie können im Moment kein Webinar starten, aber Sie können stattdessen ein Meeting starten."
+
+msgid "You cannot start a webinar with up to %desired attendees but you could start a webinar with the up to %max attendees."
+msgstr "Sie können ein Webinar nicht mit bis zu %desired gewünschten Teilnehmern starten, aber Sie können ein Webinar mit bis zu %max Teilnehmern starten."
+
+msgid "The max number of attendees for this webinar is %max."
+msgstr "Die maximale Teilnehmerzahl für dieses Webinar beträgt %max."
+
+msgid "here"
+msgstr "hier"
+
+msgid "Show all active online meetings with join link"
+msgstr "Alle laufenden Online-Treffen anzeigen"
+
+msgid "Online meeting"
+msgstr "Online-Treffen"
+
+msgid "Active meetings in group"
+msgstr "Laufende Meetings in der Gruppe"
+
+msgid "Edit online meeting"
+msgstr "Online-Treffen bearbeiten"
+
+msgid "There are currently no online meetings in progress"
+msgstr "Derzeit sind keine Online-Treffen verfügbar"
+
+msgid "Loading online meeting information"
+msgstr "Laden von Online-Treffen Informationen"
+
+msgid "Online Meeting has not started yet and will start automatically."
+msgstr "Das Online-Treffen hat noch nicht begonnen und beginnt automatisch, wenn Sie dieses Fenster offen halten."
+
+msgid "Notification: Material updated"
+msgstr "Eine neue Version eines abonnierten Materials wurde erstellt"
+
+msgid "Auto subscribe posts from the community area"
+msgstr "Automatisches Abonnieren von Beiträgen des Gemeinschaftsberreichs"
+
+msgid "Auto subscribe materials from the community area"
+msgstr "Automatisches Abonnieren von Materialien des Gemeinschaftsberreichs"
+
+msgid "<b>Confirm deletion of the group</b><br><br>Are you sure you want to delete this group?<br><br>Please note that the operation cannot be undone!<br><br>All content, i.e. posts and files in this group that are only shared with this group (read and write access) will also be deleted. Content that is shared with the knowledge network or guests will remain. All online meetings of this group will be deleted."
+msgstr "<b>Löschen der Gruppe bestätigen</b><br><br>Sind Sie sicher, dass diese Gruppe gelöscht werden soll?<br><br>Bitte beachten Sie, dass der Vorgang nicht rückgängig gemacht werden kann!<br><br>Alle Inhalte, also Beiträge und Dateien in dieser Gruppe, die nur für diese Gruppe freigegeben sind (Lese- und Schreibzugriff) werden ebenfalls gelöscht. Inhalte, die für das Wissensnetz oder Gäste freigegeben sind bleiben bestehen. Alle Online-Treffen dieser Gruppe werden gelöscht."
+
+msgid "Notification: Material created"
+msgstr "Ein neues Material wurde im Gemeinschaftsbereich erstellt"
+
+msgid "Notification: Comment created on a subscribed content"
+msgstr "Einer meiner abonnierten Inhalte wurde kommentiert"
+
+msgid "Ignored"
+msgstr "Ignoriert"
+
+msgid "Ignored"
+msgstr "Ignoriert"
+
+msgid "Auto-Subscribed"
+msgstr "Auto-Abonniert"
+
+msgid "Subscribed"
+msgstr "Abonniert"
+
+msgid "Valid until"
+msgstr "Gültig bis"
+
+msgid "Notification: User mentioned"
+msgstr "Sie wurden in einem Kommentar oder Beitrag erwähnt"
+
+msgid "Select multiple files"
+msgstr "Mehrere Dateien auswählen"
+
+msgid "for download"
+msgstr "um sie herunterzuladen"
+
+msgid "Uploaddate"
+msgstr "Erstellungsdatum"
+
+msgid "Create an archive of selected files"
+msgstr "Mehrere Dateien als Zip herunterladen"
+
+msgid "An archive has been created and can be downloaded from: !url"
+msgstr "Die Zip Datei kann hier gedownloaded werden: !url"
+
+msgid "Create an archive of selected files"
+msgstr "Erstelle ein Zip Archiv von ausgewählten Dateien"
+
+msgid "Download selected files"
+msgstr "Ausgewählte Dateien herunterladen"
+
+msgid "Create online meeting"
+msgstr "Online-Treffen erstellen"
+
+msgid "Notify group members"
+msgstr "Gruppenmitglieder benachrichtigen"
+
+msgid "Notify all group members about the upcoming online meeting."
+msgstr "Informieren Sie alle Gruppenmitglieder über das Online-Treffen. Vorausgesetzt die Gruppenmitglieder haben nachfolgende Optionen in den Benachrichtigungs-Einstellungen aktiv:"
+
+msgid "Notification: Online Meeting scheduled"
+msgstr "Es wurde eine Benachrichtigung zu einem Online-Treffen in einer Ihrer Gruppe versandt"
+
+msgid "Set details for multiple files"
+msgstr "Details für mehrere Dateien festlegen"
+
+msgid "File location"
+msgstr "Ablageort"
+
+msgid "Structure (Group)"
+msgstr "Struktur (Gruppe)"
+
+msgid "for edit"
+msgstr "um sie zu editieren"
+
+msgid "New recordings for this online meeting"
+msgstr "Neue Aufnahmen für diesen Online-Treffen"
+
+msgid "A new recording is available for this online meeting. What do you want to do?"
+msgstr "Für dieses Online-Treffen ist eine neue Aufnahme verfügbar. Was möchten Sie tun?"
+
+msgid "!num new recordings are available for this online meeting. What do you want to do?"
+msgstr "!num neue Aufzeichnungen sind für dieses Online-Treffen verfügbar. Was möchten Sie tun?"
+
+msgid "Ignore"
+msgstr "Ignorieren"
+
+msgid "Process recordings"
+msgstr "Aufzeichnungen verarbeiten"
+
+msgid "Error processing of online meeting recordings."
+msgstr "Fehlerhafte Verarbeitung von Online-Treffen Aufzeichnungen."
+
+msgid "Processing of online meeting recordings successful."
+msgstr "Verarbeitung von Online-Treffen Aufzeichnungen erfolgreich."
+
+msgid "Recordings"
+msgstr "Aufzeichnungen"
+
+msgid "Select multiple files for download"
+msgstr "Mehrere Dateien auswählen zum downloaden"
+
+msgid "Select multiple files for edit"
+msgstr "Mehrere Dateien auswählen zum bearbeiten"
+
+msgid "Save and continue"
+msgstr "Speichern und weiter"
+
+msgid "DV can not be deleted. Please contact the site administrator. Hint: /node/%node/delete"
+msgstr "Eine Dachorganisation kann auf diesem Weg nicht gelöscht werden. Bitte wenden Sie sich an den Seitenadministrator. (Hinweis: /node/%node/delete)"
+
+msgid "Group size"
+msgstr "Gruppengröße"
+
+msgid "PLZ must be a number."
+msgstr "PLZ muss eine Zahl sein."
+
+msgid "PLZ must be 5 digits long"
+msgstr "PLZ muss 5 Zeichen lang sein."
+
+msgid "Switching between campus and community is now even easier. Here you can log in directly with your edubreak® access data."
+msgstr "Der Wechsel zwischen Campus und Community ist nun noch einfacher. Hier kannst du dich direkt mit deinen edubreak® Zugangsdaten anmelden."
+
+msgid "Login with my edubreak®-Account"
+msgstr "Anmeldung mit meinem edubreak®-Account"
+
+msgid "Blogposts"
+msgstr "Blogbeiträge"
+
+msgid "You do not have access to this community. Please contact the Support !support."
+msgstr "Du hast auf diese Community leider keinen Zugriff. Bitte setze dich mit dem Support !support in Verbindung."
+
+msgid "Date for automatic post publication is in the past. Please enter a valid post publication date."
+msgstr "Das Datum für die automatische Veröffentlichung liegt in der Vergangenheit. Bitte geben Sie ein gültiges Datum für die Veröffentlichung ein."
+
+msgid "Please enter a valid date for automatic post publication."
+msgstr "Bitte geben Sie ein gültiges Datum für die automatische Veröffentlichung ein."
+
+msgid "Please enter values only for full hours."
+msgstr "Bitte geben Sie nur Werte für volle Stunden ein."
+
+msgid "Password must have the following requirements:"
+msgstr "Das Passort muss folgenden Anforderungen entsprechen:"
+
+msgid "My Community profile"
+msgstr "Mein Community-Profil"
+
+msgid "My Organisation(s)"
+msgstr "Meine Organisation(en)"
+
+msgid "My Invites"
+msgstr "Meine Einladungen"
+
+msgid "Help & Support"
+msgstr "Hilfe & Unterstützung"
+
+msgid "Deactivate account"
+msgstr "Konto deaktivieren"
+
+msgid "Activate account"
+msgstr "Konto aktivieren"
+
+msgid "You selected the following %count:"
+msgstr "Sie haben die folgende %count ausgewählt:"
+
+msgid "Are you sure you want to activate/deactivate this user account(s)? When you deactivate, the user no longer has access to your community. You can reactivate the user account if necessary."
+msgstr "Sind Sie sicher, dass sie dieses Benutzer:innenkonto bzw. diese Konten aktivieren/deaktivieren möchten? Beim Deaktivieren hat die Person keinen Zugriff auf Ihre Community mehr. Sie können das Benutzer:innenkonto bei Bedarf wieder aktivieren."
+
+msgid "When enabling e-mail autosubscribe, all posts or materials are subscribe automatically."
+msgstr "Wenn Sie das automatische E-Mail-Abonnement aktivieren, werden alle Beiträge oder Materialien automatisch abonniert."
+
+msgid "Access denied. You must log in to view this page."
+msgstr "Zugriff verweigert. Bitte loggen Sie sich ein, um diesen Inhalt zu sehen."
+
+msgid "You are not allowed to activate accounts."
+msgstr "Sie sind nicht berechtigt, Konten zu aktivieren."
+
+msgid "You are not allowed to deactivate accounts."
+msgstr "Sie sind nicht berechtigt, Konten zu deaktivieren."
+
+msgid "Processed @current out of @total"
+msgstr "@current von @total verarbeitet"
+
+msgid "Performing %operation on the selected items..."
+msgstr "Ausführen von %operation an den ausgewählten Elementen..."
+
+msgid "Enter your e-mail address or username."
+msgstr "Geben Sie Ihre E-Mail-Adresse oder Ihren Benutzernamen ein."
+
+msgid "Edit files"
+msgstr "Dateien editieren"
+
+msgid "Edit multiple files"
+msgstr "Mehrere Dateien editieren"
+
+msgid "Download files"
+msgstr "Dateien herunterladen"
+
+msgid "Download multiple files"
+msgstr "Mehrere Dateien herunterladen"
+
+msgid "You are subscribed for this content. Click the icon on the right, to unsubscribe."
+msgstr "Sie haben sich für diesen Inhalt angemeldet. Klicken Sie auf das Symbol auf der rechten Seite, um sich abzumelden."
+
+msgid "Community-Manager"
+msgstr "Community-Manager:in"
+
+msgid "Click !here to join the meeting"
+msgstr "!here klicken, um an der Besprechung teilzunehmen"
+
+msgid "Here"
+msgstr "Hier"
+
+msgid "Group - only group members of group '!group_name' may see this node."
+msgstr "Gruppe - Mitglieder der Gruppe '!group_name' können diesen Beitrag sehen."
+
+msgid "Node of group !group_name."
+msgstr "Inhalt der Gruppe !group_name."
+
+msgid "Fast navigation"
+msgstr "Schnellnavigation"
+
+msgid "You do not have access to this community. Please navigate back to !userportal_link and select a course or group you have access to. Alternatively, you can also make a !membership_request here."
+msgstr "Du hast auf diese Community leider keinen Zugriff. Bitte navigiere zurück zu !userportal_link und wähle dort einen Kurs oder Gruppe aus, auf die du Zugriff hast. Alternativ kannst Du hier natürlich auch eine !membership_request stellen."
+
+msgid "mein.edubreak®"
+msgstr "mein.edubreak®"
+
+msgid "Here you can specify whether you want to inform other community users about your changes. For smaller changes, especially spelling improvements or nicer formatting, it is a good idea to suspend the notification. In this case, please uncheck the box above if it is set."
+msgstr "Hier kannst Du festlegen, ob Du andere Community-Nutzende über deine Anpassungen in diesem Beitrag informieren möchtest. Bei kleineren Änderungen z.B. in der Rechtschreibung oder Formatierung bietet sich ein Aussetzen der Benachrichtigung an. Bitte nimm in diesem Fall den Haken oben heraus, wenn dieser gesetzt ist."
+
+msgid "Notify on changes"
+msgstr "Benachrichtigung über Änderung versenden und Aktivität für die Startseite auslösen"
+
+msgid "Notification settings"
+msgstr "Benachrichtigunseinstellungen"
+
+msgid "Display via SVP player"
+msgstr "Direkt im Player unter dem Beitrag anzeigen"
+
+msgid "Your account has been blocked"
+msgstr "Ihr Konto wurde gesperrt"
+
+msgid "Please click on the title of the notification to play the audio message directly in the player."
+msgstr "Bitte klicke auf den Titel der Benachrichtigung um die Audionachricht direkt im Player abzuspielen."
+
+msgid "Only group"
+msgstr "Nur Gruppe"
+
+msgid "The video is currently being processed and will be available to you shortly."
+msgstr "Das Video wird aktuell aufbereitet und steht Dir in Kürze zur Verfügung."
+
+msgid "Unfortunately, there was a problem processing this video."
+msgstr "Leider gab es beim Aufbereiten dieses Videos ein Problem."
+
+msgid "Authors and group managers only"
+msgstr "Nur Autoren und Gruppenmanager:innen"
+
+msgid "Teaser image"
+msgstr "Vorschaubild"
+
+msgid "You can set an optional preview image here. This is used for a visually appealing post preview on the start page and in the overviews. <b>Please do not use lettering!</b>"
+msgstr "Sie können hier ein optionales Vorschaubild einstellen. Dieses wird für eine visuell ansprechende Beitragsvorschau auf der Startseite und in den Übersichten genutzt. <b>Bitte keine Schriftzüge verwenden!</b>"
+
+msgid "Group contents"
+msgstr "Gruppeninhalte"
+
+msgid "Specify who can view the group content, such as posts or files, by default"
+msgstr "Legen Sie fest wer standardmäßig die Gruppeninhalte, wie Beiträge oder Dateien einsehen darf"
+
+msgid "Specify who can change the group content, such as posts and files, by default."
+msgstr "Legen Sie fest wer standardmäßig die Gruppeninhalte, wie Beiträge und Dateien verändern darf."
+
+msgid "Specify who can edit online meetings in this group by default. This also includes the option to start the online meeting."
+msgstr "Legen Sie fest wer standardmäßig in dieser Gruppe Online-Treffen bearbeiten kann. Damit ist auch die Möglichkeit des Starts des Online-Treffen verbunden."
+
+msgid "Online-meeting: Change access incl. starting online meetings"
+msgstr "Online-Treffen: Änderungszugriff einschl. Starten von Online-Treffen"
+
+msgid "Specify who can view this online meeting."
+msgstr "Legen Sie fest wer dieses Online-Treffen einsehen darf."
+
+msgid "Specify who can edit and start this online meeting."
+msgstr "Legen Sie fest wer dieses Online-Treffen bearbeiten und starten kann."
+
+msgid "Meeting Start in progress, please wait"
+msgstr "Das Treffen startet, bitte warten"
+
+msgid "The meeting cannot be started at the moment."
+msgstr "Das Treffen kann im Moment nicht gestartet werden."
+
+msgid "This webinar cannot be started before !time"
+msgstr "Das Webniar kann nicht vor !time gestartet werden"
+
+msgid "Join Meeting"
+msgstr "Treffen beitreten"
+
+msgid "Waiting for host to start"
+msgstr "Warte auf den Start des Hosts"
+
+msgid "The Meeting has been started but there is no host attending. Click !here to take over as host or wait a few more moments."
+msgstr "Das Treffen wurde gestartet, aber es ist kein Host anwesend. Klicken Sie !here, um als Host zu übernehmen oder warten Sie noch ein paar Augenblicke."
+
+msgid "An error occured, could not join meeting"
+msgstr "Ein Fehler ist beim Beitreten des Treffens aufgetreten"
+
+msgid "Link to online-meeting"
+msgstr "Link zum Online-Treffen"
+
+msgid "Copy this link to invite additional participants to the online-meeting."
+msgstr "Kopieren Sie diesen Link, um weitere Teilnehmer zu dem Online-Treffen einzuladen."
+
+msgid "Please note that access via this link is dependent on the read access set for the online meeting."
+msgstr "Bitte beachten Sie, der Zugriff über diesen Link ist abhängig vom gesetzten Lesezugriff des Online-Treffens."
+
+msgid "Please note that this link depends on the read access of the online-meeting."
+msgstr "Bitte beachten Sie, dass dieser Link vom Lesezugriff der Online-Treffen abhängt."
+
+msgid "Share Link"
+msgstr "Link teilen"
+
+msgid "There are currently no online meetings in the community area"
+msgstr "Aktuell stehen keine Online-Treffen im Gemeinschaftsbereich an"
+
+msgid 'Next online meeting "!title" on !date at !time'
+msgstr 'Nächstes Online Treffen "!title" am !date um !time'
+
+msgid "More Online meetings in the community area"
+msgstr "Weitere Online-Treffen im Gemeinschaftsbereich"
+
+msgid "Online meetings in the community area"
+msgstr "Online-Treffen im Gemeinschaftsbereich"
+
+msgid "Community area"
+msgstr "Gemeinschaftsbereich"
+
+msgid "Draft - Only persons with edit access"
+msgstr "Entwurf - Nur Personen mit Änderungszugriff"
+
+msgid "Only svgs allowed"
+msgstr "Nur svgs erlaubt"
+
+msgid "Only your active groups are displayed. If you want to see all groups, please adjust the filter on the left accordingly"
+msgstr "Es werden nur Deine aktiven Gruppen angezeigt. Falls du alle Gruppen sehen möchtest bitte den Filter links entsprechend anpassen"
+
+msgid "Maintaining organisations"
+msgstr "Zugehörigkeit pflegen"
+
+msgid "Maintain the organisations for a user"
+msgstr "Pflegen Sie die Organisationen für einen Benutzer"
+
+msgid "New organisation affiliation"
+msgstr "Neue Organisationszugehörigkeit"
+
+msgid "The user is not currently in any organisation"
+msgstr "Der Benutzer ist aktuell noch in keiner Organisation"
+
+msgid "Add new organisation affiliation"
+msgstr "Neue Organisationszugehörigkeit hinzufügen"
+
+msgid "The user is already in all organisations"
+msgstr "Der Nutzer ist bereits in allen Organisationen"
+
+msgid "The users organisations have been successfully processed"
+msgstr "Die Organisationen des Benutzers wurden erfolgreich bearbeitet"
+
+msgid "document"
+msgstr "Dokument"
+
+msgid "Filename"
+msgstr "Dateititel"
+
+msgid "Set the direct the title of the attachment directly."
+msgstr "Setzen Sie direkt den Titel dieses Anhangs."
+
+msgid "If your organisation is not yet registered in the community, please contact the community managers via !mail and only complete the registration once your organisation is available."
+msgstr "Falls Ihre Organisation noch nicht in der Community hinterlegt ist wenden Sie sich bitte via !mail an die Community-Manager:innen und schließen Sie bitte die Registrierung erst ab sobald Ihre Organisation verfügbar ist."
+
+msgid "Title for attachment file must be set."
+msgstr "Der Titel des Anhangs darf nicht leer sein."

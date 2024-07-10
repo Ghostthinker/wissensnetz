@@ -2,86 +2,69 @@
 
 namespace salto_group;
 
-class GroupService
-{
+use Wissensnetz\User\DrupalUser;
+use Wissensnetz\User\Exception\DrupalUserNotExistsException;
 
-  private $group;
+class GroupService {
 
 
-  public function __construct($group)
-  {
-    $this->group = $group;
+  public function __construct() {
   }
 
-  public function deleteGroupContent(){
-    $this->removeUsers();
-    $this->deleteOnlineTreffen();
-    $this->deletePosts();
-    $this->deleteMaterials();
-  }
+  public function getGroupList($guid) {
+    try {
+      $drupalUser = DrupalUser::byGuid($guid);
 
+      global $conf;
 
-  private function deleteOnlineTreffen(){
-    $onlineTreffen = $this->getContentToDeleteFromGroup('online_meeting');
-    foreach($onlineTreffen as $treffen){
-      node_delete($treffen->entity_id);
+      $ogs = $this->getGroupNidsByUser($drupalUser->getUser());
+
+      $groupList[] = [
+        'iconUrl' => url("/" . drupal_get_path('module', 'wn_blanko') . "/images/" . $conf['wn_blanko']['favicon'], ['absolute' => TRUE]),
+        'name' => $conf['site_name'],
+        'domainUrl' => $conf['site_url'],
+        'type' => 'community',
+        'ogs' => $this->createGroupList($ogs),
+      ];
+      return $groupList;
+    } catch (\Exception $e) {
+      watchdog_exception('groupService', $e);
+      return [];
     }
   }
 
-  private function deletePosts(){
-    $posts = $this->getContentToDeleteFromGroup('post');
-    foreach($posts as $post){
-      node_delete($post->entity_id);
+  private function createGroupList($ogs) {
+
+    $groupList = [];
+
+    foreach ($ogs as $ogNid) {
+
+      $ogNode = node_load($ogNid);
+
+      $groupList[] = [
+        'title' => $ogNode->title,
+        'url' => url('node/' . $ogNid, [
+          'absolute' => TRUE,
+        ])
+      ];
     }
+    return $groupList;
   }
 
-  private function deleteMaterials(){
-    $materials = $this->getContentToDeleteFromGroup('file');
-    foreach($materials as $material){
-      $file = file_load($material->entity_id);
-      if($file){
-        file_delete($file);
+  private function getGroupNidsByUser($getUser) {
+    if (empty($getUser->field_user_groups[LANGUAGE_NONE])) {
+      return [];
+    }
+
+    $result = [];
+    foreach ($getUser->field_user_groups[LANGUAGE_NONE] as $nid) {
+      $roles = og_get_user_roles('node', $nid['target_id'], $getUser->uid);
+      if ($roles[5]) {
+        $result[] = $nid['target_id'];
       }
     }
-  }
 
-  private function getContentToDeleteFromGroup($type){
-    $group_nid = $this->group->nid;
-    $query = db_select('field_data_field_post_collaboration', 'fpc')
-      ->fields('fpc', ['entity_id', 'entity_id']);
-    $query->leftJoin('og_membership','ogm','ogm.etid = fpc.entity_id');
-    $query->condition('ogm.gid', $group_nid);
-
-
-    $this->checkIfCollaborationNeeded($type,$query);
-
-    if($type == 'file'){
-      $query->condition('fpc.entity_type','file');
-    }
-    else{
-      $query->condition('fpc.entity_type','node');
-      $query->leftJoin('node','n','n.nid = fpc.entity_id');
-      $query->condition('n.type',$type);
-    }
-
-    $result = $query->execute()->fetchAll();
     return $result;
-  }
-
-  private function removeUsers(){
-    $group_nid = $this->group->nid;
-    $users = salto_og_get_users_by_og($group_nid);
-    foreach($users as $uid => $user){
-      $user = user_load($uid);
-      salto_og_user_cancel_access($group_nid,$uid,$user);
-    }
-  }
-
-  private function checkIfCollaborationNeeded($type,&$query){
-    if($type != 'online_meeting'){
-      $query->condition('fpc.field_post_collaboration_read',SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP);
-      $query->condition('fpc.field_post_collaboration_edit',SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP);
-    }
   }
 
 }

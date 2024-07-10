@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_help.features.field_instance.inc
@@ -164,7 +165,7 @@ function salto_help_field_default_field_instances() {
     'bundle' => 'help',
     'default_value' => NULL,
     'deleted' => 0,
-    'description' => '',
+    'description' => 'Geben Sie hier die passende Kategorie für die Zuordnung in der Hilfe an.',
     'display' => array(
       'default' => array(
         'label' => 'above',
@@ -202,7 +203,7 @@ function salto_help_field_default_field_instances() {
     'bundle' => 'help',
     'default_value' => NULL,
     'deleted' => 0,
-    'description' => '',
+    'description' => 'Geben Sie hier einen Ausschnitt aus der Adresse (technisch URL) an um diese Hilfe in dem Adressenbereich direkt anzuzeigend.',
     'display' => array(
       'default' => array(
         'label' => 'above',
@@ -221,9 +222,43 @@ function salto_help_field_default_field_instances() {
     'ds_extras_field_template' => '',
     'entity_type' => 'node',
     'field_name' => 'field_help_context_url',
-    'label' => 'Kontext URL',
+    'label' => 'Adressenbereich des Hilfekontexts',
     'required' => 0,
     'settings' => array(
+      'better_formats' => array(
+        'allowed_formats' => array(
+          'comment_with_link' => 'comment_with_link',
+          'ds_code' => 'ds_code',
+          'editor' => 'editor',
+          'machine' => 'machine',
+          'php_code' => 'php_code',
+          'plain_text' => 'plain_text',
+        ),
+        'allowed_formats_toggle' => 0,
+        'default_order_toggle' => 0,
+        'default_order_wrapper' => array(
+          'formats' => array(
+            'comment_with_link' => array(
+              'weight' => 0,
+            ),
+            'ds_code' => array(
+              'weight' => 12,
+            ),
+            'editor' => array(
+              'weight' => -10,
+            ),
+            'machine' => array(
+              'weight' => -8,
+            ),
+            'php_code' => array(
+              'weight' => -7,
+            ),
+            'plain_text' => array(
+              'weight' => -9,
+            ),
+          ),
+        ),
+      ),
       'text_processing' => 0,
       'user_register_form' => FALSE,
     ),
@@ -281,10 +316,12 @@ function salto_help_field_default_field_instances() {
 
   // Translatables
   // Included for use with string extractors like potx.
+  t('Adressenbereich des Hilfekontexts');
+  t('Geben Sie hier die passende Kategorie für die Zuordnung in der Hilfe an.');
+  t('Geben Sie hier einen Ausschnitt aus der Adresse (technisch URL) an um diese Hilfe in dem Adressenbereich direkt anzuzeigend.');
   t('Inhalt');
   t('Kategorie');
   t('Kommentar');
-  t('Kontext URL');
   t('Mit Hilfe von Schlagworten können Sie beim schnellen Finden und Einordnung dieses Beitrag helfen. Geben Sie einfach kurze Begriffe durch Kommata getrennt, wie zum Beispiel Lernen, Digitale Medien, Konzept an.');
   t('Schlagworte');
 

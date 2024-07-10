@@ -60,7 +60,7 @@ class PostalValidationCest {
       $postal = substr($example["postal"], 3);
       $I->assertEquals(str_replace(' ', '', $postal), $result['postal_code']);
     } else if ($isSupported) {
-      $I->assertContains('Invalid', $result['error']);
+      $I->assertStringContainsString('Invalid', $result['error']);
       $I->assertFalse($result['postal_code']);
     } else {
       $postal = substr($example["postal"], 3);
@@ -123,7 +123,7 @@ class PostalValidationCest {
         //$postal = substr($example["postal"], 3);
         $I->assertEquals(str_replace(' ', '', $postal), $result['postal_code'], 'postal pass, option trimmed');
       } else {
-        $I->assertContains('Invalid', $result['error']);
+        $I->assertStringContainsString('Invalid', $result['error']);
         $I->assertFalse($result['postal_code']);
       }
     } else {
@@ -177,7 +177,7 @@ class PostalValidationCest {
         $I->assertFalse($result['error']);
         $I->assertEquals(str_replace(' ', '', $postal), $result['postal_code'], 'postal pass, option trimmed');
       } else {
-        $I->assertContains('Invalid', $result['error']);
+        $I->assertStringContainsString('Invalid', $result['error']);
         $I->assertFalse($result['postal_code']);
       }
     } else {
@@ -228,7 +228,7 @@ class PostalValidationCest {
         //$postal = substr($example["postal"], 3);
         $I->assertEquals(str_replace(' ', '', $postal), $result['postal_code'], 'postal pass, option trimmed');
       } else {
-        $I->assertContains('Invalid', $result['error']);
+        $I->assertStringContainsString('Invalid', $result['error']);
         $I->assertFalse($result['postal_code']);
       }
     } else {
@@ -297,7 +297,7 @@ class PostalValidationCest {
         //$postal = substr($example["postal"], 3);
         $I->assertEquals($postal, $result['postal_code'], 'postal pass, option trimmed');
       } else {
-        $I->assertContains('Invalid', $result['error']);
+        $I->assertStringContainsString('Invalid', $result['error']);
         $I->assertFalse($result['postal_code']);
       }
     } else {
@@ -362,7 +362,7 @@ class PostalValidationCest {
           $I->assertEquals(str_replace(' ', '', $postal), $result['postal_code'], 'postal pass');
         }
       } else {
-        $I->assertContains('Invalid', $result['error']);
+        $I->assertStringContainsString('Invalid', $result['error']);
         $I->assertFalse($result['postal_code']);
       }
     } else {

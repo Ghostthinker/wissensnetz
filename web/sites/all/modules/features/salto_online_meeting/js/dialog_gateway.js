@@ -12,6 +12,10 @@
         Drupal.SaltoOnlineMeetingJoinLinkListener.init(this);
       }).addClass('dialog_status-processed');
 
+      $('.salto-online-meeting-recordings-wrapper:not(.salto-online-meeting-recordings-wrapper-processed)').each(function () {
+        Drupal.SaltoOnlineMeetingRecording.init(this);
+      }).addClass('salto-online-meeting-recordings-wrapper-processed');
+
     }
   };
 
@@ -24,13 +28,15 @@
         return;
       }
       this.group_nid = this.$elem.data('gid');
-      this.url = Drupal.settings.basePath + 'groups/' + this.group_nid + '/online-meetings/ajax/status';
+      this.url = Drupal.settings.basePath + 'online-meetings/ajax/status';
+      if(this.group_nid){
+        this.url += '?og_nid=' + this.group_nid;
+      }
+
       this.check_status();
       this.initCompleted = true;
-      //this.check_recordings();
     },
     poll: function () {
-      console.log("polling");
       let timeout = Drupal.settings.online_meeting.ajax_poll_interval * 1000;
       timeout = timeout < 500 ? 500 : timeout;
       setTimeout(() => {
@@ -40,7 +46,6 @@
     },
     check_status: function () {
       if (document.hasFocus()) {
-
         $.ajax({
           type: 'POST',
           url: this.url,
@@ -55,7 +60,7 @@
         });
       }
       this.poll();
-    },
+    }
   };
 
   Drupal.SaltoOnlineMeetingJoinLinkListener = {
@@ -121,4 +126,59 @@
       this.poll();
     },
   };
+
+  Drupal.SaltoOnlineMeetingRecording = {
+    initCompleted: false,
+    init: function (elem) {
+      this.$elem = $(elem);
+
+      if (this.initCompleted) {
+        return;
+      }
+      this.group_nid = this.$elem.data('nid');
+
+      this.check_recordings();
+      this.initCompleted = true;
+    },
+    check_recordings: function () {
+
+      const wrapper = $('.salto-online-meeting-recordings-wrapper');
+
+      if (wrapper.length == 0) {
+        return;
+      }
+
+      var nid = this.group_nid;
+      var url = Drupal.settings.basePath + "node/" + nid + "/dialog/ajax/recordings";
+
+      wrapper.parent().hide();
+
+      $.ajax({
+        type: "POST",
+        url: url,
+        data: {},
+        dataType: 'json',
+        success: function (response) {
+          if (response.content != ''){
+            wrapper.html(response.content);
+            wrapper.parent().fadeIn('slow');
+
+            //add click lock on video import
+            var clickLock = 0;
+
+            $('.salto-online-meeting-recordings-wrapper .form-submit').on('click', function(){
+              if (clickLock === 0) {
+                clickLock = 1;
+              }else{
+                $('.salto-online-meeting-recordings-wrapper .form-submit').attr('disabled', 'disabled');
+              }
+            });
+
+
+          }
+        }
+      });
+    }
+  };
+
 })(jQuery);

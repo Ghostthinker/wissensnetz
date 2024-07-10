@@ -6,7 +6,7 @@
  * Time: 14:42
  */
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * all tests for start pages
@@ -57,30 +57,27 @@ class NotificationsCest {
       'role_dosb' => TRUE
     ]);
 
-    Bildungsnetz::setProfileCategory($DOSBUser, [SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID]);
-    Bildungsnetz::setNotificationsCommunityOff($DOSBUser->uid);
+    Wissensnetz::setProfileCategory($DOSBUser, [salto_knowledgebase_get_fallback_kb_category_tid()]);
+    Wissensnetz::setNotificationsCommunityOff($DOSBUser->uid);
 
-    Bildungsnetz::setProfileCategory($OUser, [SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID]);
-    Bildungsnetz::setNotificationsCommunityOff($OUser->uid);
-    Bildungsnetz::setNotificationsDefaults($GAuthor->uid);
-    Bildungsnetz::setNotificationsDefaults($AUser->uid);
-    Bildungsnetz::setProfileCategory($GAuthor, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
-    Bildungsnetz::setProfileCategory($AUser, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
+    Wissensnetz::setProfileCategory($OUser, [salto_knowledgebase_get_fallback_kb_category_tid()]);
+    Wissensnetz::setNotificationsCommunityOff($OUser->uid);
+    Wissensnetz::setNotificationsDefaults($GAuthor->uid);
+    Wissensnetz::setNotificationsDefaults($AUser->uid);
+    Wissensnetz::setProfileCategory($GAuthor, [salto_knowledgebase_get_default_kb_category_tid()]);
+    Wissensnetz::setProfileCategory($AUser, [salto_knowledgebase_get_default_kb_category_tid()]);
 
-    Bildungsnetz::cleanCoreSystemQueue();
+    Wissensnetz::cleanCoreSystemQueue();
 
     $I->loginAsUser($GAuthor);
-
-    $I->amOnPage("/posts");
-    $I->seeLink("Beitrag erstellen");
-
     $title = "Test Title 270.05-" . $microTime;
 
     $I->createBeitrag([
+      'user' => $GAuthor,
       'Titel' => $title,
       'Inhalt' => "Test Inhalt 270_05",
       'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_SPORT_TID,
+      'Kategorie' => salto_knowledgebase_get_default_kb_category_tid(),
     ]);
 
     $I->completedSetup();
@@ -113,7 +110,6 @@ class NotificationsCest {
     $I->fillfield(["name" => "comment_body[und][0][value]"], $myComment);
     $I->click('Speichern');
 
-    $I->waitForText("Ihr Kommentar wurde erstellt.", 20);
     $I->see('Gespeichert von ' . 'AUser');
     $I->see($myComment);
 
@@ -152,10 +148,9 @@ class NotificationsCest {
    *
    * @param \AcceptanceTester $I
    */
-  public function N350_00_abo_off(AcceptanceTester $I) {
+  public function N350_01_abo_off(AcceptanceTester $I) {
 
-    $I->wantTo('N350.00 - Benachrichtigung - Maintenance abo off');
-
+    $I->wantTo('N351.00 - Benachrichtigung - Maintenance abo off');
     $microTime = microtime(TRUE);
     //gruppenbenutzer
     $GAuthor = $I->haveUser([
@@ -176,51 +171,47 @@ class NotificationsCest {
       'role_dosb' => TRUE
     ]);
 
-    Bildungsnetz::setProfileCategory($DOSBUser, [SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID]);
-    Bildungsnetz::setNotificationsCommunityOff($DOSBUser->uid);
-    Bildungsnetz::setProfileCategory($OUser, [SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID]);
-    Bildungsnetz::setNotificationsCommunityOff($OUser->uid);
-    Bildungsnetz::setNotificationsDefaults($GAuthor->uid);
-    Bildungsnetz::setNotificationsDefaults($AUser->uid);
+    Wissensnetz::setProfileCategory($DOSBUser, [salto_knowledgebase_get_fallback_kb_category_tid()]);
+    Wissensnetz::setNotificationsCommunityOff($DOSBUser->uid);
+    Wissensnetz::setProfileCategory($OUser, [salto_knowledgebase_get_fallback_kb_category_tid()]);
+    Wissensnetz::setNotificationsCommunityOff($OUser->uid);
+    Wissensnetz::setNotificationsDefaults($GAuthor->uid);
+    Wissensnetz::setNotificationsDefaults($AUser->uid);
+    Wissensnetz::setProfileCategory($GAuthor, [salto_knowledgebase_get_default_kb_category_tid()]);
+    Wissensnetz::setProfileCategory($AUser, [salto_knowledgebase_get_default_kb_category_tid()]);
 
     $I->loginAsUser($GAuthor);
-
-    $I->amOnPage("/posts");
-    $I->seeLink("Beitrag erstellen");
 
     $title = "Test Title 270.05-" . $microTime;
 
-    $I->createBeitrag([
+    $POST = $I->createBeitrag([
+      'user' => $GAuthor,
       'Titel' => $title,
       'Inhalt' => "Test Inhalt 270_05",
       'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'Kategorie' => salto_knowledgebase_get_default_kb_category_tid(),
     ]);
 
     $I->completedSetup();
-
-    $postId = $I->grabFromCurrentUrl('/node\/(\d+)/');
-
     $I->loginAsUser($OUser);
-    $I->amOnPage("/node/" . $postId);
-    $I->dontSee('Auto-Aboniert', '.main_layout_right .flag-outer');
+
+    $I->amOnPage("/node/" . $POST->nid);
+    $I->dontSee('Auto-Abonniert', '.main_layout_right .flag-outer');
     $I->see('Abonnieren', '.main_layout_right .flag-outer');
 
     $I->loginAsUser($DOSBUser);
-    $I->amOnPage("/node/" . $postId);
-    $I->dontSee('Auto-Aboniert', '.main_layout_right .flag-outer');
+    $I->amOnPage("/node/" . $POST->nid);
+    $I->dontSee('Auto-Abonniert', '.main_layout_right .flag-outer');
     $I->see('Abonnieren', '.main_layout_right .flag-outer');
 
     $I->loginAsUser($GAuthor);
-    $I->amOnPage("/node/" . $postId);
-    $I->see('Abonniert', '.main_layout_right .flag-outer');
-    //$I->see('Auto-Aboniert', '.main_layout_right .flag-outer');
+    $I->amOnPage("/node/" . $POST->nid);
+    $I->see('Auto-Abonniert', '.main_layout_right .flag-outer');
     $I->dontSee('Abonnieren', '.main_layout_right .flag-outer');
 
     $I->loginAsUser($AUser);
-    $I->amOnPage("/node/" . $postId);
-    $I->see('Abonniert', '.main_layout_right .flag-outer');
-    //$I->see('Auto-Aboniert', '.main_layout_right .flag-outer');
+    $I->amOnPage("/node/" . $POST->nid);
+    $I->see('Auto-Abonniert', '.main_layout_right .flag-outer');
     $I->dontSee('Abonnieren', '.main_layout_right .flag-outer');
   }
 

@@ -450,11 +450,16 @@ a .glyphicon-spin {
 }
 
 .glyphicon-refresh {
-  -webkit-transform-origin: 50% 45%;
-  -moz-transform-origin: 50% 45%;
-  -ms-transform-origin: 50% 45%;
-  -o-transform-origin: 50% 45%;
-  transform-origin: 50% 45%;
+  display: inline-block;
+  -webkit-transform-origin: 50% 50%;
+  -moz-transform-origin: 50% 50%;
+  -ms-transform-origin: 50% 50%;
+  -o-transform-origin: 50% 50%;
+  transform-origin: 50% 50%;
+  line-height: 15px;
+  width: 16px;
+  font-size: 14px !important;
+  height: 16px;
 }
 
 .tabbable {
@@ -745,7 +750,6 @@ overflow: inherit !important;
 .col-md-3 .pane-user-login #user-login-form a {
   display:block;
   text-align:right;
-  width: 115px;
 }
 
 
@@ -852,4 +856,10 @@ label.chip {
 #privatemsg-new button.form-submit,
 .floating-button-wrapper .float {
   background-color: @dosb-orange!important;
+}
+
+//mention container parent
+//offset calculated based on bounding box
+.form-type-textarea {
+  position: relative !important;
 }

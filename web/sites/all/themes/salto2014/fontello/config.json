@@ -489,6 +489,30 @@
       "search": [
         "start-meeting"
       ]
+    },
+    {
+      "uid": "9dfee680431bb2f9cc4485bfa4d982ac",
+      "css": "hourglass-o",
+      "code": 62032,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "f70af5dd0ecd154b007d980cd011a7f7",
+      "css": "hourglass-2",
+      "code": 62034,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "1e2149558b091788516ef5f589ac011e",
+      "css": "videocam",
+      "code": 59463,
+      "src": "elusive"
+    },
+    {
+      "uid": "f274acf461473025f0d75518b653ec14",
+      "css": "video-chat",
+      "code": 59464,
+      "src": "elusive"
     }
   ]
 }

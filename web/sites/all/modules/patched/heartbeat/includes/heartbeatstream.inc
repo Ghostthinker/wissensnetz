@@ -800,6 +800,9 @@ abstract class HeartbeatStream {
   public function parseMessages($result) {
 
     $heartbeatparser = new HeartbeatParser();
+    if($this->config->noGroup){
+      $heartbeatparser->noGroup = TRUE;
+    }
     $heartbeatparser->set_timespan_gap($this->config->grouping_seconds);
     $heartbeatparser->build_sets($result);
     $heartbeatparser->merge_sets();
@@ -844,7 +847,6 @@ abstract class HeartbeatStream {
 
       // Filter messages by permission.
       $this->checkAccess($result);
-
       // Group the activity messages as configured
       $messages = $this->parseMessages($result);
 

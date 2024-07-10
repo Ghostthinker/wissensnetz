@@ -8,5 +8,13 @@ Drupal.behaviors.gt_privacy = {
       document.cookie = "comply_cookie = comply_yes; expires = " + myDate.toGMTString();
       jQuery("#cookies").slideUp("slow");
     }).addClass("cookie-accept-processed");
+
+    jQuery('a[href="/cookies-tracking"]').on("click", function(event) {
+      event.preventDefault();
+      klaro.show();
+    });
   }
+
+
+
 };

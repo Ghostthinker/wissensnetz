@@ -37,9 +37,10 @@ function salto_files_field_default_field_instances() {
           'comment_with_link' => 0,
           'ds_code' => 0,
           'editor' => 0,
+          'editor_comment' => 'editor_comment',
           'machine' => 0,
           'php_code' => 0,
-          'plain_text' => 'plain_text',
+          'plain_text' => 0,
         ),
         'allowed_formats_toggle' => 1,
         'default_order_toggle' => 0,
@@ -53,6 +54,9 @@ function salto_files_field_default_field_instances() {
             ),
             'editor' => array(
               'weight' => -10,
+            ),
+            'editor_comment' => array(
+              'weight' => -9,
             ),
             'machine' => array(
               'weight' => -8,
@@ -791,13 +795,14 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
     'entity_type' => 'file',
     'field_name' => 'field_file_title',
     'label' => 'Titel',
-    'required' => 0,
+    'required' => 1,
     'settings' => array(
       'better_formats' => array(
         'allowed_formats' => array(
           'comment_with_link' => 'comment_with_link',
           'ds_code' => 'ds_code',
           'editor' => 'editor',
+          'editor_comment' => 0,
           'machine' => 'machine',
           'php_code' => 'php_code',
           'plain_text' => 'plain_text',
@@ -814,6 +819,9 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
             ),
             'editor' => array(
               'weight' => -10,
+            ),
+            'editor_comment' => array(
+              'weight' => -9,
             ),
             'machine' => array(
               'weight' => -8,
@@ -1942,14 +1950,15 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
     'ds_extras_field_template' => '',
     'entity_type' => 'file',
     'field_name' => 'field_file_title',
-    'label' => 'Titel',
-    'required' => 0,
+    'label' => 'Dateititel',
+    'required' => 1,
     'settings' => array(
       'better_formats' => array(
         'allowed_formats' => array(
           'comment_with_link' => 'comment_with_link',
           'ds_code' => 'ds_code',
           'editor' => 'editor',
+          'editor_comment' => 0,
           'machine' => 'machine',
           'php_code' => 'php_code',
           'plain_text' => 'plain_text',
@@ -1966,6 +1975,9 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
             ),
             'editor' => array(
               'weight' => -10,
+            ),
+            'editor_comment' => array(
+              'weight' => -9,
             ),
             'machine' => array(
               'weight' => -8,
@@ -2961,13 +2973,14 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
     'entity_type' => 'file',
     'field_name' => 'field_file_image_title_text',
     'label' => 'Bildtitel',
-    'required' => 0,
+    'required' => 1,
     'settings' => array(
       'better_formats' => array(
         'allowed_formats' => array(
           'comment_with_link' => 'comment_with_link',
           'ds_code' => 'ds_code',
           'editor' => 'editor',
+          'editor_comment' => 0,
           'machine' => 'machine',
           'php_code' => 'php_code',
           'plain_text' => 'plain_text',
@@ -2984,6 +2997,9 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
             ),
             'editor' => array(
               'weight' => -10,
+            ),
+            'editor_comment' => array(
+              'weight' => -9,
             ),
             'machine' => array(
               'weight' => -8,
@@ -4694,7 +4710,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
       'module' => 'fivestar',
       'settings' => array(),
       'type' => 'exposed',
-      'weight' => 12,
+      'weight' => 11,
     ),
   );
 
@@ -4767,6 +4783,78 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
     ),
   );
 
+  // Exported field_instance: 'file-video-field_file_attachment_preview'.
+  $field_instances['file-video-field_file_attachment_preview'] = array(
+    'bundle' => 'video',
+    'default_value' => array(
+      0 => array(
+        'value' => 0,
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'colorbox' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'list',
+        'settings' => array(),
+        'type' => 'list_default',
+        'weight' => 28,
+      ),
+      'default_selection_wysiwyg' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'listing' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'preview' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'wysiwyg' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'file',
+    'field_name' => 'field_file_attachment_preview',
+    'label' => 'File Attachment Preview',
+    'required' => 0,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'options',
+      'settings' => array(),
+      'type' => 'options_select',
+      'weight' => 15,
+    ),
+  );
+
   // Exported field_instance: 'file-video-field_file_attachment_status'.
   $field_instances['file-video-field_file_attachment_status'] = array(
     'bundle' => 'video',
@@ -4835,7 +4923,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_select',
-      'weight' => 15,
+      'weight' => 14,
     ),
   );
 
@@ -4913,7 +5001,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
         'size' => 60,
       ),
       'type' => 'entityreference_autocomplete',
-      'weight' => 14,
+      'weight' => 13,
     ),
   );
 
@@ -5022,7 +5110,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
         'rows' => 5,
       ),
       'type' => 'text_textarea',
-      'weight' => 9,
+      'weight' => 8,
     ),
   );
 
@@ -5093,7 +5181,7 @@ Die Nutzungslizenz ist für alle Mitglieder des Bildungsnetzes und für die weit
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_select',
-      'weight' => 6,
+      'weight' => 5,
     ),
   );
 
@@ -5163,7 +5251,7 @@ Die Nutzungslizenz ist für alle Mitglieder des Bildungsnetzes und für die weit
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_buttons',
-      'weight' => 8,
+      'weight' => 7,
     ),
   );
 
@@ -5270,7 +5358,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 7,
+      'weight' => 6,
     ),
   );
 
@@ -5328,13 +5416,14 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
     'entity_type' => 'file',
     'field_name' => 'field_file_title',
     'label' => 'Titel',
-    'required' => 0,
+    'required' => 1,
     'settings' => array(
       'better_formats' => array(
         'allowed_formats' => array(
           'comment_with_link' => 'comment_with_link',
           'ds_code' => 'ds_code',
           'editor' => 'editor',
+          'editor_comment' => 0,
           'machine' => 'machine',
           'php_code' => 'php_code',
           'plain_text' => 'plain_text',
@@ -5351,6 +5440,9 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
             ),
             'editor' => array(
               'weight' => -10,
+            ),
+            'editor_comment' => array(
+              'weight' => -9,
             ),
             'machine' => array(
               'weight' => -8,
@@ -5455,7 +5547,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
         'track_list' => 0,
       ),
       'type' => 'term_reference_tree',
-      'weight' => 4,
+      'weight' => 3,
     ),
   );
 
@@ -5547,7 +5639,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
       'module' => 'og',
       'settings' => array(),
       'type' => 'og_complex',
-      'weight' => 10,
+      'weight' => 9,
     ),
   );
 
@@ -5620,7 +5712,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
       'module' => 'salto_knowledgebase',
       'settings' => array(),
       'type' => 'salto_collaboration_select',
-      'weight' => 13,
+      'weight' => 12,
     ),
   );
 
@@ -5694,7 +5786,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
         'size' => 60,
       ),
       'type' => 'taxonomy_autocomplete',
-      'weight' => 5,
+      'weight' => 4,
     ),
   );
 
@@ -5762,7 +5854,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_select',
-      'weight' => 11,
+      'weight' => 10,
     ),
   );
 
@@ -6421,13 +6513,14 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
     'entity_type' => 'file',
     'field_name' => 'field_file_title',
     'label' => 'Titel',
-    'required' => 0,
+    'required' => 1,
     'settings' => array(
       'better_formats' => array(
         'allowed_formats' => array(
           'comment_with_link' => 'comment_with_link',
           'ds_code' => 'ds_code',
           'editor' => 'editor',
+          'editor_comment' => 0,
           'machine' => 'machine',
           'php_code' => 'php_code',
           'plain_text' => 'plain_text',
@@ -6444,6 +6537,9 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
             ),
             'editor' => array(
               'weight' => -10,
+            ),
+            'editor_comment' => array(
+              'weight' => -9,
             ),
             'machine' => array(
               'weight' => -8,
@@ -6870,7 +6966,131 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
         'summary_rows' => 5,
       ),
       'type' => 'text_textarea_with_summary',
-      'weight' => -4,
+      'weight' => 1,
+    ),
+  );
+
+  // Exported field_instance: 'node-file_comments-field_kb_content_category'.
+  $field_instances['node-file_comments-field_kb_content_category'] = array(
+    'bundle' => 'file_comments',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'taxonomy',
+        'settings' => array(),
+        'type' => 'taxonomy_term_reference_link',
+        'weight' => 1,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'node',
+    'field_name' => 'field_kb_content_category',
+    'label' => 'Themenfeld(er)',
+    'required' => 0,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'term_reference_tree',
+      'settings' => array(
+        'cascading_selection' => 0,
+        'filter_view' => '',
+        'leaves_only' => 0,
+        'max_depth' => '',
+        'parent_term_id' => '',
+        'select_parents' => 1,
+        'start_minimized' => 1,
+        'token_display' => '',
+        'track_list' => 0,
+      ),
+      'type' => 'term_reference_tree',
+      'weight' => 2,
+    ),
+  );
+
+  // Exported field_instance:
+  // 'taxonomy_term-lehr_lern_material_kategorien-field_term_icon'.
+  $field_instances['taxonomy_term-lehr_lern_material_kategorien-field_term_icon'] = array(
+    'bundle' => 'lehr_lern_material_kategorien',
+    'deleted' => 0,
+    'description' => 'Only svgs allowed',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_default',
+        'weight' => 2,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'taxonomy_term',
+    'field_name' => 'field_term_icon',
+    'label' => 'Icon',
+    'required' => 0,
+    'settings' => array(
+      'description_field' => 0,
+      'file_directory' => 'term_icons',
+      'file_extensions' => 'svg',
+      'max_filesize' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'file_generic',
+      'weight' => 3,
+    ),
+  );
+
+  // Exported field_instance:
+  // 'taxonomy_term-lehr_lern_material_kategorien-field_term_image'.
+  $field_instances['taxonomy_term-lehr_lern_material_kategorien-field_term_image'] = array(
+    'bundle' => 'lehr_lern_material_kategorien',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_default',
+        'weight' => 1,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'taxonomy_term',
+    'field_name' => 'field_term_image',
+    'label' => 'Bild',
+    'required' => 0,
+    'settings' => array(
+      'description_field' => 0,
+      'file_directory' => 'term_images',
+      'file_extensions' => 'jpeg jpg png gif bmp tiff tif svg',
+      'max_filesize' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'file_generic',
+      'weight' => 2,
     ),
   );
 
@@ -6880,6 +7100,7 @@ sehr wichtig für die Weiterverwendung dieses Inhalts.',
   t('Beitrag (Themenfelder sync)');
   t('Beschreibung');
   t('Bezeichnung der Datei. Wenn nicht gesetzt wird der Dateiname verwendet.');
+  t('Bild');
   t('Bildtitel');
   t('Bitte geben Sie an, für welche Lizenzstufe(n) dieses Lehr-Lern-Material geeignet ist. Damit erleichtern Sie anderen Bildungsnetzpersonen die Nutzung erheblich!');
   t('Bitte geben Sie den Urheber dieser Datei bzw. des Lehr-Lern-Materials an. Das können Sie selbst, eine andere Person oder eine Organisation sein. Diese Angabe ist ebenfalls
@@ -6890,14 +7111,18 @@ Die Nutzungslizenz ist für alle Mitglieder des Bildungsnetzes und für die weit
   t('Body');
   t('Content Rating');
   t('Datei Kommentare');
+  t('Dateititel');
+  t('File Attachment Preview');
   t('File Attachment Status');
   t('Gruppe');
   t('Hier können Sie eine Bildbezeichnung bei Anzeigeproblemen hinterlegen und um barrierefrei Nutzung zu ermöglichen');
   t('Hier können Sie einen Bildtitel festlegen, der beim Bewegen der Maus angezeigt wird.');
+  t('Icon');
   t('Kommentar');
   t('Lizenzstufe');
   t('Mit Hilfe von Schlagworten können Sie beim schnellen Finden und Einordnung dieses Beitrag helfen. Geben Sie einfach kurze Begriffe durch Kommata getrennt, wie zum Beispiel Lernen, Digitale Medien, Konzept an. Es werden Ihnen dabei bereits vorhandene Schlagwörter vorschlagen. Diese dienen jedoch nur zur Orientierung und Sie können selbstverständlich auch neue Schlagwörter ergänzen.');
   t('Nutzungslizenz');
+  t('Only svgs allowed');
   t('Salto Datei Typ');
   t('Schlagworte');
   t('Themenfeld(er)');

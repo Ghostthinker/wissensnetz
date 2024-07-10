@@ -241,6 +241,54 @@ function salto_online_meeting_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance:
+  // 'node-online_meeting-field_online_meeting_recordings'.
+  $field_instances['node-online_meeting-field_online_meeting_recordings'] = array(
+    'bundle' => 'online_meeting',
+    'default_value' => NULL,
+    'default_value_function' => '',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 1,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'node',
+    'field_name' => 'field_online_meeting_recordings',
+    'label' => 'Recordings',
+    'required' => 0,
+    'settings' => array(
+      'behaviors' => array(
+        'prepopulate' => array(
+          'status' => 0,
+        ),
+      ),
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'entityreference',
+      'settings' => array(
+        'match_operator' => 'CONTAINS',
+        'path' => '',
+        'size' => 60,
+      ),
+      'type' => 'entityreference_autocomplete',
+      'weight' => 11,
+    ),
+  );
+
   // Exported field_instance: 'node-online_meeting-field_online_meeting_status'.
   $field_instances['node-online_meeting-field_online_meeting_status'] = array(
     'bundle' => 'online_meeting',
@@ -461,6 +509,7 @@ function salto_online_meeting_field_default_field_instances() {
   t('Autoren');
   t('Gruppe');
   t('Inhalt');
+  t('Recordings');
   t('Typ');
   t('Webinar size');
   t('Wiederkehrende Meetings');

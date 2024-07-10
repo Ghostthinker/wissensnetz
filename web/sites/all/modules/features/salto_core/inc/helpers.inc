@@ -42,6 +42,10 @@ function taxonomy_get_nested_tree($terms = [], $max_depth = NULL, $parent = 0, $
     $terms = taxonomy_get_tree($terms);
   }
 
+  if (empty($terms)){
+    return NULL;
+  }
+
   foreach ($terms as $term) {
     foreach ($term->parents as $term_parent) {
       if ($term_parent == $parent) {
@@ -139,6 +143,7 @@ function phpexcel_fast_write($data, $headers, $path, $filename, $format = "xls",
 
   $username = format_username($user);
 
+  libraries_load('PHPExcel');
 
   // Initiate cache
   $cacheMethod = PHPExcel_CachedObjectStorageFactory::cache_to_phpTemp;

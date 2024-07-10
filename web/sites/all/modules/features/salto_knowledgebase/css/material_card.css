@@ -1,0 +1,77 @@
+.material-card-container{
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.material-card{
+  position: relative;
+  border-radius: 1rem;
+  width: 22rem;
+  height: 15rem;
+  box-shadow: 0px 3px 4px 0px rgba(0, 0, 0, 0.15);
+}
+
+.material-card:hover {
+  filter: brightness(1.1);
+}
+
+.material-card-icon{
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 3rem;
+  height: 3rem;
+}
+
+.material-card-chip img{
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.material-card-chip {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  color: white;
+  border-radius: 1rem;
+  box-shadow: 0px 3px 4px 0px rgba(0, 0, 0, 0.15);
+  font-weight: 400;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 400;
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
+}
+
+.material-card-backlink{
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.material-card-chip-backlink{
+  color: white;
+  padding: 0.5rem 1rem 0.5rem 1rem;
+  border-radius: 2rem;
+  box-shadow: 0px 3px 4px 0px rgba(0, 0, 0, 0.15);
+  font-weight: bold;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 1000px) {
+  .material-card-container {
+    justify-content: center;
+  }
+}
+
+@media only screen and (max-width: 1023px) {
+  .material-card-pane .panel-panel.col-md-3{
+    display: none;
+  }
+}

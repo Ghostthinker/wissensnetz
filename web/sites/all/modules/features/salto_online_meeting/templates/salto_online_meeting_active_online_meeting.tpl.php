@@ -15,12 +15,19 @@
           <div class="online-meetings-item-status online"></div>
         </div>
         <div class="online-meeting-border-form-items">
-          <label><?php print $online_meeting['title'] ?></label>
-          <?php print $online_meeting['time'] ?>
+          <a href="<?php print $online_meeting['node_url'] ?>"><?php print $online_meeting['title'] ?></a>
+          <div>
+           <?php print $online_meeting['time'] ?>
+
+            <?php if($online_meeting['additionalInfo']) : ?>
+            <?php print $online_meeting['additionalInfo']?>
+            <?php endif ?>
+          </div>
           <br><br>
           <a class="btn btn-primary online-meeting-button-form"
              target="_blank"
              href="<?php print $online_meeting['url'] ?>"><?php print t('Join') ?></a>
+
         </div>
       </div>
     <?php endforeach ?>

@@ -14,7 +14,7 @@ function wysiwyg_tinymce_editor() {
   $editor['tinymce'] = array(
     'title' => 'TinyMCE',
     'vendor url' => 'https://www.tinymce.com',
-    'download url' => 'https://www.tinymce.com/download',
+    'download url' => 'https://www.tiny.cloud/get-tiny/self-hosted/',
     'library path' => wysiwyg_get_path('tinymce'),
     'libraries' => array(
       '' => array(
@@ -27,7 +27,9 @@ function wysiwyg_tinymce_editor() {
       ),
     ),
     'version callback' => 'wysiwyg_tinymce_version',
-    'verified version range' => array('3.3.9.2', '4.5.7'),
+    'verified version range' => array('3.3.9.2', '4.9.11'),
+    'install note callback' => 'wysiwyg_tinymce_install_note',
+    'deprecation message' => 'wysiwyg_tinymce_deprecation_message',
     'themes callback' => 'wysiwyg_tinymce_themes',
     'settings form callback' => 'wysiwyg_tinymce_settings_form',
     'init callback' => 'wysiwyg_tinymce_init',
@@ -79,6 +81,23 @@ function wysiwyg_tinymce_editor() {
     ),
   );
   return $editor;
+}
+
+/**
+ * Show an install note.
+ */
+function wysiwyg_tinymce_install_note($editor) {
+  return '<p>' . t('@editor is no longer being developed and support will be dropped by Wysiwyg module after May 2022.', array('@editor' => 'TinyMCE 3')) . '</p>';
+}
+
+/**
+ * Show a deprecation message.
+ */
+function wysiwyg_tinymce_deprecation_message($editor) {
+  if (!empty($editor['installed version']) && version_compare($editor['installed version'], '4.0', '<')) {
+    return t('@editor is no longer being developed and support will be dropped by Wysiwyg module after May 2022.', array('@editor' => 'TinyMCE 3'));
+  }
+  return NULL;
 }
 
 /**
@@ -187,6 +206,7 @@ function wysiwyg_tinymce_settings_form(&$form, &$form_state) {
       'paste_data_images' => FALSE,
       'resize' => TRUE,
       'menu' => NULL,
+      'image_title' => TRUE,
     );
   }
   else {
@@ -385,6 +405,13 @@ function wysiwyg_tinymce_settings_form(&$form, &$form_state) {
       '#default_value' => $settings['image_advtab'],
       '#return_value' => 1,
       '#description' => t('Enable the advanced tab in the image dialog.') . ' ' . _wysiwyg_tinymce_get_plugin_setting_description('image', 'image_advtab'),
+    );
+    $form['image']['image_title'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Show title input'),
+      '#default_value' => $settings['image_title'],
+      '#return_value' => TRUE,
+      '#description' => t('Enable the image title in the image dialog.') . ' ' . _wysiwyg_tinymce_get_plugin_setting_description('image', 'image_title'),
     );
 
     if (version_compare($version, '4.0.13', '>=')) {
@@ -733,6 +760,11 @@ function wysiwyg_tinymce_settings($editor, $config, $theme) {
       'theme_advanced_toolbar_location' => 'top',
     );
   }
+  else {
+    $settings += array(
+      'image_title' => TRUE,
+    );
+  }
   $check_if_set = array(
     'block_formats',
     'apply_source_formatting',
@@ -741,6 +773,7 @@ function wysiwyg_tinymce_settings($editor, $config, $theme) {
     'convert_fonts_to_spans',
     'font_styles_merge',
     'image_advtab',
+    'image_title',
     'indent',
     'language',
     'paste_as_text',
@@ -800,7 +833,8 @@ function wysiwyg_tinymce_settings($editor, $config, $theme) {
 
   if (isset($config['css_setting'])) {
     if ($config['css_setting'] == 'theme') {
-      $settings['content_css'] = implode(',', wysiwyg_get_css(isset($config['css_theme']) ? $config['css_theme'] : ''));
+      $css_files = wysiwyg_get_css(isset($config['css_theme']) ? $config['css_theme'] : '');
+      $settings['content_css'] = version_compare($version, '3.5b3', '>=') ? $css_files : implode(',', $css_files);
     }
     elseif ($config['css_setting'] == 'self' && isset($config['css_path'])) {
       $settings['content_css'] = strtr($config['css_path'], array(

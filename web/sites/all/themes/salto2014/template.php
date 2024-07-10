@@ -5,6 +5,11 @@
  * template.php
  */
 
+use salto_core\service\SettingsService;
+use Wissensnetz\Core\File\DrupalFile;
+use Wissensnetz\Core\Node\DrupalNode;
+use Wissensnetz\Group\GroupDrupalNode;
+
 /**
  * Implements hook_theme().
  */
@@ -91,6 +96,8 @@ function _salto2014_render_checkbox_with_tooltips($element) {
  * Implements hook_preprocess_html().
  */
 function salto2014_preprocess_html(&$variables) {
+  global $conf;
+
   switch (theme_get_setting('bootstrap_navbar_position')) {
     case 'fixed-top':
       $variables['classes_array'][] = 'navbar-is-fixed-top';
@@ -110,8 +117,21 @@ function salto2014_preprocess_html(&$variables) {
   $variables['attributes_array']['data-grid-opacity'] = '0.1';
   $variables['attributes_array']['data-grid-gutterwidth'] = '20px';
 
-  if (module_exists('wn_blanko')) {
+  // favicon handling
+  if (!empty($conf['wn_blanko']['favicons_png'])) {
     $variables['wn_blanko'] = TRUE;
+
+    $variables['favicons_png'] = [];
+    $variables['favicons_png']['32x32'] = $conf['wn_blanko']['favicons_png']['32x32'] ?? NULL;
+    $variables['favicons_png']['192x192'] = $conf['wn_blanko']['favicons_png']['192x192'] ?? NULL;
+    $variables['favicons_png']['180x180'] = $conf['wn_blanko']['favicons_png']['180x180'] ?? NULL;
+  }
+
+
+  if (module_exists('salto_keycloak')) {
+    if (salto_user_global_header_enabled() && salto_keycloak_get_access_token()) {
+      $variables['classes_array'][] = 'has-global-header';
+    }
   }
 }
 
@@ -126,9 +146,9 @@ function salto2014_html_head_alter(&$head_elements) {
   foreach ($head_elements as $key => $element) {
     if (!empty($element['#attributes'])) {
       if (array_key_exists('href', $element['#attributes'])) {
-        if (strpos($element['#attributes']['href'], 'salto2014/favicon.ico') > 0) {
+        if (strpos($element['#attributes']['href'], 'salto2014/favicon.ico') > 0 || strpos($element['#attributes']['href'], 'misc/favicon.ico') > 0) {
           // Change the URL
-          $head_elements[$key]['#attributes']['href'] = "/" . drupal_get_path('module', 'wn_blanko') . "/images/" . $conf['wn_blanko']['favicon'];
+          $head_elements[$key]['#attributes']['href'] = $conf['wn_blanko']['favicon'];
         }
       }
     }
@@ -146,7 +166,6 @@ function salto2014_preprocess_comment(&$variables) {
     'style' => 'user_60x60',
   ]);
   $variables['submitted'] = str_replace("Submitted by", "", $variables['submitted']);
-
 }
 
 /**
@@ -619,6 +638,8 @@ function salto2014_form_element($variables) {
  */
 function salto2014_preprocess_node_form(&$variables) {
 
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
+
   $variables['form']['#attributes']['class'][] = 'content-form';
   $variables['sidebar_content'] = '';
   $variables['sidebar_content'] .= '<div class="node-buttons">' . render($variables['form']['actions']) . '</div>';
@@ -639,6 +660,14 @@ function salto2014_preprocess_node_form(&$variables) {
       $variables['accordion']['content'] .= render($variables['form']['field_post_authors']);
       $variables['content']['side']['accordions'][] = theme('accordion', $variables);
     }
+  }
+
+
+  if($variables['form']['#form_id'] == 'post_node_form' && SettingsService::assignGroupsRetrospectivelyEnabled() && $drupalUser->isCommunityManager()){
+    unset($variables['form']['field_og_group'][LANGUAGE_NONE][0]['default']['#options']);
+    $groups = GroupDrupalNode::getNidAndTitleFromAllGroups();
+    $variables['form']['field_og_group'][LANGUAGE_NONE][0]['default']['#options'] = ['_none' => t('- None -')] + $groups;
+    drupal_add_js(drupal_get_path('module', 'salto_group') . "/js/salto_group.js");
   }
 
   if (!empty($variables['form']['field_og_group']) && empty($variables['form']['field_share_with'])) {
@@ -677,7 +706,6 @@ function salto2014_preprocess_node_form(&$variables) {
   ];
   $includes = [
     'field_kb_content_category',
-    'field_taxonomy_post_tags',
     'field_post_tags',
     'field_references',
     'field_org_lsb_inspection',
@@ -689,6 +717,10 @@ function salto2014_preprocess_node_form(&$variables) {
     'group_join_mode',
     'group_default_access_options',
   ];
+
+  if ($variables['form']['field_publishing_options']['#prefix'] !== '<div style="display:none">'){
+    $includes[] =  'field_publishing_options';
+  }
 
   $withLabel = ['group_info', 'group_default_access_options'];
   foreach ($variables['form'] as $key => $item) {
@@ -731,6 +763,17 @@ function salto2014_preprocess_node_form(&$variables) {
     $variables['body'] = theme('accordion', $variables);
   }
 
+  $variables['form']['field_teaser_image']['#access'] = FALSE;
+  if ($variables['form']['field_teaser_image'] && SettingsService::postTeaserImageEnabled()) {
+    $variables['form']['field_teaser_image']['#access'] = TRUE;
+    $variables['accordion']['access'] = TRUE;
+    $variables['accordion']['label'] = TRUE;
+    $variables['accordion']['resize'] = TRUE;
+    $variables['accordion']['title'] = t('Teaser image');
+    $variables['form']['field_teaser_image'][LANGUAGE_NONE][0]['#description'] = t('You can set an optional preview image here. This is used for a visually appealing post preview on the start page and in the overviews. <b>Please do not use lettering!</b>');
+    $variables['accordion']['content'] = drupal_render($variables['form']['field_teaser_image']);
+    $variables['teaser_image'] = theme('accordion', $variables);
+  }
   if ($variables['form']['field_post_attachment']) {
     $variables['accordion']['access'] = TRUE;
     $variables['accordion']['label'] = TRUE;
@@ -934,6 +977,7 @@ function salto2014_media_widget_multiple($variables) {
  * Implementation of hook_preprocess_HOOK().
  */
 function salto2014_preprocess_node(&$variables) {
+  $node = $variables['node'];
 
   if ($variables['view_mode'] == 'full' || $variables['view_mode'] == 'teaser') {
     $variables['submit_date'] = $variables['date'];
@@ -978,7 +1022,10 @@ function salto2014_preprocess_node(&$variables) {
 
     if ($variables['field_post_collaboration'][LANGUAGE_NONE][0]['read'] == SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP) {
       $classes[] = "title-access-group";
-      $tooltip = t('Group - only group members may see this node.');
+      $group = !empty($node->field_og_group[LANGUAGE_NONE][0]['target_id']) ? node_load($node->field_og_group[LANGUAGE_NONE][0]['target_id']) : NULL;
+      $group_title = !empty($group) ? $group->title : '-';
+      $tooltip = t("Group - only group members of group '!group_name' may see this node.",
+        ['!group_name' => htmlspecialchars($group_title, ENT_QUOTES, 'UTF-8')]);
     }
 
     $variables['title_prefix'] = '<span class="' . implode(" ", $classes) . '" rel="tooltip" title="' . $tooltip . '"></span>';
@@ -995,6 +1042,26 @@ function salto2014_preprocess_node(&$variables) {
   }
 
   drupal_add_js(drupal_get_path('theme', 'salto2014') . '/assets/md/src/accordion.js', ['scope' => 'footer']);
+
+  if($variables['node']->type == 'post') {
+
+    $variables['reactions_enabled'] = true;
+
+    $RS = new ReactionService();
+    $votes = $RS->getReactionsCount($variables['node']->nid, 'node');
+    if(!empty($votes)) {
+      $variables['reactionsSerialized'] = json_encode($votes);
+    }else {
+      $variables['reactionsSerialized'] = "";
+    }
+
+    $drupalNode = DrupalNode::make($node);
+    $variables['preview_image'] = $drupalNode->getPreviewImageUrl();
+    $variables['num_views'] = format_plural($drupalNode->getNumViews(), '1 read', '@count reads');
+    $variables['num_comments'] = format_plural($drupalNode->getNumComments(), '1 comment', '@count comments');
+    $variables['nid'] = $drupalNode->getNid();
+
+  }
 }
 
 
@@ -1003,8 +1070,33 @@ function salto2014_preprocess_node(&$variables) {
  */
 function salto2014_preprocess_file_entity(&$variables) {
 
+  $settings = SettingsService::getThemenfelderAsCard();
+  $drupalFile = \Wissensnetz\Core\File\DrupalFile::make($variables['fid']);
+  $drupalNode = $drupalFile->getCommentNode();
+  $variables['material_cards'] = $settings['enabled'];
+
+  $variables['icon'] = $drupalFile->getFileIcon();
+  $variables['title'] = $drupalFile->getTitle();
+  $variables['link'] = $drupalFile->getFileUrl();
+  $variables['download_link'] = $drupalFile->isWebresource() ? $drupalFile->getExternalWebresourceUrl() : $drupalFile->getDownloadUrl();
+  $variables['downloadIcon'] = $drupalFile->isWebresource() ? url('/sites/all/static_files/extern.svg', ['absolute' => TRUE]) : url('/sites/all/static_files/download.svg', ['absolute' => TRUE]);
+  $previewImage = $drupalFile->getMediaDerivativeImage();
+  $variables['preview_image'] = $previewImage;
+  $variables['preview_image_class'] = 'preview-image';
+  $variables['statistics'] = [
+    'num_views' => $drupalFile->getNumViews() ?? 0,
+    'num_comments' => $drupalNode->getNumComments() ?? 0,
+  ];
+
   $variables['content']['submit_date'] = $variables['date'];
-  $variables['content']['description'] = $variables['field_file_description'][0]['safe_value'];
+
+  $alter['max_length'] = 400;
+  $alter['word_boundary'] = TRUE;
+  $alter['ellipsis'] = TRUE;
+  $alter['html'] = TRUE;
+
+  $description = views_trim_text($alter, $variables['field_file_description'][0]['safe_value']);
+  $variables['content']['description'] = $description;
 
   unset($variables['content']['flag_notification_ignore_material']);
   unset($variables['content']['flag_notification_subscribe_material']);
@@ -1060,6 +1152,42 @@ function salto2014_preprocess_file_entity(&$variables) {
     $variables['content']['field_file_description']['#suffix'] = '<div style="clear:both; width:100%; float:left;"></div>';
     $variables['content']['field_file_description']['#prefix'] = '<span class="' . implode(" ", $classes) . '" rel="tooltip" title="' . $tooltip . '"></span>';
   }
+
+  uasort($variables['content']['links'], 'element_sort');
+
+  $allowed_types = [
+    'document',
+    'video',
+    'audio',
+    'image',
+    'webresource',
+  ];
+
+  if(in_array($file->type, $allowed_types)) {
+
+    $variables['reactions_enabled'] = true;
+
+    $RS = new ReactionService();
+    $votes = $RS->getReactionsCount($variables['file']->fid, 'file');
+    if(!empty($votes)) {
+      $variables['reactionsSerialized'] = json_encode($votes);
+    }else {
+      $variables['reactionsSerialized'] = "";
+    }
+
+    $variables['svs_enabled'] = FALSE;
+    if(module_exists('social_video_service')){
+      $svs_settings = social_video_service_get_settings();
+      $variables['svs_enabled'] = $svs_settings['enabled'] && $file->type === 'video';
+    }
+
+  }
+
+  $drupalFile = \Wissensnetz\Core\File\DrupalFile::make($file->fid);
+  if(!$drupalFile->hasPublishedNodeReferences()){
+    $variables['publishing_label'] =  '<span class="icon-hourglass-o" rel="tooltip" title="" data-original-title="' . t('Draft - Only persons with edit access') . '"></span>';
+  }
+
 }
 
 
@@ -1073,13 +1201,8 @@ function salto2014_preprocess_file_entity(&$variables) {
 function salto2014_preprocess_message(&$variables) {
   $message = $variables['elements']['#entity'];
 
-  if ($variables['view_mode'] == 'message_mail') {
-    $variables['theme_hook_suggestions'][] = 'message__mail';
-    $variables['theme_hook_suggestion'] = 'message__mail';
-    $variables['single'] = FALSE;
-  }
-
   $account = user_load($variables['message']->uid);
+
 
 
   if ($message->type == "notification_licenses_marked_for_extension") {
@@ -1122,7 +1245,13 @@ function salto2014_preprocess_message(&$variables) {
 
 
   if (!empty($variables['content']['notification_content_preview'])) {
+    $metadata = json_decode($variables['content']['notification_content_preview']['#object']->field_notification_metadata[LANGUAGE_NONE][0]['value']);
     $variables['content_preview'] = render($variables['content']['notification_content_preview']);
+    if($metadata->audio_url){
+      $variables['content_preview'] = '<span class="audio-comment-notification">' . $variables['content']['notification_content_preview'][0]['#markup']. ' <audio style="height: 3rem;" preload="auto" controls controlsList="nodownload">
+                  <source src="'. $metadata->audio_url .'">
+              </audio></span>';
+    }
   }
 
   $flag = flag_get_flag('notification_mark_as_read');
@@ -1140,6 +1269,83 @@ function salto2014_preprocess_message(&$variables) {
   if (!isset($variables['single'])) {
     $variables['single'] = TRUE;
   }
+
+  $preview_message_types = [
+    MESSAGE_TYPE_NOTIFICATION_POST_CREATED,
+  ];
+
+  if (in_array($message->type, $preview_message_types)) {
+    if (!empty($message->field_notification_node_ref)) {
+      $node = node_load($message->field_notification_node_ref[LANGUAGE_NONE][0]['target_id']);
+      $node_view = node_view($node, 'teaser');
+      $variables['content_preview_mail'] =  drupal_render($node_view['body']);
+      //$variables['content_preview'] = $variables['content_preview_mail'];
+    }
+  }
+
+  if ($variables['view_mode'] == 'message_mail') {
+    $variables['theme_hook_suggestions'][] = 'message__mail';
+    $variables['theme_hook_suggestion'] = 'message__mail';
+    $variables['single'] = FALSE;
+
+    if (SettingsService::mailPreviewImagesEnabled()) {
+      switch ($message->type) {
+        case MESSAGE_TYPE_NOTIFICATION_POST_CREATED:
+        case MESSAGE_TYPE_NOTIFICATION_POST_CREATED_GROUP:
+        case MESSAGE_TYPE_NOTIFICATION_REVISION_CREATED:
+        case MESSAGE_TYPE_NOTIFICATION_MATERIAL_CREATED:
+        case MESSAGE_TYPE_NOTIFICATION_MATERIAL_UPDATED:
+        case MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT:
+        case MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT_REPLY:
+        case MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED:
+          if (!empty($message->field_notification_metadata[LANGUAGE_NONE][0]['value'])) {
+            //svs_video_comment
+            $svs_comment_metadata = json_decode($message->field_notification_metadata[LANGUAGE_NONE][0]['value']);
+            if (!empty($svs_comment_metadata->link_parameter->commentId)) {
+              $commentId = $svs_comment_metadata->link_parameter->commentId;
+              $image_preview = '<img src="' . onsite_notification_message_thumbnail_url('comment', $commentId) . '" style="max-width: 100%;" />';
+              $variables['content_preview'] = $image_preview . $variables['content_preview'];
+            }
+          }
+          else {
+            $previewImageUrl = "";
+            if (!empty($message->field_notification_file_ref[LANGUAGE_NONE][0]['target_id'])) {
+              //material
+              try {
+                $drupalFile = new DrupalFile($message->field_notification_file_ref[LANGUAGE_NONE][0]['target_id']);
+                $file = $drupalFile->getFile();
+
+                $previewImageUrl = onsite_notification_message_thumbnail_url('file', $file->fid);
+              } catch (Exception $e) {
+
+              }
+            }
+            elseif (!empty($message->field_notification_node_ref)) {
+              //node
+              try {
+                $drupalNode = DrupalNode::make($message->field_notification_node_ref[LANGUAGE_NONE][0]['target_id']);
+                $previewImage = $drupalNode->getPreviewImage();
+
+                if(!empty($previewImage)) {
+                  $previewImageUrl = onsite_notification_message_thumbnail_url('file', $previewImage->getFid());
+                }
+              } catch (Exception $e) {
+              }
+
+            }
+
+            $image_info = @getimagesize($previewImageUrl);
+            if ($image_info !== FALSE) {
+              $variables['content_preview'] = '<a href="' . $variables['url'] . '">';
+              $variables['content_preview'] .= '<img src="' . $previewImageUrl . '" style="max-width: 100%; width: 100%;" />' . $variables['content_preview'];
+              $variables['content_preview'] .= '</a>';
+            }
+          }
+      }
+    }
+
+  }
+
 }
 
 /**
@@ -1157,8 +1363,47 @@ function salto2014_preprocess(&$variables, $hook) {
 }
 
 function salto2014_preprocess_heartbeat_activity(&$variables) {
+
+  $activity = $variables['heartbeat_activity'];
+  $heartbeatTemplateService = new \salto_core\service\HeartbeatTemplateService($activity);
+
+    switch ($activity->message_id){
+      case 'heartbeat_add_node':
+        $heartbeatTemplateService->data_for_hearbeat_activity_add_node($variables);
+        return;
+      case 'heartbeat_add_comment':
+        $heartbeatTemplateService->data_for_heartbeat_activity_add_comment($variables);
+        return;
+      case 'heartbeat_video_add':
+      case 'heartbeat_video_update':
+      case 'heartbeat_video_react':
+      case 'heartbeat_videocomment_add':
+      case 'heartbeat_videocomment_react':
+      case 'heartbeat_videocomment_recomment':
+        $heartbeatTemplateService->data_for_hearbeat_activity_video($variables);
+        return;
+    }
+
+
   $variables['heartbeat_message'] = $variables['content']['message']['#markup'];
   $variables['heartbeat_content'] = $variables['content']['heartbeat_content_preview'][0]['#markup'];
+
+  $variables['content']['message']['#markup'] = mentions_filter_filter_mentions_process($variables['content']['message']['#markup'], NULL, NULL);
+  $classes_to_check = ['heartbeat_add_comment', 'heartbeat_videocomment_add', 'heartbeat_videocomment_react', 'heartbeat_videocomment_recomment'];
+
+
+  if (count(array_intersect($classes_to_check, $variables['classes_array'])) > 0) {
+    $posStr = strpos($variables['content']['message']['#markup'], '<blockquote>');
+    $quote = substr($variables['content']['message']['#markup'], $posStr);
+    $fullLength = strlen($variables['content']['message']['#markup']);
+    $variables['heartbeat_message'] = substr($variables['content']['message']['#markup'], 0, ($fullLength - strlen($quote)));
+    $variables['heartbeat_content'] = $quote;
+
+    $pattern = '/<audio\b[^>]*>/i';
+    if (preg_match($pattern, $variables['heartbeat_activity']->variables['!comment'])) {
+      $variables['heartbeat_content'] = '<blockquote>' . $variables['heartbeat_activity']->variables['!comment'] . '</blockquote>';
+    }
+  }
 
   if (in_array('heartbeat_add_comment', $variables['classes_array'])) {
     $posStr = strpos($variables['content']['message']['#markup'], '<blockquote>');
@@ -1166,6 +1411,22 @@ function salto2014_preprocess_heartbeat_activity(&$variables) {
     $fullLength = strlen($variables['content']['message']['#markup']);
     $variables['heartbeat_message'] = substr($variables['content']['message']['#markup'], 0, ($fullLength - strlen($quote)));
     $variables['heartbeat_content'] = $quote;
+  }
+
+  if (in_array('heartbeat_add_node', $variables['classes_array'])) {
+    $node = node_load($variables['content']['heartbeat_content_preview']['#object']->nid);
+    $body = $node->body[LANGUAGE_NONE][0]['value'];
+    $value = check_markup($body, 'editor');
+    $value = strip_tags($value);
+
+    $alter['max_length'] = 200;
+    $alter['word_boundary'] = TRUE;
+    $alter['ellipsis'] = TRUE;
+    $alter['html'] = TRUE;
+
+    $content = views_trim_text($alter, $value);
+
+    $variables['heartbeat_content'] = $content . '<p> <a href="/node/' . $node->nid . '" rel="nofollow">'.l(t('Read more'), "node/$node->nid").'</a></p>';
   }
 }
 
@@ -1464,7 +1725,7 @@ function salto2014_preprocess_page(&$variables) {
   }
 
   if ($variables['wn_blanko'] && !empty($conf['wn_blanko']['logo'])) {
-    $variables['logo'] = "/" . drupal_get_path('module', 'wn_blanko') . "/images/" . $conf['wn_blanko']['logo'];
+    $variables['logo'] = $conf['wn_blanko']['logo'];
   }
 
   if ($user->uid == 0) {
@@ -1490,6 +1751,42 @@ function salto2014_preprocess_page(&$variables) {
   }
 
   $variables['page']['toolbar'] = theme('toolbar', $variables);
+  if(salto_user_global_header_enabled() && salto_keycloak_get_access_token()){
+    $menuService = new \Wissensnetz\Menu\MenuService();
+    $tumSettings = salto_keycloak_tum_get_settings();
+    $userportalSettings = salto_keycloak_get_userportal_settings();
+    $tumApiService = new \Keycloak\TumApiService();
+    $drupalUser = \Wissensnetz\User\DrupalUser::current();
+    $groupNode = GroupDrupalNode::current();
+    if(!empty($groupNode)){
+      $tumApiService->updateContextHistory($groupNode, $drupalUser);
+    }
+
+    $variables['show_global_header'] = TRUE;
+    $variables['global_header']['backendUrl'] = url('', array('absolute' => TRUE));
+    $variables['global_header']['logoUrl'] = $variables['logo'];
+    $variables['global_header']['tumUrl'] = $tumSettings['tum_url'];
+    $variables['global_header']['ogTitle'] = $menuService->getContextSwitcherLabel();
+    $variables['global_header']['localMenu'] = check_plain(json_encode($menuService->getLocalUserMenu()));
+    $variables['global_header']['global_header_url'] = $userportalSettings['global_header_web_component_url'];
+    ##unset($variables['logo']);
+
+  }
+
+  salto_2014_process_main_manu($variables);
+
+}
+
+function salto_2014_process_main_manu(&$variables) {
+  //hide onlinetreffen menu item if not enabled
+  if(!salto_online_meeting_community_area_show_menu_item()){
+    foreach($variables['primary_nav'] as &$item){
+      if($item['#href'] == 'online-meetings/status'){
+        $item['#attributes']['class'][] = 'hidden';
+      }
+    }
+
+  }
 }
 
 /**
@@ -1717,4 +2014,49 @@ function salto2014_preprocess_privatemsg_recipients(&$variables) {
 
 function salto2014_preprocess_privatemsg_view(&$variables) {
   $variables['message_timestamp'] = format_date($variables['message']->timestamp);
+}
+
+function salto2014_preprocess_material_card(&$variables){
+
+  drupal_add_css(drupal_get_path('module', 'salto_knowledgebase') . '/css/material_card.css');
+  $settings = SettingsService::getThemenfelderAsCard();
+  $taxonomyId = $variables['taxonomy_id'] != '' ? $variables['taxonomy_id'] : 0;
+  $tree = taxonomy_get_tree($settings['taxonomy_id'], $taxonomyId, 1);
+  $cards = [];
+  foreach ($tree as $term) {
+    $drupalTerm = \Wissensnetz\Taxonomy\DrupalTerm::make($term->tid);
+    $cards[] = [
+      'image' => $drupalTerm->getImageUrl() ?? url($settings['default_logo'], ['absolute' => TRUE]),
+      'icon' => $drupalTerm->getIconUrl() ?? url($settings['default_icon'], ['absolute' => TRUE]),
+      'label' => $drupalTerm->getName(),
+      'target' => '/materials/' . $drupalTerm->getTid()
+    ];
+  }
+
+  usort($cards, function($a, $b){ return strcmp(strtolower($a["label"]), strtolower($b["label"])); });
+
+  $variables['cards'] = $cards;
+  $variables['icon'] = '/sites/all/static_files/material-card-arrow.svg';
+
+  if($taxonomyId){
+
+    $backlink = [
+      'name' => t('Materials'),
+      'target' => '/materials'
+    ];
+
+    $parent = current(taxonomy_get_parents($taxonomyId));
+
+    if(!empty($parent)){
+      $drupalTerm = \Wissensnetz\Taxonomy\DrupalTerm::make($parent);
+      $backlink = [
+        'name' => $drupalTerm->getName(),
+        'target' => '/materials/' . $drupalTerm->getTid()
+      ];
+    }
+
+
+    $variables['backlink'] = $backlink;
+  }
+
 }

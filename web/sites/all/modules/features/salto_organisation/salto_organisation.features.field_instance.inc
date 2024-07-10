@@ -56,7 +56,7 @@ function salto_organisation_field_default_field_instances() {
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => 1,
+        'weight' => 2,
       ),
       'teaser' => array(
         'label' => 'hidden',
@@ -120,7 +120,7 @@ function salto_organisation_field_default_field_instances() {
         'summary_rows' => 5,
       ),
       'type' => 'text_textarea_with_summary',
-      'weight' => 10,
+      'weight' => 11,
     ),
   );
 
@@ -184,7 +184,7 @@ function salto_organisation_field_default_field_instances() {
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => 2,
+        'weight' => 4,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -227,7 +227,7 @@ function salto_organisation_field_default_field_instances() {
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => 19,
+        'weight' => 20,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -251,7 +251,7 @@ function salto_organisation_field_default_field_instances() {
         'display_label' => 0,
       ),
       'type' => 'options_onoff',
-      'weight' => 19,
+      'weight' => 23,
     ),
   );
 
@@ -267,7 +267,7 @@ function salto_organisation_field_default_field_instances() {
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => 20,
+        'weight' => 21,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -326,7 +326,7 @@ function salto_organisation_field_default_field_instances() {
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 11,
+      'weight' => 12,
     ),
   );
 
@@ -347,7 +347,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => 15,
+        'weight' => 16,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -369,7 +369,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_buttons',
-      'weight' => 16,
+      'weight' => 19,
     ),
   );
 
@@ -388,7 +388,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
           'link' => FALSE,
         ),
         'type' => 'entityreference_label',
-        'weight' => 18,
+        'weight' => 19,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -418,7 +418,86 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'view' => '',
       ),
       'type' => 'entityreference_duallistbox_widget',
-      'weight' => 18,
+      'weight' => 22,
+    ),
+  );
+
+  // Exported field_instance: 'node-organisation-field_org_plz'.
+  $field_instances['node-organisation-field_org_plz'] = array(
+    'bundle' => 'organisation',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 23,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'node',
+    'field_name' => 'field_org_plz',
+    'label' => 'PLZ',
+    'required' => 0,
+    'settings' => array(
+      'better_formats' => array(
+        'allowed_formats' => array(
+          'ckeditor' => 'ckeditor',
+          'comment_with_link' => 'comment_with_link',
+          'ds_code' => 'ds_code',
+          'editor' => 'editor',
+          'machine' => 'machine',
+          'php_code' => 'php_code',
+          'plain_text' => 'plain_text',
+        ),
+        'allowed_formats_toggle' => 0,
+        'default_order_toggle' => 0,
+        'default_order_wrapper' => array(
+          'formats' => array(
+            'ckeditor' => array(
+              'weight' => 0,
+            ),
+            'comment_with_link' => array(
+              'weight' => 0,
+            ),
+            'ds_code' => array(
+              'weight' => 12,
+            ),
+            'editor' => array(
+              'weight' => -10,
+            ),
+            'machine' => array(
+              'weight' => -8,
+            ),
+            'php_code' => array(
+              'weight' => -7,
+            ),
+            'plain_text' => array(
+              'weight' => -9,
+            ),
+          ),
+        ),
+      ),
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'size' => 15,
+      ),
+      'type' => 'text_textfield',
+      'weight' => 9,
     ),
   );
 
@@ -434,7 +513,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => 16,
+        'weight' => 17,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -493,7 +572,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 16,
+      'weight' => 18,
     ),
   );
 
@@ -510,7 +589,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => 13,
+        'weight' => 14,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -569,7 +648,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 15,
+      'weight' => 16,
     ),
   );
 
@@ -586,7 +665,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => 14,
+        'weight' => 15,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -661,7 +740,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => 6,
+        'weight' => 8,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -703,7 +782,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => 5,
+        'weight' => 7,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -742,7 +821,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => 17,
+        'weight' => 18,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -801,7 +880,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'size' => 60,
       ),
       'type' => 'text_textfield',
-      'weight' => 17,
+      'weight' => 20,
     ),
   );
 
@@ -821,7 +900,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
           'link' => FALSE,
         ),
         'type' => 'entityreference_label',
-        'weight' => 4,
+        'weight' => 6,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -851,7 +930,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'view' => '',
       ),
       'type' => 'entityreference_duallistbox_widget',
-      'weight' => 14,
+      'weight' => 15,
     ),
   );
 
@@ -867,7 +946,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => 10,
+        'weight' => 12,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -941,7 +1020,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'file',
         'settings' => array(),
         'type' => 'file_default',
-        'weight' => 7,
+        'weight' => 10,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -969,7 +1048,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'progress_indicator' => 'throbber',
       ),
       'type' => 'file_generic',
-      'weight' => 8,
+      'weight' => 10,
     ),
   );
 
@@ -990,7 +1069,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
           'thousand_separator' => ' ',
         ),
         'type' => 'number_integer',
-        'weight' => 9,
+        'weight' => 11,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -1016,7 +1095,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
       'module' => 'number',
       'settings' => array(),
       'type' => 'number',
-      'weight' => 15,
+      'weight' => 17,
     ),
   );
 
@@ -1036,7 +1115,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
           'link' => FALSE,
         ),
         'type' => 'entityreference_label',
-        'weight' => 2,
+        'weight' => 3,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -1085,7 +1164,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'size' => 60,
       ),
       'type' => 'entityreference_autocomplete',
-      'weight' => 12,
+      'weight' => 13,
     ),
   );
 
@@ -1106,7 +1185,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
           'thousand_separator' => ' ',
         ),
         'type' => 'number_integer',
-        'weight' => 3,
+        'weight' => 5,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -1130,7 +1209,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
       'module' => 'number',
       'settings' => array(),
       'type' => 'number',
-      'weight' => 13,
+      'weight' => 14,
     ),
   );
 
@@ -1145,7 +1224,7 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'module' => 'file',
         'settings' => array(),
         'type' => 'file_default',
-        'weight' => 11,
+        'weight' => 13,
       ),
       'teaser' => array(
         'label' => 'above',
@@ -1173,7 +1252,45 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
         'progress_indicator' => 'throbber',
       ),
       'type' => 'file_generic',
-      'weight' => 17,
+      'weight' => 21,
+    ),
+  );
+
+  // Exported field_instance: 'node-organisation-field_organisation_sportkreis'.
+  $field_instances['node-organisation-field_organisation_sportkreis'] = array(
+    'bundle' => 'organisation',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'list',
+        'settings' => array(),
+        'type' => 'list_default',
+        'weight' => 22,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'node',
+    'field_name' => 'field_organisation_sportkreis',
+    'label' => 'Sportkreis',
+    'required' => 0,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'options',
+      'settings' => array(),
+      'type' => 'options_select',
+      'weight' => 8,
     ),
   );
 
@@ -1657,9 +1774,11 @@ personenbezogene Daten und die Möglichkeit Ihre Lizenzen zu bearbeiten können 
   t('Name des/der Unterschriftbevollmächtigten');
   t('OG Rolle');
   t('Organisations');
+  t('PLZ');
   t('Position');
   t('Remember these settings');
   t('Rolle die bei der Anmeldung automatisch gesetzt wird.');
+  t('Sportkreis');
   t('Synchronize this Beitrag with...');
   t('Unterschrift des/der Unterschriftbevollmächtigten');
   t('Verbandname mit Artikel für den Lizenzdruck');

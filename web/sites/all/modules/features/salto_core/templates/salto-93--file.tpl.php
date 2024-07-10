@@ -1,3 +1,8 @@
+<?php
+
+$basePath = base_path() . drupal_get_path('module', 'salto_knowledgebase') . '/webcomponents/GTReactions/svg';
+?>
+
 <div
   class="panel-display salto-93 <?php print $classes ?>" <?php if (!empty($css_id)) {
   print "id=\"$css_id\"";
@@ -21,9 +26,17 @@
                 <div class="col-md-12">
                   <?php print render($content['file_title_heading']); ?>
                   <?php print render($content['field_file_license_type']); ?>
+                  <?php if (isset($publishing_label)): ?>
+                    <span class="file-publishing-icon">
+                  <?php print $publishing_label; ?>
+                    </span>
+                  <?php endif; ?>
                 </div>
               <?php endif; ?>
             </div>
+            <?php if ($svs_enabled): ?>
+              <div id="comment-anchor"></div>
+            <?php endif; ?>
             <div class="group-content">
               <?php if (!$is_derivate): ?>
                 <?php print render($content['file']); ?>
@@ -32,20 +45,58 @@
               <?php print render($content['field_post_tags']); ?>
               <?php print render($content['field_kb_kategorie']); ?>
             </div>
-            <div class="group-footer">
-              <div class="foo-left">
-                <?php print render($content['file_views_count']); ?>
+            <?php if ($reactions_enabled): ?>
+              <?php
+              $content['links']['comment2'] = array_replace([],$content['links']['comment']);
+              unset( $content['links']['comment2']['#links']['comment-comments']);
+              unset( $content['links']['comment']['#links']['comment-add']);
 
-                <div class="submit-date">
-                  <?php print format_date($content['file']['#file']->timestamp); ?>
+              $comment_link = drupal_render($content['links']['comment2']);
+              ?>
+
+
+              <div class="reaction-footer">
+                <div class="footer-meta">
+                  <div class="reaction-summary" data-entity-type="file" data-entity-id="<?php print $file->fid ?>"><?php print $reactionsSerialized ?></div>
+                  <div class="footer-links"><?php print render($content['links']['statistics']); ?> <?php print render($content['links']['attachments']); ?></div>
+                </div>
+                <?php if ($user->uid > 0): ?>
+                  <div class="reaction-actions">
+                    <gt-reactions-button data-entity-type="file" data-entity-id="<?php print $file->fid ?>"><img
+                        class="like-button"
+                        src="<?php echo $basePath . '/likeButton.svg' ?>"><span
+                        class="like-text"><?php print t("Like"); ?></span>
+                    </gt-reactions-button>
+                    <div class="comment-button">
+                      <?php if (!$svs_enabled): ?>
+                      <span class="comment-text"><?php print l('<img class="comment-button" src="' . $basePath . '/commentButton.svg">' . t("Comment"), "/file/" . $file->fid, [
+                          'fragment' => 'edit-comment-body',
+                          'html' => TRUE,
+                        ]) ?></span>
+                      <?php endif; ?>
+
+                    </div>
+                  </div>
+                <?php endif; ?>
+              </div>
+            <?php else: ?>
+
+              <div class="group-footer">
+                <div class="foo-left">
+
+                  <?php print render($content['links']); ?>
+
+                  <?php if ($submit_date): ?>
+                    <div class="submit-date">
+                      <?php print $submit_date; ?>
+                    </div>
+                  <?php endif; ?>
+                </div>
+                <div class="foo-right">
+                  <?php print render($content['links_right']); ?>
                 </div>
               </div>
-              <div class="foo-right">
-                <?php print render($content['field_content_rating']); ?>
-                <?php print render($content['salto_files_rating_action']); ?>
-                <?php print render($content['files_rating_view']); ?>
-              </div>
-            </div>
+            <?php endif; ?>
           </div>
         </div>
         <?php if (!empty($content['file_comments_form'])): ?>

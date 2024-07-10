@@ -6,7 +6,6 @@
 
   Drupal.behaviors.salto_files = {
     attach: function (context, settings) {
-
       //fix form-control problem
       $('input[type="text"]:not([class*="form-control"]), select:not([class*="form-control"]), textarea:not([class*="form-control"])').addClass('form-control');
 
@@ -19,6 +18,28 @@
       $('#edit-field-file-lizenzstufe-und').find('input').once('salto-files-check-init').each(function () {
         Drupal.salto_files.check_lizenzstufe_toggle($(this));
       });
+
+      if ($('#edit-field-teaser-image-und-0-ajax-wrapper').length > 0) {
+        resizeImage('#edit-field-teaser-image-und-0-ajax-wrapper');
+      }
+
+      if ($('#edit-field-term-image-und-0-ajax-wrapper').length > 0) {
+        resizeImage('#edit-field-term-image-und-0-ajax-wrapper');
+        resizeImage('#edit-field-term-icon-und-0-ajax-wrapper');
+      }
+
+      function resizeImage(id){
+        const fileSpan = $(id + ' .file');
+        const fileSizeSpan = $(id + ' .file-size');
+        const imgElement = fileSpan.find('img');
+        const aElement = fileSpan.find('a');
+
+        if (aElement.length > 0) {
+          imgElement.attr('src', aElement.attr('href')).css('max-width', '20rem');
+          aElement.remove();
+          fileSizeSpan.remove();
+        }
+      }
 
     }
 

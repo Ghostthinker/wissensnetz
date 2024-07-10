@@ -137,6 +137,16 @@ function salto_knowledgebase_node_authors_content_type_render($subtype, $conf, $
     'attributes' => ["class" => 'revision_authors'],
   ]);
 
+
+  $group = !empty($node->field_og_group[LANGUAGE_NONE][0]['target_id']) ? node_load($node->field_og_group[LANGUAGE_NONE][0]['target_id']) : NULL;
+  if (!empty($group)) {
+    $group_title = $group->title;
+
+    $out .= '<strong>' . t("Node of group !group_name.",
+        ['!group_name' => '<br/><span class="icon-group"></span>' . l(htmlspecialchars($group_title, ENT_QUOTES, 'UTF-8'), 'node/' . $group->nid, ['html' => TRUE])]) . '</strong>';
+
+  }
+
   $block->content = $out;
   return $block;
 }

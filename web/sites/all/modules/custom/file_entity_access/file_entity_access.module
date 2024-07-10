@@ -421,11 +421,16 @@ function _file_entity_access_rebuild_batch_operation(&$context) {
 
   // Process the next 20 files.
   $limit = 20;
-  $fids = db_query_range("SELECT fid FROM {file_managed} WHERE fid > :fid ORDER BY fid ASC", 0, $limit, [':fid' => $context['sandbox']['current_file']])->fetchCol();
+  if (    $context['sandbox']['current_file'] === 0){
+    $fids = db_query_range("SELECT fid FROM {file_managed} ORDER BY fid ASC", 0, $limit)->fetchCol();
+  }else{
+    $fids = db_query_range("SELECT fid FROM {file_managed} WHERE fid > :fid ORDER BY fid ASC", 0, $limit, [':fid' => $context['sandbox']['current_file']->fid])->fetchCol();
+  }
   $files = file_load_multiple($fids, [], TRUE);
   foreach ($files as $fid => $file) {
     if (!empty($file)) {
-      file_access_acquire_grants($file);
+      file_entity_access_acquire_grants($file);
+      watchdog('debug','rebuild file access for !fid',['!fid' => $fid]);
     }
     $context['sandbox']['progress']++;
     $context['sandbox']['current_file'] = $file;

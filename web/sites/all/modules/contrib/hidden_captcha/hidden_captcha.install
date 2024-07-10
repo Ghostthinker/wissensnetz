@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for the Hidden CAPTCHA module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ *
+ * Remove module variables, simulating variable_del().
+ */
+function hidden_captcha_uninstall() {
+  global $conf;
+  db_delete('variable')
+    ->condition('name', 'hidden\_captcha\_%', 'LIKE')
+    ->execute();
+  cache_clear_all('variables', 'cache_bootstrap');
+  foreach (array_keys($conf) as $name) {
+    if (strpos($name, 'hidden_captcha_') === 0) {
+      unset($conf[$name]);
+    }
+  }
+}

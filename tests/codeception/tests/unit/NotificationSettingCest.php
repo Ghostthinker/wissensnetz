@@ -6,7 +6,7 @@
  * Time: 14:42
  */
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * all tests for start pages
@@ -48,11 +48,11 @@ class NotificationSettingCest {
     ]);
     $OUser = user_load($OUser->uid);
 
-    Bildungsnetz::setProfileCategory($OUser,
+    Wissensnetz::setProfileCategory($OUser,
       [SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID]);
-    Bildungsnetz::setNotificationsCommunityOff($OUser->uid);
-    Bildungsnetz::setNotificationsDefaults($GAuthor->uid);
-    Bildungsnetz::setNotificationsDefaults($AUser->uid);
+    Wissensnetz::setNotificationsCommunityOff($OUser->uid);
+    Wissensnetz::setNotificationsDefaults($GAuthor->uid);
+    Wissensnetz::setNotificationsDefaults($AUser->uid);
 
     $result = onsite_notification_get_users_that_have_enabled_message_type('general');
     $result = array_reverse($result);
@@ -103,8 +103,8 @@ class NotificationSettingCest {
 
     onsite_notification_settings_update($OUser->uid,
       'notification_group_invite_recieved', ['mail' => 0], 0);
-    Bildungsnetz::setNotificationsDefaults($GAuthor->uid);
-    Bildungsnetz::setNotificationsDefaults($AUser->uid);
+    Wissensnetz::setNotificationsDefaults($GAuthor->uid);
+    Wissensnetz::setNotificationsDefaults($AUser->uid);
 
     $result = onsite_notification_get_users_that_have_enabled_message_type('notification_group_invite_recieved');
     $result = array_reverse($result);
@@ -149,12 +149,12 @@ class NotificationSettingCest {
       'authorList' => [$UserCoAuthor],
     ]);
 
-    Bildungsnetz::setNotificationsCommunityOff($UserSubscriber->uid);
-    Bildungsnetz::setNotificationsCommunityOff($UserAuthor->uid);
-    Bildungsnetz::setNotificationsCommunityOff($UserCoAuthor->uid);
-    Bildungsnetz::setNotificationsCommunityOff($UserNedDabei->uid);
+    Wissensnetz::setNotificationsCommunityOff($UserSubscriber->uid);
+    Wissensnetz::setNotificationsCommunityOff($UserAuthor->uid);
+    Wissensnetz::setNotificationsCommunityOff($UserCoAuthor->uid);
+    Wissensnetz::setNotificationsCommunityOff($UserNedDabei->uid);
 
-    Bildungsnetz::subscribeUserToEntity($UserSubscriber, $POST);
+    Wissensnetz::subscribeUserToEntity($UserSubscriber, $POST);
 
     $audience = _onsite_notification_node_get_subscribers($POST);
 
@@ -201,7 +201,7 @@ class NotificationSettingCest {
       'Kategorie' => THEMENFELD_GESUNDHEIT_MATERIAL,
     ]);
 
-    Bildungsnetz::subscribeUserToEntity($UserSubscriber, $MATERIAL);
+    Wissensnetz::subscribeUserToEntity($UserSubscriber, $MATERIAL);
 
     $audience = _onsite_notification_material_get_subscribers($MATERIAL);
 
@@ -245,7 +245,7 @@ class NotificationSettingCest {
     $POST = $I->havePost([
       'user' => $UserAuthor,
       'authorList' => [$UserCoAuthor],
-      'categorie' => THEMENFELD_GESUNDHEIT
+      'category' => THEMENFELD_GESUNDHEIT
     ]);
 
     $I->setProfileCategory($UserCoAuthor, [THEMENFELD_GESUNDHEIT]);
@@ -253,7 +253,7 @@ class NotificationSettingCest {
     $I->setProfileCategory($UserSubscriber, [THEMENFELD_GESUNDHEIT]);
 
     $audience = _onsite_notification_node_get_subscribers($POST);
-
+    
     $I->assertNotEmpty($audience[$UserAuthor->uid]);
     $I->assertNotEmpty($audience[$UserSubscriber->uid]);
     $I->assertNotEmpty($audience[$UserCoAuthor->uid]);
@@ -298,9 +298,9 @@ class NotificationSettingCest {
     ]);
 
 
-    Bildungsnetz::setProfileCategory($UserSubscriber, [THEMENFELD_GESUNDHEIT]);
-    Bildungsnetz::setProfileCategory($UserHatThemenfeldKeinAutoAbo, [THEMENFELD_GESUNDHEIT]);
-    Bildungsnetz::setNotificationsCommunityOff($UserHatThemenfeldKeinAutoAbo->uid,'file');
+    Wissensnetz::setProfileCategory($UserSubscriber, [THEMENFELD_GESUNDHEIT]);
+    Wissensnetz::setProfileCategory($UserHatThemenfeldKeinAutoAbo, [THEMENFELD_GESUNDHEIT]);
+    Wissensnetz::setNotificationsCommunityOff($UserHatThemenfeldKeinAutoAbo->uid,'file');
 
     $audience = _onsite_notification_material_get_subscribers($MATERIAL);
 
@@ -342,7 +342,7 @@ class NotificationSettingCest {
       'Kategorie' => THEMENFELD_GESUNDHEIT_MATERIAL,
     ]);
 
-    Bildungsnetz::subscribeUserToEntity($UserSubscriber, $MATERIAL);
+    Wissensnetz::subscribeUserToEntity($UserSubscriber, $MATERIAL);
 
     $I->completedSetup();
 
@@ -357,7 +357,7 @@ class NotificationSettingCest {
 
     $I->startCoreSystemQueueForType(MESSAGE_TYPE_NOTIFICATION_MATERIAL_UPDATED,0);
 
-    $newNotifications = Bildungsnetz::getUnreadNotificationsForUser($UserSubscriber);
+    $newNotifications = Wissensnetz::getUnreadNotificationsForUser($UserSubscriber);
     $I->assertCount(0, $newNotifications);
 
     $I->expect("that there will be an onsite notification after an update to the file");
@@ -369,7 +369,7 @@ class NotificationSettingCest {
 
     $I->startCoreSystemQueueForType(MESSAGE_TYPE_NOTIFICATION_MATERIAL_UPDATED, 0);
 
-    $newNotifications = Bildungsnetz::getUnreadNotificationsForUser($UserSubscriber);
+    $newNotifications = Wissensnetz::getUnreadNotificationsForUser($UserSubscriber);
     $lastNotification = end($newNotifications);
     $I->assertCount(1, $newNotifications);
     $I->assertEquals(MESSAGE_TYPE_NOTIFICATION_MATERIAL_UPDATED, $lastNotification->type);
@@ -394,7 +394,7 @@ class NotificationSettingCest {
       'lastname' => $microTime,
     ]);
 
-    $I->setProfileCategory($UserSubscriber, [THEMENFELD_GESUNDHEIT_MATERIAL]);
+    $I->setProfileCategory($UserSubscriber, [salto_knowledgebase_get_default_kb_category_tid()]);
 
     $UserAuthor = $I->haveUser([
       'firstname' => 'author',
@@ -403,10 +403,10 @@ class NotificationSettingCest {
 
     $MATERIAL = $I->haveMaterial([
       'user' => $UserAuthor,
-      'Kategorie' => THEMENFELD_GESUNDHEIT_MATERIAL,
+      'Kategorie' => salto_knowledgebase_get_default_kb_category_tid(),
     ]);
 
-    Bildungsnetz::subscribeUserToEntity($UserSubscriber, $MATERIAL);
+    Wissensnetz::subscribeUserToEntity($UserSubscriber, $MATERIAL);
 
     $audience = _onsite_notification_material_get_subscribers($MATERIAL);
 
@@ -415,11 +415,11 @@ class NotificationSettingCest {
 
     $I->expect("that there will an onsite notification when there is a new comment");
 
-    Bildungsnetz::haveComment($MATERIAL, ['user' => $UserAuthor]);
+    Wissensnetz::haveComment($MATERIAL, ['user' => $UserAuthor]);
 
     $I->startCoreSystemQueueForType(MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT, 0);
 
-    $newNotifications = Bildungsnetz::getUnreadNotificationsForUser($UserSubscriber);
+    $newNotifications = Wissensnetz::getUnreadNotificationsForUser($UserSubscriber);
     $lastNotification = end($newNotifications);
     $I->assertCount(1, $newNotifications);
     $I->assertEquals(MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT, $lastNotification->type);
@@ -451,11 +451,11 @@ class NotificationSettingCest {
       'lastname' => $microTime,
     ]);
 
-    Bildungsnetz::setNotificationsCommunityOff($UserHatThemenfeldKeinAutoAbo->uid, 'file');
+    Wissensnetz::setNotificationsCommunityOff($UserHatThemenfeldKeinAutoAbo->uid, 'file');
     $I->setProfileCategory($UserHatThemenfeldKeinAutoAbo, [THEMENFELD_GESUNDHEIT]);
 
 
-    Bildungsnetz::setNotificationsCommunityOff($UserHatThemenfeldKeinAutoAbo->uid, 'file');
+    Wissensnetz::setNotificationsCommunityOff($UserHatThemenfeldKeinAutoAbo->uid, 'file');
     $I->setProfileCategory($UserHatThemenfeldKeinAutoAbo, [THEMENFELD_GESUNDHEIT]);
 
 
@@ -482,25 +482,25 @@ class NotificationSettingCest {
 
     $I->startCoreSystemQueueForType(MESSAGE_TYPE_NOTIFICATION_MATERIAL_CREATED, 0);
 
-    $newNotifications = Bildungsnetz::getUnreadNotificationsForUser($UserSubscriber);
+    $newNotifications = Wissensnetz::getUnreadNotificationsForUser($UserSubscriber);
     $lastNotification = end($newNotifications);
     $I->assertCount(1, $newNotifications);
     $I->assertEquals(MESSAGE_TYPE_NOTIFICATION_MATERIAL_CREATED, $lastNotification->type);
 
     $I->expect("that there will an onsite notification a new material is created for the user that has matching category and auto subscribe disabled");
 
-    $newNotifications = Bildungsnetz::getUnreadNotificationsForUser($UserHatThemenfeldKeinAutoAbo);
+    $newNotifications = Wissensnetz::getUnreadNotificationsForUser($UserHatThemenfeldKeinAutoAbo);
     $I->assertCount(1, $newNotifications);
     $I->assertEquals(MESSAGE_TYPE_NOTIFICATION_MATERIAL_CREATED, $lastNotification->type);
 
     $I->expect("that there will no onsite notification a new material is created for the user that has no matching category");
 
-    $newNotifications = Bildungsnetz::getUnreadNotificationsForUser($UserFalschesThemenfeld);
+    $newNotifications = Wissensnetz::getUnreadNotificationsForUser($UserFalschesThemenfeld);
     $I->assertEmpty($newNotifications);
 
     $I->expect("that the author will not get a notification for his own new content");
 
-    $newNotifications = Bildungsnetz::getUnreadNotificationsForUser($UserAuthor);
+    $newNotifications = Wissensnetz::getUnreadNotificationsForUser($UserAuthor);
     $I->assertEmpty($newNotifications);
   }
 

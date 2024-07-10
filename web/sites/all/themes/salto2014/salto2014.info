@@ -66,6 +66,7 @@ scripts[] = libs/bootbox.min.js
 
 ;custom js
 scripts[] = 'js/main.js'
+scripts[] = 'js/iframeResizer.min.js'
 
 ;This was hinted on docu page https://drupal.org/node/1978010 05.02.2014-20:09 - SH
 exclude[js][] = 'sites/all/themes/bootstrap/js/bootstrap.js'

@@ -632,38 +632,113 @@ function salto_search_preprocess_views_view_fields(&$variables) {
   }
 
   if (stripos($view->name, 'salto_search_node') !== FALSE) {
-    $post = $variables['fields']['nothing_1']->wrapper_prefix;
-    $post .= $variables['fields']['nothing_1']->content;
-    $post .= $variables['fields']['nothing_1']->wrapper_suffix;
+    $title = $variables['fields']['php']->wrapper_prefix;
+    $title .= $variables['fields']['php']->content;
+    $title .= $variables['fields']['php']->wrapper_suffix;
 
+    $comments = $variables['fields']['comments_1']->wrapper_prefix;
+
+    if ($variables['fields']['comments_1']->content == '<span class="field-content">1</span>'){
+      $comments .= $variables['fields']['comments_1']->content . ' ' . t('Comment');
+    }else{
+      $comments .= $variables['fields']['comments_1']->content . ' '  . t('Comments');
+    }
+    $comments .= $variables['fields']['comments_1']->wrapper_suffix;
+
+
+    $name = $variables['fields']['author_1']->wrapper_prefix;
+    $name .= $variables['fields']['author_1']->content;
+    $name .= $variables['fields']['author_1']->wrapper_suffix;
+
+    $created = $variables['fields']['created_1']->wrapper_prefix;
+    $created .= $variables['fields']['created_1']->content;
+    $created .= $variables['fields']['created_1']->wrapper_suffix;
+
+    unset($variables['fields']['comments_1']);
     unset($variables['fields']['nothing_1']);
+    unset($variables['fields']['author_1']);
+    unset($variables['fields']['created_1']);
+    unset($variables['fields']['php']);
   }
   if (stripos($view->name, 'salto_search_file') !== FALSE) {
+    $title = $variables['fields']['php_title']->wrapper_prefix;
+    $title .= $variables['fields']['php_title']->content;
+    $title .= $variables['fields']['php_title']->wrapper_suffix;
+
     $post = $variables['fields']['rendered_entity']->wrapper_prefix;
     $post .= $variables['fields']['rendered_entity']->content;
     $post .= $variables['fields']['rendered_entity']->wrapper_suffix;
 
-    unset($variables['fields']['rendered_entity']);
-  }
+    $name = $variables['fields']['owner']->wrapper_prefix;
+    $name .= $variables['fields']['owner']->content;
+    $name .= $variables['fields']['owner']->wrapper_suffix;
 
-  $title = $variables['fields']['php_title']->wrapper_prefix;
-  $title .= $variables['fields']['php_title']->content;
-  $title .= $variables['fields']['php_title']->wrapper_suffix;
+    $created = $variables['fields']['timestamp']->wrapper_prefix;
+    $created .= $variables['fields']['timestamp']->content;
+    $created .= $variables['fields']['timestamp']->wrapper_suffix;
+
+    unset($variables['fields']['rendered_entity']);
+    unset($variables['fields']['owner']);
+    unset($variables['fields']['timestamp']);
+    unset($variables['fields']['php_title']);
+  }
 
   if (stripos($view->name, 'salto_search_comment') !== FALSE) {
     $title = $variables['fields']['subject']->wrapper_prefix;
     $title .= $variables['fields']['subject']->content;
     $title .= $variables['fields']['subject']->wrapper_suffix;
 
+    $name = $variables['fields']['author_1']->wrapper_prefix;
+    $name .= $variables['fields']['author_1']->content;
+    $name .= $variables['fields']['author_1']->wrapper_suffix;
+
+    $created = $variables['fields']['created_1']->wrapper_prefix;
+    $created .= $variables['fields']['created_1']->content;
+    $created .= $variables['fields']['created_1']->wrapper_suffix;
+
+
     unset($variables['fields']['subject']);
+    unset($variables['fields']['author_1']);
+    unset($variables['fields']['created_1']);
   }
 
   $picture = $variables['fields']['field_user_picture']->wrapper_prefix;
   $picture .= $variables['fields']['field_user_picture']->content;
   $picture .= $variables['fields']['field_user_picture']->wrapper_suffix;
+
+  $excerpt = $variables['fields']['search_api_excerpt']->wrapper_prefix;
+  $excerpt .= $variables['fields']['search_api_excerpt']->content;
+  $excerpt .= $variables['fields']['search_api_excerpt']->wrapper_suffix;
+
+  $read_more = $variables['fields']['view_node']->wrapper_prefix;
+  $read_more .= $variables['fields']['view_node']->content;
+  $read_more .= $variables['fields']['view_node']->wrapper_suffix;
+
+
+  $content = '
+<div class="view-salto-search-node-content">
+  <div class="view-salto-search-node-author">
+      ' . $picture . '
+      <div  class="view-salto-search-node-author-details">
+          <div>
+            ' . $name . '
+            ' . $created . '
+          </div>
+      </div>
+      ' . $post . '
+  </div>
+  ' . $title . '
+  ' . $excerpt . '
+  <div class="view-salto-search-node-footer">
+  ' . $comments . '
+  ' . $read_more. '
+  </div>
+</div>';
+
   $variables['fields']['card_header']->wrapper_prefix = '<div class="views-field views-field-nothing header">';
-  $variables['fields']['card_header']->content = $picture . $title . $post;
+  $variables['fields']['card_header']->content = $content;
 
   unset($variables['fields']['field_user_picture']);
-  unset($variables['fields']['php_title']);
+  unset($variables['fields']['view_node']);
+  unset($variables['fields']['search_api_excerpt']);
 }

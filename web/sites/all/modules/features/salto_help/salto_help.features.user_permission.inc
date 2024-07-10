@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_help.features.user_permission.inc
@@ -17,6 +18,16 @@ function salto_help_user_default_permissions() {
       'Admin' => 'Admin',
     ),
     'module' => 'flag',
+  );
+
+  // Exported permission: 'create help content'.
+  $permissions['create help content'] = array(
+    'name' => 'create help content',
+    'roles' => array(
+      'DOSB' => 'DOSB',
+      'Support' => 'Support',
+    ),
+    'module' => 'node',
   );
 
   // Exported permission: 'flag help_entry_useful_no'.

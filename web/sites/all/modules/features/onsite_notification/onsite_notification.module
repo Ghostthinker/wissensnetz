@@ -4,6 +4,8 @@
  * Code for the onsite notifications feature.
  */
 
+use salto_core\service\SettingsService;
+
 include_once 'onsite_notification.features.inc';
 
 include('onsite_notification.events.inc');
@@ -70,13 +72,33 @@ function onsite_notification_menu() {
     'file' => 'onsite_notification.admin.inc',
   ];
 
-
   $items['admin/config/salto/maintenance_message'] = [
     'title' => 'Maintenance Message',
     'description' => 'Notify API users about maintenance downtime',
     'access arguments' => ['administer site configuration'],
     'page callback' => 'salto_maintenance_message_redirect',
   ];
+
+  $items['message/%/preview'] = [
+    'title' => 'Debug Message Page',
+    'description' => 'Debugging Message Page',
+    'access arguments' => ['administer site configuration'],
+    'weight' => -5,
+    'page callback' => 'onsite_notification_message_debug',
+    'page arguments' => [1],
+  ];
+
+  $items['message/thumbnail/%/%'] = [
+    'title' => 'Thumbnail images',
+    'type' => MENU_CALLBACK,
+    'description' => 'Thumbnail images for mail templates',
+    'weight' => -5,
+    'access callback' => 'onsite_notification_message_thumbnail_access',
+    'page callback' => 'onsite_notification_message_thumbnail',
+    'page arguments' => [2, 3],
+
+  ];
+
 
 
   $items['salto/config/salto/maintenance_message'] = [
@@ -271,6 +293,7 @@ function onsite_notification_js_callback($op, $arg1 = NULL) {
         return;
       }
       try {
+        onsite_notifications_mark_all_as_read($arg1);
         $message = t('All messages have been marked as read.');
         $json = ['output' => $message, 'arays' => [$op, $arg1]];
         drupal_json_output($json);
@@ -308,6 +331,7 @@ function onsite_notification_link_callback($mid) {
     $http_response_code = NULL;
 
     $url = $message->field_notification_link[LANGUAGE_NONE][0]['value'];
+
     header('Location: ' . $url, TRUE, $http_response_code);
     drupal_exit($url);
   }
@@ -1061,7 +1085,7 @@ function onsite_notification_mail($key, &$message, $params) {
   }
   //render the notifications
   $element = entity_view('message', $notifications, 'message_mail', $optionsLanguage['langcode']);
-  $content = "<table>" . render($element) . '</table>';
+  $content =render($element);
 
   $message['body'][] = $content;
 
@@ -1325,7 +1349,6 @@ function onsite_notification_user_delete($account) {
  * @return [type] [description]
  */
 function onsite_notification_context_preview($entity, $view_mode = NULL) {
-
   $outputs = module_invoke_all('onsite_notification_content_preview', $entity);
   return implode("", $outputs);
 
@@ -1340,9 +1363,15 @@ function onsite_notification_context_preview($entity, $view_mode = NULL) {
  */
 function onsite_notification_onsite_notification_content_preview($message) {
   if (!empty($message->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id'])) {
-    $comment = comment_load($message->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id']);
-    $output = field_view_field('comment', $comment, 'comment_body', ['label' => 'hidden']);
-    return render($output);
+    try {
+      $comment = comment_load($message->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id']);
+      $output = field_view_field('comment', $comment, 'comment_body', ['label' => 'hidden']);
+      return render($output);
+    } catch (Throwable $t) {
+
+      watchdog('error', 'Could not render broken message because comment is missing !debug', ['!debug' => print_r($message->mid, TRUE)], WATCHDOG_EMERGENCY, 'admin/structure/flags');
+      return "";
+    }
   }
 }
 
@@ -1553,6 +1582,11 @@ function onsite_notification_get_auto_subscribers($entity, $type = 'node') {
   }
 
   $nodes_themenfelder = salto_knowledgebase_post_get_themenfelder($entity);
+
+
+  if (empty($nodes_themenfelder)) {
+    return [];
+  }
 
   $nodes_themenfelder_tids = [];
   foreach ($nodes_themenfelder as $ti) {
@@ -1806,6 +1840,8 @@ function onsite_notification_file_presave($file) {
   }
 }
 
+
+
 function salto_files_check_file_is_changed($file, $oldFile) {
 
   $titleOld = entity_label('file', $oldFile);
@@ -1819,3 +1855,156 @@ function salto_files_check_file_is_changed($file, $oldFile) {
 
 }
 
+
+/**
+ * Implements hook_mentions_insert() on behalf of rules.module.
+ */
+function onsite_notification_mentions_insert($mention) {
+  if($mention['entity_type'] === 'comment') {
+    onsite_notification_user_mentioned_comment($mention);
+  }
+  if($mention['entity_type'] === 'node') {
+    onsite_notification_user_mentioned_node($mention);
+  }
+}
+
+/**
+ * @param $node
+ */
+function onsite_notification_salto_online_meeting_node_form_submitted($node) {
+  onsite_notification_online_meeting_scheduled($node);
+}
+
+/**
+ * @param $id
+ *
+ * @return void
+ */
+function onsite_notification_message_debug($mid) {
+  $message = message_load($mid);
+  if ($message) {
+    $element = entity_view('message', [$message], 'message_mail', 'de');
+    echo render($element);;
+  }
+  else {
+    echo "message not found";
+  }
+
+}
+
+
+function onsite_notification_message_thumbnail_access() {
+
+  return TRUE;
+  //return \salto_core\service\SettingsService::mailPreviewImagesEnabled();
+}
+
+/**
+ * mail thubnail menu callback
+ *
+ * @param $type
+ * @param $id
+ *
+ * @return string|void
+ * @throws \Exception
+ */
+function onsite_notification_message_thumbnail($type, $id) {
+
+  //let mail client think its a file with extension
+  $id = str_replace('.jpeg', '', $id);
+
+  $params = ['type' => $type, 'id' => $id];
+  $signature = $_GET['signature'];
+
+
+  if (!SettingsService::mailPreviewImagesEnabled() ||!salto_core_verify_signature($params, $signature, drupal_get_private_key())) {
+
+    $filepath404 = drupal_get_path('module', 'onsite_notification') . '/assets/images/file-404-default-mail.jpg';
+
+    header("Content-type: " . 'image/jpeg');
+    readfile($filepath404);
+
+    drupal_exit();
+  } else {
+    $socialVideoService = new \SocialVideoService\SocialVideoService();
+
+    switch ($type) {
+      case 'comment':
+        $url = $socialVideoService->getThumbnail($id, 'jpeg');
+        header("Content-type: " . 'image/jpeg');
+        readfile($url);
+        drupal_exit();
+        break;
+      case 'video':
+        $file = \Wissensnetz\Core\File\DrupalFile::make($id);
+        $url = $socialVideoService->getVideoThumbnail($file->getUuid());
+        header("Content-type: " . 'image/jpeg');
+        readfile($url);
+        drupal_exit();
+        break;
+      case 'file':
+        $file = file_load($id);
+        if($file) {
+          try {
+            $drupalFile = \Wissensnetz\Core\File\DrupalFile::make($id);
+
+            try {
+              $image = $drupalFile->getImageStyle('term_cover_mail');
+
+              $headers['Content-Type'] = $image->info['mime_type'];
+              $headers['Content-Length'] = $image->info['file_size'];
+              file_transfer($image->source, $headers);
+
+            } catch (Exception $e) {
+              // Tell client to retry again in 3 seconds. Currently no browsers are known
+              // to support Retry-After.
+              drupal_add_http_header('Status', '503 Service Unavailable');
+              drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
+              drupal_add_http_header('Retry-After', 3);
+              print t('Image generation in progress. Try again shortly.');
+              drupal_exit();
+            }
+
+          } catch (Exception $e) {
+            drupal_add_http_header('Status', '503 Service Unavailable');
+            drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
+            print t('Error generating image.');
+            drupal_exit();
+          }
+        }
+    }
+  }
+
+  drupal_add_http_header('Status', '503 Service Unavailable');
+  drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
+  print t('No image found');
+  drupal_exit();
+
+}
+
+/**
+ *
+ * build mail thumbnail url based on type and id
+ *
+ * @param $type
+ * @param $id
+ *
+ * @return string
+ */
+function onsite_notification_message_thumbnail_url($type, $id) {
+  global $base_url;
+
+
+  if ($type == 'file') {
+    $url =  $base_url . "/message/thumbnail" . "/$type/" . $id;
+  } else {
+    $url = $base_url . "/message/thumbnail" . "/$type/" . "$id" . '.jpeg';
+  }
+
+  $params = ['type' => $type, 'id' => $id];
+  $signature = salto_core_generate_signature($url, $params, 0, drupal_get_private_key());
+
+  $url .= "?signature=" . $signature;
+
+  return $url;
+}

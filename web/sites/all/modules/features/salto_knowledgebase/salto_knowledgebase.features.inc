@@ -15,6 +15,9 @@ function salto_knowledgebase_ctools_plugin_api($module = NULL, $api = NULL) {
   if ($module == "feeds" && $api == "feeds_importer_default") {
     return array("version" => "1");
   }
+  if ($module == "field_group" && $api == "field_group") {
+    return array("version" => "1");
+  }
   if ($module == "file_entity" && $api == "file_default_displays") {
     return array("version" => "1");
   }
@@ -54,6 +57,46 @@ function salto_knowledgebase_image_default_styles() {
           'upscale' => 0,
         ),
         'weight' => 1,
+      ),
+    ),
+  );
+
+  // Exported image style: term_cover.
+  $styles['term_cover'] = array(
+    'label' => 'Term Cover',
+    'effects' => array(
+      2 => array(
+        'name' => 'imagefield_focus_scale_and_crop',
+        'data' => array(
+          'width' => 400,
+          'height' => 240,
+          'strength' => 'low',
+        ),
+        'weight' => 2,
+      ),
+    ),
+  );
+
+  // Exported image style: term_cover_mail.
+  $styles['term_cover_mail'] = array(
+    'label' => 'Term Cover Mail',
+    'effects' => array(
+      3 => array(
+        'name' => 'image_scale',
+        'data' => array(
+          'width' => 540,
+          'height' => '',
+          'upscale' => 1,
+        ),
+        'weight' => -10,
+      ),
+      2 => array(
+        'name' => 'image_scale_and_crop',
+        'data' => array(
+          'width' => 540,
+          'height' => 135,
+        ),
+        'weight' => -9,
       ),
     ),
   );

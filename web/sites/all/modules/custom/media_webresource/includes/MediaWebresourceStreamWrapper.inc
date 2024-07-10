@@ -62,6 +62,7 @@ class MediaWebresourceStreamWrapper extends MediaReadOnlyStreamWrapper {
         $info['type'] = $parts2[0];
         $info['timestamp'] = $parts2[1];
         $info['item'] = $parts2[2];
+        $info['url'] = $info['type'] == 'youtube' ? "https://www.youtube.com/watch?v=".$info['item'] : $info['item'];
         return $info;
       }
     }

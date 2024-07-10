@@ -47,7 +47,7 @@ var klaroConfig = {
 
   // You can also set a custom expiration time for the Klaro cookie.
   // By default, it will expire after 120 days.
-  cookieExpiresAfterDays: 365,
+  cookieExpiresAfterDays: 180,
 
   // You can change to cookie domain for the consent manager itself.
   // Use this if you want to get consent once for multiple matching domains.
@@ -55,7 +55,7 @@ var klaroConfig = {
   //cookieDomain: '.github.com',
 
   // Defines the default state for services (true=enabled by default).
-  default: true,
+  default: false,
 
   // If "mustConsent" is set to true, Klaro will directly display the consent
   // manager modal and not allow the user to close it before having actively
@@ -107,7 +107,7 @@ var klaroConfig = {
     // If you erase the "consentModal" translations, Klaro will use the
     // bundled translations.
     de: {
-      privacyPolicyUrl: '/datenschutz',
+      privacyPolicyUrl: '/datenschutzvereinbarung',
       privacyPolicy: {
         text: 'Für weitere Informationen zu den von uns verwendeten Cookies öffnen Sie die {privacyPolicy}.',
         name: 'Datenschutzhinweise',
@@ -131,7 +131,7 @@ var klaroConfig = {
         description: 'Werbung, Empfehlungen, Insights und Messungen',
       },
       matomo: {
-        description: 'Sammeln von Besucherstatistiken',
+        description: 'Sammeln von Besucherstatistiken (Dauer: 13 Monate)',
       },
       adsense: {
         description: 'Anzeigen von Werbeanzeigen (Beispiel)',
@@ -144,7 +144,7 @@ var klaroConfig = {
         description: 'Web-Schriftarten gehostet durch Google',
       },
       youtube: {
-        description: 'Anzeigen von Werbeanzeigen und Performance',
+        description: 'Anzeigen von Werbeanzeigen und Performance (Dauer: 13 Monate)',
       },
       purposes: {
         analytics: 'Statistiken',
@@ -197,6 +197,9 @@ var klaroConfig = {
       },
       matomo: {
         description: 'Sammeln von Besucherstatistiken',
+      },
+      has_js: {
+        description: 'Dauer: Bis Session-Ende',
       },
       purposes: {
         analytics: 'Analytics',
@@ -275,7 +278,7 @@ var klaroConfig = {
                s.parentNode.insertBefore(g, s);
              })();
 
-             _paq.push(['rememberCookieConsentGiven']);
+             _paq.push(['rememberCookieConsentGiven', 24*30*6]);
            }
          } else {
            if (window._paq) {
@@ -298,6 +301,7 @@ var klaroConfig = {
     },
     {
       name: 'youtube',
+      contextualConsentOnly: true,
       purposes: ['marketing'],
       cookies: [
         [/^VISITOR_INFO1_LIVE(_.*)?/, '/', '.dosb.de'], //for the production version
@@ -307,13 +311,8 @@ var klaroConfig = {
       ]
     },
     {
-      name: 'googleFonts',
-      title: 'Google Web Fonts',
-      purposes: ['styling'],
-      required: true,
-    },
-    {
       name: 'has_js',
+      default: true,
       title: 'JavaScript Cookie',
       purposes: ['functional'],
       cookies: ['has_js'],

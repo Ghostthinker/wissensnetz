@@ -15,7 +15,10 @@ function salto_online_meeting_user_default_permissions() {
   $permissions['create online_meeting content'] = array(
     'name' => 'create online_meeting content',
     'roles' => array(
-      'authenticated user' => 'authenticated user',
+      'Admin' => 'Admin',
+      'DOSB' => 'DOSB',
+      'Online-Treffen-Manager:in' => 'Online-Treffen-Manager:in',
+      'Support' => 'Support',
     ),
     'module' => 'node',
   );
@@ -25,6 +28,8 @@ function salto_online_meeting_user_default_permissions() {
     'name' => 'delete any online_meeting content',
     'roles' => array(
       'Admin' => 'Admin',
+      'DOSB' => 'DOSB',
+      'Online-Treffen-Manager:in' => 'Online-Treffen-Manager:in',
     ),
     'module' => 'node',
   );
@@ -33,6 +38,7 @@ function salto_online_meeting_user_default_permissions() {
   $permissions['delete own online_meeting content'] = array(
     'name' => 'delete own online_meeting content',
     'roles' => array(
+      'Online-Treffen-Manager:in' => 'Online-Treffen-Manager:in',
       'authenticated user' => 'authenticated user',
     ),
     'module' => 'node',
@@ -43,6 +49,8 @@ function salto_online_meeting_user_default_permissions() {
     'name' => 'edit any online_meeting content',
     'roles' => array(
       'Admin' => 'Admin',
+      'DOSB' => 'DOSB',
+      'Online-Treffen-Manager:in' => 'Online-Treffen-Manager:in',
     ),
     'module' => 'node',
   );
@@ -51,6 +59,7 @@ function salto_online_meeting_user_default_permissions() {
   $permissions['edit own online_meeting content'] = array(
     'name' => 'edit own online_meeting content',
     'roles' => array(
+      'Online-Treffen-Manager:in' => 'Online-Treffen-Manager:in',
       'authenticated user' => 'authenticated user',
     ),
     'module' => 'node',

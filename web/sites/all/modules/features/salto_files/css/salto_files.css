@@ -100,15 +100,20 @@ table[id^="edit-field-post-attachment-und"] .form-type-checkbox {
 .media-bulk-upload-multiedit-form [id^="edit-field-file-lizenzstufe"],
 .media-bulk-upload-multiedit-form [id^="edit-field-file-attachment-status"],
 .media-bulk-upload-multiedit-form [id^="edit-field-file-attachment-post-ref"],
-.media-bulk-upload-multiedit-form [id^="edit-field-og-group"],
-.media-bulk-upload-multiedit-form fieldset[id^="bootstrap-pane"] {
+.media-bulk-upload-multiedit-form [id^="edit-field-og-group"] {
   display: none;
 }
 
 #file-entity-edit [id^="edit-field-file-lizenzstufe"],
 #file-entity-edit [id^="edit-field-file-attachment-status"],
 #file-entity-edit [id^="edit-field-file-attachment-post-ref"],
-#file-entity-edit [id^="edit-field-og-group"],
-#file-entity-edit fieldset[id^="bootstrap-pane"] {
+#file-entity-edit [id^="edit-field-og-group"] {
   display: none;
+}
+
+form input:disabled:active,
+form input:disabled:focus,
+form input:disabled {
+  color: #aaa;
+  background-color: #eee;
 }

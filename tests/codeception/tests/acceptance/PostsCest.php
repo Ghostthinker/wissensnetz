@@ -1,6 +1,6 @@
 <?php
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * Class StartseiteCest
@@ -29,7 +29,7 @@ class PostsCest {
   }
 
 
-  
+
   /**
    * @UserStory 08.00 https://trello.com/c/EsIfwETv/44-0-12-80-benutzer-beitrag-artikel-erstellen-und-pflegen
    *
@@ -62,8 +62,9 @@ class PostsCest {
     $I->createBeitrag([
       'Titel' => $title,
       'Inhalt' => "Test Inhalt B1_01",
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'user' => $userTime
     ]);
 
     $I->checkAK("08.00", "AK 1: Beiträge ohne Kategorie werden in der Übersicht gelistet.");
@@ -96,103 +97,29 @@ class PostsCest {
     $I->createBeitrag([
       'Titel' => $title,
       'Inhalt' => "Test Inhalt B1_02",
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => salto_knowledgebase_get_default_kb_category_tid(),
+      'user' => $AUTH_USER
     ]);
 
     $I->expect("that the newly created post is listed under \"Nicht einsortiert\"");
 
     $I->amOnPage("/posts");
-    $I->click("Bildung", '.main_layout_left');
+    $term = taxonomy_term_load(salto_knowledgebase_get_default_kb_category_tid());
+
+    $I->click($term->name, '.main_layout_left');
     $I->click($title);
 
     $I->expect("that I can delete the post");
 
     $I->click("Beitrag bearbeiten");
+
     $I->click("Löschen");
     $I->click("Löschen");
 
     $I->see("Beitrag " . $title . " wurde gelöscht.");
     $I->dontSee("Leider ist der Inhalt nicht verfügbar");
     $I->seeCurrentPageIs("/posts");
-  }
-
-  /**
-   * B1.04 - Beiträge - Beitrag erstellen/bearbeiten MediaBrowser
-   *
-   * @see https://docs.google.com/document/d/16Q330F3AdIB_QFMBmXBt2qGGVCmDAKgkNWfm8NTXf1c/edit#heading=h.6rlftpl939yd
-   * @param \AcceptanceTester $I
-   */
-  public function P_02_0_create_post_attachment(AcceptanceTester $I) {
-
-    $I->wantTo('B1.04 - Beiträge - Beitrag erstellen/bearbeiten MediaBrowser');
-
-    $DOSB_USER = $I->haveUser([
-      'firstname' => 'max',
-      'lastname' => 'muster',
-      'role_dosb' => TRUE,
-    ]);
-
-
-    $I->completedSetup();
-    $I->loginAsUser($DOSB_USER);
-
-    $I->amOnPage("/posts");
-    $I->seeLink("Beitrag erstellen");
-    $I->click("Beitrag erstellen");
-
-    $I->seeLink("Dateien durchsuchen oder hochladen");
-    $I->click("Dateien durchsuchen oder hochladen");
-
-    $I->waitForElement('#mediaBrowser', 10);
-    $I->seeElement('#mediaBrowser');
-    $driver = $I->executeInSelenium(function(\Facebook\WebDriver\Remote\RemoteWebDriver $webDriver) {
-      $webDriver->switchTo()->frame(
-        $webDriver->findElement(\Facebook\WebDriver\WebDriverBy::cssSelector('#mediaBrowser'))
-      );
-      return $webDriver;
-    });
-/*
-    $I->performOn('#media-tabs-wrapper', function(\Codeception\Module\WebDriver $I) {
-      $I->see("Hochladen");
-      $I->see("Materialien und weitere Dateien");
-      $I->see("Meine Dateien");
-    });
-*/
-    $I->performOn('#media-tabs-wrapper', \Codeception\Util\ActionSequence::build()
-      ->see("Hochladen")
-      ->see("Materialien und weitere Dateien")
-      ->see("Meine Dateien")
-      ->click("Meine Dateien")
-      ->click("Materialien und weitere Dateien")
-    );
-
-    $I->click("Materialien und weitere Dateien");
-
-    $files = $I->grabMultiple('ul li', 'id');
-    $I->click(['id' => $files[4]]);
-    $I->click(['class' => 'media-thumbnail']);
-
-    $I->seeLink("Absenden");
-    $driver->switchTo()->defaultContent();
-
-    $I->seeLink("Dateien durchsuchen oder hochladen");
-    /*
-    try {
-      //$I->click("Absenden");
-      $driver->findElement(\Facebook\WebDriver\WebDriverBy::className('fake-submit'))->click();
-    } catch (WebDriverCurlException $ex) {
-      $driver->close();
-    }
-
-    $driver->switchTo()->defaultContent();
-    $I->waitForElement('#post-node-form', 10);
-
-    $I->seeLink("Dateien durchsuchen oder hochladen");
-
-    $file = explode("-", $files[4]);
-
-    $I->seeInPageSource("class='media-item' data-fid='". $file[2] ."'");*/
   }
 
   /**
@@ -221,16 +148,17 @@ class PostsCest {
     $I->loginAsUser($user1);
 
     $title = "Test Title B250.23_1-" . microtime(TRUE);
-    $I->createBeitrag([
+    $POST = $I->createBeitrag([
       'Titel' => $title,
       'Inhalt' => "Test Inhalt BB250.23_1",
       'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID
+      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'user' => $user1
     ]);
 
     $I->completedSetup();
 
-    $postId = $I->grabFromCurrentUrl('/node\/(\d+)/');
+    $postId = $POST->nid;
 
     $I->checkAK("250.23", "AK 1: Die Anzeige von Aktionen für die jeweilige Datei unter Beitragsanhänge wird um die Schaltflächen \"Datei bearbeiten\", \"Datei ersetzen\" und \"Aus Beitrag entfernen\" konsolidiert bzw. erweitert:");
 
@@ -286,6 +214,7 @@ class PostsCest {
 
     $I->checkAK("250.23", "AK 1.1: Über die ersten beiden Aktionen (Datei bearbeiten und ersetzen) wird der gleiche (bereits bestehende Dialog) aufgerufen.");
     $I->amOnPage("/node/" . $postId . '/edit');
+
     $I->click(['link' => 'Datei bearbeiten']);
     $I->wait(1);
     //$I->seeInCurrentUrl('file/' . $fid[0] . '/edit');
@@ -315,48 +244,110 @@ class PostsCest {
     $I->dontSeeElement('#edit-field-post-attachment-und-table');
   }
 
+
   /**
-   * B2.00 - Kategorien - Kategorien anlegen
    *
-   * @see https://docs.google.com/document/d/16Q330F3AdIB_QFMBmXBt2qGGVCmDAKgkNWfm8NTXf1c/edit#heading=h.g72rfquxugwo
+   * @example { "file": "images/150524-19-50.jpg", "type": "image", "mime":"image/jpeg" }
+   *
    * @param \AcceptanceTester $I
    */
-  public function P_03_0_add_category(AcceptanceTester $I) {
-    $I->wantTo('B2.00 - Kategorien - Kategorien anlegen');
+  public function P_02_2_post_attachment_access(AcceptanceTester $I, \Codeception\Example $example) {
 
-    $dosbUser = $I->haveDOSBUser();
+    $I->wantTo('B250.23 #E Vereinfachtes Aktualisieren von Anhängen in Beiträgen - ' . $example['mime']);
+
+    $microTime = microtime(TRUE);
+
+    //gruppenbenutzer
+    $U1 = $I->haveUser([
+      'firstname' => 'daxi',
+      'lastname' => 'rebmem',
+    ]);
+
+    //gruppenbenutzer
+    $U2 = $I->haveUser([
+      'firstname' => 'maxi',
+      'lastname' => 'member',
+    ]);
+
+    $og1 = $I->createOrganisation('TestOG');
+    $og2 = $I->createOrganisation('TestOG2');
+
+    $I->addMemberToOrganisation($U1, $og1, [SALTO_OG_ROLE_MANAGER_RID]);
+    $I->addMemberToOrganisation($U2, $og2, [SALTO_OG_ROLE_MANAGER_RID]);
+
+    $I->loginAsUser($U1);
+
+    // Gruppe 1
+    $I->expect('Founding a new group');
+    $I->amOnPage('node/add/group');
+
+    //check first group themenfeld
+    $I->executeJS("return document.querySelector('#edit-field-group-categories-und .form-type-checkbox .form-checkbox').click()");
+
+    $title = 'Group G310-' . $microTime;
+    $I->submitForm('#group-node-form', ['title' => $title,]);
+
+    $I->see($title);
+    $gid1 = $I->grabFromCurrentUrl('/node\/(\d+)/');
+
+    $I->addMemberToGroup($U1, $gid1);
+    $I->addMemberToGroup($U2, $gid1);
+
+
+    $title = "Test Title B250.23_1-" . microtime(TRUE);
+    $I->createGroupBeitrag([
+      'Titel' => $title,
+      'Inhalt' => "Test Inhalt BB250.23_1",
+      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'user' => $U1
+    ],$gid1);
+
     $I->completedSetup();
 
-    $title = "B2.00-" . microtime(TRUE);
+    $postId = $I->grabFromCurrentUrl('/node\/(\d+)/');
 
-    $I->loginAsUser($dosbUser);
+    $I->amOnPage("/node/" . $postId . '/edit');
+    $I->seeLink("Dateien durchsuchen oder hochladen");
+    $I->click('.cke_button__media');
 
-    $I->amOnPage("/posts");
-    $I->click("Struktur verwalten");
+    $I->waitForElement('#mediaBrowser', 10);
+    $I->seeElement('#mediaBrowser');
+    $driver = $I->executeInSelenium(function(\Facebook\WebDriver\Remote\RemoteWebDriver $webDriver) {
+      $webDriver->switchTo()->frame(
+        $webDriver->findElement(\Facebook\WebDriver\WebDriverBy::cssSelector('#mediaBrowser'))
+      );
+      return $webDriver;
+    });
 
-    $I->click("Neues Element");
-    $I->fillField('name', $title);
-    $I->fillEditor("Lorem Fulltext", 'edit-description-value');
-    $I->click("Beziehungen");
-    $I->selectOption('parent[]', 0);
+    $I->performOn('#media-tabs-wrapper', \Codeception\Util\ActionSequence::build()
+      ->see("Hochladen")
+    );
 
-    $I->click("Speichern");
+    $I->attachFile('input[type="file"]', $example['file']);
+    $I->click('Übertragen beginnen');
+    $I->waitForText('1/1 Dateien hochgeladen', 20);
+    $I->click('Weiter');
 
-    //$I->see("Der neue Begriff ".$title." wurde erstellt.");
-
-    $I->amOnPage("/posts");
-    $I->seeLink($title);
-
-    $I->amOnPage("/posts/category");
-    $I->see($title);
+    $driver->switchTo()->defaultContent();
 
 
-    $I->amOnPage("/materials");
-    $I->seeLink($title);
 
-    $I->amOnPage("/materials/category");
-    $I->see($title);
+    $I->executeJS("return document.querySelector('.select-parents.form-checkbox').click()");
 
+    $I->click('Speichern');
+    $file_usage = salto_file_usage_by_nid($postId);
+
+    $fid = key($file_usage);
+
+    $I->amOnPage("/file/" . $fid);
+    $I->notAccessDenied();
+
+
+    $I->expect('as ' . $U2->realname . ' that i can see the post image');
+    $I->loginAsUser($U2);
+
+    $I->amOnPage("/file/" . $fid);
+    $I->notAccessDenied();
   }
 
 
@@ -436,25 +427,24 @@ class PostsCest {
     $I->loginAsUser($user1);
 
     $title = "Test Title B260.10_1-" . microtime(TRUE);
-    $I->createBeitrag([
+    $POST = $I->createBeitrag([
       'Titel' => $title,
       'Inhalt' => "Test Inhalt BB260.10_1",
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'user' => $user1
     ]);
 
     $I->completedSetup();
 
-    $postId = $I->grabFromCurrentUrl('/node\/(\d+)/');
-
     $I->checkAK("260.10", "AK 1: Neben \"Bearbeiten\" erscheint auch \"Löschen\"");
 
-    $I->amOnPage("/node/" . $postId);
+    $I->amOnPage("/node/" . $POST->nid);
     $I->wait(3);
-    $I->seeElement('#ajax-comments-reply-form-' . $postId . '-0-0');
+    $I->seeElement('#ajax-comments-reply-form-' . $POST->nid . '-0-0');
     $I->fillfield(["name" => "comment_body[und][0][value]"], 'Test-Kommentar');
     $I->click('Speichern');
-    $I->waitForText("Ihr Kommentar wurde erstellt.");
+
     $I->see("Antworten", 'ul.links');
     $I->see('Bearbeiten', 'ul.links');
     $I->see('Löschen', 'ul.links');
@@ -464,8 +454,8 @@ class PostsCest {
     $I->checkAK("260.10", "AK 3 Hinweis: Geht natürlich weiterhin nur mit meinen eigenen Kommentaren");
     $I->loginAsUser($user2);
 
-    $I->amOnPage('/node/' . $postId);
-    $I->seeElement('#ajax-comments-reply-form-' . $postId . '-0-0');
+    $I->amOnPage('/node/' . $POST->nid);
+    $I->seeElement('#ajax-comments-reply-form-' . $POST->nid . '-0-0');
     $I->see('Antworten', 'ul.links');
     $I->dontSee('Bearbeiten', 'ul.links');
     $I->dontSee('Löschen', 'ul.links');
@@ -476,14 +466,14 @@ class PostsCest {
     //$I->fillfield(["name" => "comment_body[und][0][value]"], 'Neuer Test-Kommentar');
     $I->click('Speichern');
 
-    $I->waitForText("Ihr Kommentar wurde erstellt.", 20);
+
     $I->see('Gespeichert von ' . $user2->realname);
     $I->see('Neuer Test-Kommentar');
 
     $I->checkAK("260.10", "AK 2: Kommentar wird nach kurzer Rückfrage \"Möchten Sie den Kommentar wirklich löschen? Dieser Vorgang kann nicht rückgängig gemacht werden! Ja/Abbrechen\" einfach gelöscht.");
     $I->loginAsUser($user1);
 
-    $I->amOnPage("/node/" . $postId);
+    $I->amOnPage("/node/" . $POST->nid);
     $hrefEdit = $I->grabAttributeFrom('.comment-edit a', 'href');
     $hrefReply = $I->grabAttributeFrom('.comment-reply a', 'href');
     $hrefDelete = $I->grabAttributeFrom('.comment-delete a', 'href');
@@ -508,16 +498,15 @@ class PostsCest {
     $newComment = "Aller neuer Test-Kommentar";
     $I->fillfield(['xpath' => '//textarea[@name="comment_body[und][0][value]"][1]'], $newComment);
     //$I->fillfield(["name" => "comment_body[und][0][value]"], $newComment);
-    $I->click('Speichern');
-    $I->waitForText("Ihr Kommentar wurde erstellt.", 20);
-    $I->see('Gespeichert von ' . $user1->realname);
-    $I->see($newComment);
+    $I->click('.ajax-comments-form-reply .form-submit');
+
+    $I->waitforText($newComment);
 
     $I->see('Löschen', 'ul.links');
     $I->click('Löschen');
     $I->see('Diesen Kommentar löschen?');
     $I->click('Nein');
-    $I->see($newComment);
+    $I->waitforText($newComment);
   }
   /**
    * B270.03 #E Beitrag - Anhang erleichtert anfügen
@@ -550,10 +539,6 @@ class PostsCest {
     $I->seeLink("Beitrag erstellen");
     $I->click("Beitrag erstellen");
 
-    //$I->click("#edit-field-kb-content-category-und-0-4465-4465");
-    //$I->selectOption("B2.00-1500277990.9211", "4465");
-    //$I->selectOption("Schule", "4456");
-    //$I->click("#edit-field-kb-content-category-und-0-4456-4456");
     $I->executeJS('jQuery("label:contains(\"Noch nicht einsortiert\") input").click()');
     $I->executeJS('jQuery("label:contains(\"Schule\") input").click()');
 
@@ -578,30 +563,6 @@ class PostsCest {
     $I->waitForText('1/1 Dateien hochgeladen', 20);
     $I->click('Weiter');
 
-    /*
-    // only if "Bulk upload" is on (checked)
-    $I->checkAK("270.03", "AK 2: Voreinstellungen beim Hochladen");
-    $I->checkAK("270.03", "AK 2.1: Themenfelder/Kategorie -> gleiche wie Kategorie des Beitrags");
-    $I->see('Noch nicht einsortiert');
-    $I->seeElement('#edit-field-kb-kategorie-und-0-4453-4453');
-    //$I->seeCheckboxIsChecked('#edit-field-kb-kategorie-und-0-4466-4466'); //B2.00-1500277990.9211
-    //$I->seeCheckboxIsChecked('#edit-field-kb-kategorie-und-0-4457-4457'); //Schule
-    $I->seeCheckboxIsChecked('#edit-field-kb-kategorie-und-0-4453-4453'); //Noch nicht einsortiert
-
-    $I->checkAK("270.03", "AK 2.2: Nutzungslizenzen -> CCBY");
-    $I->seeInField('#edit-field-file-license-type-und', 'CC BY Namensnennung');
-
-    $I->checkAK("270.03", "AK 2.3: Urheber -> Nutzer (agierender Benutzer / Autor des Beitrages)");
-    $I->seeInField('#edit-field-file-originator-und-0-value', $user->realname);
-
-    $I->checkAK("270.03", "AK 3.1: Bitte Felder \"Lizenzstufe\", \"File Attachment Status\" und \"Beitrag Themenfelder sync)\" aus der Liste entfernen = Ausblenden");
-    $I->dontSeeElement('#edit-field-file-lizenzstufe');
-    $I->dontSeeElement('#edit-field-file-attachment-status');
-    $I->dontSeeElement('#edit-field-file-attachment-post-ref');
-
-    $I->seeElement("#edit-submit");
-    $I->click("#edit-submit");
-    */
     $driver->switchTo()->defaultContent();
 
     $I->checkAK("270.03", "AK 1: Statt wie bisher das Feld \"Beschreibung\" bei Anhängen anzuzeigen, soll hier \"Dateiname\" stehen und auch sinngemäß den Dateinamen ändern.");

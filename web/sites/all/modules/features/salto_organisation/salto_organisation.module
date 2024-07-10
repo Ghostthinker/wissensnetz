@@ -16,6 +16,7 @@ define("SALTO_ORGANISATION_ACTION_REVOKE_FURTHER_MEMBER", "revoke_og_role_furthe
 
 define("SALTO_ORGANISATION_OG_ROLE_LIZENZVERWALTER_RID", 7);
 define("SALTO_ORGANISATION_OG_ROLE_BILDUNGSREFERENT_RID", 8);
+define("SALTO_ORGANISATION_DEFAULT_NID", 2943);
 
 
 /**
@@ -101,6 +102,16 @@ function salto_organisation_menu() {
     'type' => MENU_CALLBACK,
   ];
 
+  $items['admin/config/salto/organisation'] = [
+    'title' => 'Organisations',
+    'description' => 'Settings for organisation.',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_organisation_admin_settings'],
+    'file' => 'salto_organisation.admin.inc',
+  ];
   return $items;
 }
 
@@ -751,7 +762,6 @@ function salto_organisation_edit_membership_access($og_membership) {
   return FALSE;
 }
 
-
 function salto_organisation_form_alter(&$form, &$form_state, $form_id) {
   //alter exposed form for organisations view to avoid error
   if ($form['#id'] == 'views-exposed-form-salto-organisations-overview-panel-pane-2') {
@@ -763,6 +773,16 @@ function salto_organisation_form_alter(&$form, &$form_state, $form_id) {
         $form_state['input']['sort_by'] = $_GET['sort_by'];
       }
     }
+
+    //show and hide custom organisation filters (/admin/config/salto/organisation)
+    $custom_field_info = salto_organisation_custom_field_info();
+    foreach($custom_field_info as $field_name => $info){
+      if (!$info['filter_enabled']){
+        unset($form[$info['filter_name']]);
+        unset($form['#info']['filter-' . $info['filter_name']]);
+      }
+    }
+
   }
 
   if ($form_id == 'organisation_node_form') {
@@ -990,10 +1010,33 @@ function salto_organisation_form_alter(&$form, &$form_state, $form_id) {
       ];
       drupal_add_js($setting, 'setting');
     }
+
+    //show and hide custom organisation fields (/admin/config/salto/organisation)
+    $custom_field_info = salto_organisation_custom_field_info();
+    foreach($custom_field_info as $field_name => $info){
+      if (!$info['form_field_enabled']){
+        $form[$field_name]['#access'] = FALSE;
+      }
+
+      if ($info['form_field_enabled'] && $field_name == 'field_org_plz'){
+        $form['#validate'][] = 'salto_organisation_form_plz_validate';
+      }
+    }
+
   }
   return $form;
 }
 
+function salto_organisation_form_plz_validate($form,&$form_state) {
+
+  if (!is_numeric($form_state['input']['field_org_plz'][LANGUAGE_NONE][0]['value'])){
+    form_set_error('validation_error', t('PLZ must be a number.'));
+  }
+  if (strlen($form_state['input']['field_org_plz'][LANGUAGE_NONE][0]['value']) != 5){
+    form_set_error('validation_error', t('PLZ must be 5 digits long'));
+  }
+
+}
 
 /**
  * Implements hook_form_alter().
@@ -1035,6 +1078,7 @@ function salto_organisation_form_user_admin_settings_alter(&$form, &$form_state,
   ];
 
 }
+
 
 /**
  * Implements hook_init
@@ -1780,40 +1824,65 @@ function salto_organisation_node_delete_confirm($form, &$form_state, $nid) {
 
     $countIds = 0;
     $isNotFull = FALSE;
-    if (module_exists('dosb_license')) {
-      $countIds = dosb_license_get_count_ids_by_organisation($node->nid, FALSE, FALSE);
-      $isNotFull = $node->field_org_dv_license_settings[LANGUAGE_NONE][0]['value'] !== 'full';
-    }
-    if ($isNotFull && $countIds > 0) {
-      $head = "<h2 class='text danger'>" . t('HINT') . "</h2>";
-      $description = "<p>" .
-        t('The association to be deleted contains license data that can not be moved to the umbrella organization at the current time. Please contact the responsible license manager to grant the necessary access authorization "My association may view and edit license data" before deleting.')
-        . "</p>";
-      $confirm = confirm_form([],
-        t('Organisation delete?'),
-        'node/' . $node->nid,
-        $head . $description
-      );
-      unset($confirm['actions']['submit']);
-      $confirm['actions']['cancel']['#title'] = t('OK');
-      $confirm['actions']['cancel']['#attributes'] = ['class' => 'btn-og-delete-none'];
-
-      $confirm['confirm'] = ['#type' => 'hidden', '#value' => 0];
-      return $confirm;
-    }
-
     $form['#node'] = $node;
     // Always provide entity id in the same form key as in the entity edit form.
     $form['confirm_id'] = ['#type' => 'value', '#value' => $node->nid];
 
-    $head = "<h2 class='text danger'>" . t('WARNING') . "</h2>";
-    $description = "<p>" .
-      t('Sind sie wirklich sicher, dass Sie diese Untergliederung löschen wollen?')
-      . "</p><p>" .
-      t('Bitte beachten Sie, dass ggf. existierende Untergruppierungen der Untergliederung automatisch mit gelöscht werden. Diese Aktion kann nicht rückgängig gemacht werden.')
-      . "</p><p>" .
-      t('HINWEIS: Eventuell existierende Lizenzen der Untergliederung werden nicht gelöscht sondern automatisch in die Datenbank der Dachorganisation übertragen.')
-      . "</p>";
+    if (module_exists('dosb_license')) {
+
+      // prevent deleting dv
+      if(empty($node->field_organisation_parent)) {
+        $head = "<h2 class='text danger'>" . t('HINT') . "</h2>";
+        $description = "<p>" .
+          t('DV can not be deleted. Please contact the site administrator. Hint: /node/%node/delete')
+          . "</p>";
+        $confirm = confirm_form([],
+          t('Organisation delete?'),
+          'node/' . $node->nid,
+          $head . $description
+        );
+
+        unset($confirm['actions']['submit']);
+
+        $confirm['actions']['cancel']['#title'] = t('OK');
+        $confirm['actions']['cancel']['#attributes'] = ['class' => 'btn-og-delete-none'];
+
+        $confirm['confirm'] = ['#type' => 'hidden', '#value' => 0];
+        return $confirm;
+      }
+
+      $countIds = dosb_license_get_count_ids_by_organisation($node->nid, FALSE, FALSE);
+      $isNotFull = $node->field_org_dv_license_settings[LANGUAGE_NONE][0]['value'] !== 'full';
+      if ($isNotFull && $countIds > 0) {
+        $head = "<h2 class='text danger'>" . t('HINT') . "</h2>";
+        $description = "<p>" .
+          t('The association to be deleted contains license data that can not be moved to the umbrella organization at the current time. Please contact the responsible license manager to grant the necessary access authorization "My association may view and edit license data" before deleting.')
+          . "</p>";
+        $confirm = confirm_form([],
+          t('Organisation delete?'),
+          'node/' . $node->nid,
+          $head . $description
+        );
+        unset($confirm['actions']['submit']);
+        $confirm['actions']['cancel']['#title'] = t('OK');
+        $confirm['actions']['cancel']['#attributes'] = ['class' => 'btn-og-delete-none'];
+
+        $confirm['confirm'] = ['#type' => 'hidden', '#value' => 0];
+        return $confirm;
+      }
+
+      $head = "<h2 class='text danger'>" . t('WARNING') . "</h2>";
+      $description = "<p>" .
+        t('Sind sie wirklich sicher, dass Sie diese Untergliederung löschen wollen?')
+        . "</p><p>" .
+        t('Bitte beachten Sie, dass ggf. existierende Untergruppierungen der Untergliederung automatisch mit gelöscht werden. Diese Aktion kann nicht rückgängig gemacht werden.')
+        . "</p><p>" .
+        t('HINWEIS: Eventuell existierende Lizenzen der Untergliederung werden nicht gelöscht sondern automatisch in die Datenbank der Dachorganisation übertragen.')
+        . "</p>";
+    }
+
+
+    $description .= t('This action cannot be undone.');
     return confirm_form($form,
       t('Organisation delete?'),
       'node/' . $node->nid,
@@ -1835,7 +1904,7 @@ function salto_organisation_node_delete_confirm_submit($form, &$form_state) {
 
   if ($form_state['values']['confirm'] != 1) {
     return;
-  }
+}
 
   $node = $form['#node'];
   if ($node->nid != $form_state['values']['confirm_id']) {
@@ -2015,4 +2084,90 @@ function salto_organisation_get_license_mail_text($organisation_node) {
 
 function salto_organisation_get_license_mailtext_default($organisation_node) {
   return format_string('Bei Fragen und/oder Anmerkungen wenden Sie sich bitte an den/die @organisation_name.', ['@organisation_name' => $organisation_node->title]);
+}
+
+function salto_organisation_get_fallback_nid(){
+  return variable_get("salto_organisation_fallback_nid", SALTO_ORGANISATION_DEFAULT_NID);
+}
+
+function salto_organisation_custom_field_info(){
+  $savedValues = variable_get('organisation_custom_fields',[]);
+
+  $defaults =  salto_organisation_get_default_custom_field_values();
+
+  if (empty($savedValues)){
+    return $defaults;
+  }
+
+  foreach($defaults as $field_name => &$info){
+    $info['filter_enabled'] = isset($savedValues[$field_name]['filter_enabled']) ? $savedValues[$field_name]['filter_enabled'] : $info['filter_enabled'];
+    $info['form_field_enabled'] = isset($savedValues[$field_name]['form_field_enabled']) ? $savedValues[$field_name]['form_field_enabled'] : $info['form_field_enabled'];
+  }
+  return $defaults;
+}
+
+function salto_organisation_get_sportkreis_options(){
+  $organisation_custom_fields = variable_get('organisation_custom_fields', []);
+
+  return $organisation_custom_fields['field_organisation_sportkreis_options'] ?? '';
+}
+function salto_organisation_get_sportkreis_allowed_values() {
+  $sportkreis_options = salto_organisation_get_sportkreis_options();
+  if (empty($sportkreis_options)){
+    return [];
+  }
+  return explode(PHP_EOL, $sportkreis_options);
+}
+
+function salto_organisation_get_default_custom_field_values(){
+  return [
+    'field_organisation_parent' => [
+      'filter_enabled' => TRUE,
+      'form_field_enabled' => TRUE,
+      'filter_name' => 'field_organisation_parent_target_id'
+    ],
+    'field_organisation_category' => [
+      'filter_enabled' => TRUE,
+      'form_field_enabled' => TRUE,
+      'filter_name' => 'field_organisation_category_value'
+    ],
+    'field_organisation_bundesland' => [
+      'filter_enabled' => TRUE,
+      'form_field_enabled' => TRUE,
+      'filter_name' => 'field_organisation_bundesland_value'
+    ],
+    'field_org_plz' => [
+      'filter_enabled' => FALSE,
+      'form_field_enabled' => FALSE,
+      'filter_name' => 'field_org_plz_value'
+    ],
+    'field_organisation_sportkreis' => [
+      'filter_enabled' => FALSE,
+      'form_field_enabled' => FALSE,
+      'filter_name' => 'field_organisation_sportkreis_value'
+    ],
+  ];
+}
+
+function salto_organisation_set_default_custom_field_values(){
+
+  $defaults = salto_organisation_get_default_custom_field_values();
+  variable_set('organisation_custom_fields', $defaults);
+
+}
+
+
+function salto_organisation_preprocess_node(&$variables){
+  $node = $variables['node'];
+  $variables['body'] = $node->body[LANGUAGE_NONE][0]['value'];
+
+  $file = file_load($node->field_organisation_logo[LANGUAGE_NONE][0]['fid']);
+
+  if ($file) {
+    // Get the URL of the file.
+    $file_url = file_create_url($file->uri);
+
+    // Now, $file_url contains the URL of the file.
+    $variables['logo_url'] =  $file_url;
+  }
 }

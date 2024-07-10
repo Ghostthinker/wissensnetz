@@ -1,6 +1,6 @@
 <?php
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 class OnlineMeetingFunctionalCest {
 
@@ -22,7 +22,7 @@ class OnlineMeetingFunctionalCest {
       'lastname' => 'statistic',
     ]);
 
-    $og = $I->haveOrganisation('LicenseStatisticOG', [
+    $og = $I->createOrganisation('LicenseStatisticOG', [
         'body' => 'dummy statistic og',
         'parent' => NULL,
         'language' => 'en',
@@ -74,7 +74,7 @@ class OnlineMeetingFunctionalCest {
 
     $I->completedSetup();
 
-    $I->assertCount(4, Bildungsnetz::getActiveDialogs($group->nid));
+    $I->assertCount(4, Wissensnetz::getActiveDialogs($group->nid));
   }
 
   public function testOnlineMeetingAccess(UnitTester $I) {
@@ -82,7 +82,7 @@ class OnlineMeetingFunctionalCest {
     $I->wantTo('check the access of the online meeting');
 
 
-    $O1 = $I->haveOrganisation('OnlineMeetingOrganisation_1', [
+    $O1 = $I->createOrganisation('OnlineMeetingOrganisation_1', [
         'body' => 'O1',
         'parent' => NULL,
         'language' => 'en',
@@ -189,6 +189,76 @@ class OnlineMeetingFunctionalCest {
     $I->assertTRUE(node_access('view', $OM_4, $G1_M3));
     $I->assertFALSE(node_access('view', $OM_4, $U4));
     $I->assertFALSE(node_access('view', $OM_4, $U5_O2));
+  }
+
+  public function testGetDialogsFromCommunityArea(UnitTester $I) {
+
+    $I->wantTo('that i get the next pending dialog from the community area');
+
+    $user = $I->haveUser([
+      'firstname' => 'max',
+      'lastname' => 'statistic',
+    ]);
+
+    $drupalUser = \Wissensnetz\User\DrupalUser::make($user->uid);
+
+    $group = $I->createGroup($user);
+
+    $I->haveOnlineMeeting([
+      'user' => $user,
+      'title' => 'Online Treffen Gruppe Öffentlich',
+      'group' => $group,
+      'startDate' => strtotime('now + 5 hours'),
+      'endDate' => strtotime('now + 6 hour'),
+      'meeting_status' => 1,
+      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+    ]);
+
+    $I->haveOnlineMeeting([
+      'user' => $user,
+      'title' => 'Online Treffen Gruppe Only Authors',
+      'group' => $group,
+      'startDate' => strtotime('now + 1 hours'),
+      'endDate' => strtotime('now + 2 hour'),
+      'meeting_status' => 1,
+      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS,
+    ]);
+
+    $I->haveOnlineMeeting([
+      'user' => $user,
+      'title' => 'Online Treffen Gruppe Only Group',
+      'group' => $group,
+      'startDate' => strtotime('now + 1 hours'),
+      'endDate' => strtotime('now + 2 hour'),
+      'meeting_status' => 1,
+      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
+    ]);
+
+    $I->haveOnlineMeeting([
+      'user' => $user,
+      'title' => 'Online Treffen Gemeinschaftsbereich öffentlich',
+      'startDate' => strtotime('now + 6 hours'),
+      'endDate' => strtotime('now + 7 hour'),
+      'meeting_status' => 1,
+      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+    ]);
+
+    $I->haveOnlineMeeting([
+      'user' => $user,
+      'title' => 'Online Treffen Gemeinschaftsbereich Privat',
+      'startDate' => strtotime('now + 7 hours'),
+      'endDate' => strtotime('now + 8 hour'),
+      'meeting_status' => 1,
+      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS,
+    ]);
+
+
+    $I->assertCount(3, Wissensnetz::getActiveDialogs($group->nid));
+
+    $onlineTreffenService = new \salto_core\service\OnlineTreffenService();
+    $upcomingDialog = $onlineTreffenService->getLatestDialogByUser($drupalUser);
+    $I->assertEquals('upcoming target', $upcomingDialog->getTitle());
+
   }
 
 

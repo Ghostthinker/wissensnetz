@@ -137,5 +137,107 @@ return  false;
   $path_breadcrumb->weight = -34;
   $export['online_meeting_node_view_in_group'] = $path_breadcrumb;
 
+  $path_breadcrumb = new stdClass();
+  $path_breadcrumb->api_version = 1;
+  $path_breadcrumb->machine_name = 'online_meeting_not_in_group';
+  $path_breadcrumb->name = 'Online-Meeting: Not in Gruppe';
+  $path_breadcrumb->path = 'node/%node';
+  $path_breadcrumb->data = array(
+    'titles' => array(
+      0 => 'Gemeinschaft',
+    ),
+    'paths' => array(
+      0 => 'online-meetings/status',
+    ),
+    'home' => 1,
+    'translatable' => 0,
+    'arguments' => array(
+      'node' => array(
+        'position' => 1,
+        'argument' => 'entity_id:node',
+        'settings' => array(
+          'identifier' => 'Node: ID',
+        ),
+      ),
+    ),
+    'access' => array(
+      'plugins' => array(
+        0 => array(
+          'name' => 'node_type',
+          'settings' => array(
+            'type' => array(
+              'online_meeting' => 'online_meeting',
+            ),
+          ),
+          'context' => 'node',
+          'not' => FALSE,
+        ),
+        1 => array(
+          'name' => 'php',
+          'settings' => array(
+            'description' => 'Check if node is not OG Content',
+            'php' => '$node = $contexts[\'node\']->data;
+if (!isset($node ->field_og_group[LANGUAGE_NONE][0][\'target_id\'])) {
+ return true ;
+}
+return  false;',
+          ),
+          'not' => FALSE,
+        ),
+      ),
+      'logic' => 'and',
+    ),
+  );
+  $path_breadcrumb->weight = 0;
+  $export['online_meeting_not_in_group'] = $path_breadcrumb;
+
+  $path_breadcrumb = new stdClass();
+  $path_breadcrumb->api_version = 1;
+  $path_breadcrumb->machine_name = 'online_meetings';
+  $path_breadcrumb->name = 'Online meetings';
+  $path_breadcrumb->path = 'online-meetings/status/%state';
+  $path_breadcrumb->data = array(
+    'titles' => array(
+      0 => 'Gemeinschaft',
+      1 => 'Online-Treffen',
+    ),
+    'paths' => array(
+      0 => 'online-meetings/status',
+      1 => 'online-meetings/status',
+    ),
+    'home' => 1,
+    'translatable' => 0,
+    'arguments' => array(
+      'state' => array(
+        'position' => 2,
+      ),
+    ),
+    'access' => array(),
+  );
+  $path_breadcrumb->weight = 0;
+  $export['online_meetings'] = $path_breadcrumb;
+
+  $path_breadcrumb = new stdClass();
+  $path_breadcrumb->api_version = 1;
+  $path_breadcrumb->machine_name = 'online_meetings_overview';
+  $path_breadcrumb->name = 'Online meetings overview';
+  $path_breadcrumb->path = 'online-meetings/status';
+  $path_breadcrumb->data = array(
+    'titles' => array(
+      0 => 'Gemeinschaft',
+      1 => 'Online-Treffen',
+    ),
+    'paths' => array(
+      0 => 'online-meetings/status',
+      1 => 'online-meetings/status',
+    ),
+    'home' => 1,
+    'translatable' => 0,
+    'arguments' => array(),
+    'access' => array(),
+  );
+  $path_breadcrumb->weight = 0;
+  $export['online_meetings_overview'] = $path_breadcrumb;
+
   return $export;
 }

@@ -7,6 +7,7 @@
 define('ROLE_GLOBAL_DOSB_RID', 6);
 define('ROLE_GLOBAL_ADMIN_RID', 3);
 define('ROLE_GLOBAL_GARDENER_RID', 8);
+define('ROLE_GLOBAL_ONLINETREFFEN_MANAGER', 10);
 
 include_once 'salto_core.features.inc';
 include_once 'inc/helpers.inc';
@@ -24,8 +25,8 @@ require_once 'sites/all/libraries/vendor/autoload.php';
  */
 function salto_core_menu() {
   $items['admin/config/salto'] = [
-    'title' => 'DOSB Wissensnetz',
-    'description' => 'Settings for salto-bip core',
+    'title' => 'Community',
+    'description' => 'Settings for edubreak community',
     'access arguments' => ['administer site configuration'],
     'position' => 'right',
     'weight' => -5,
@@ -33,8 +34,52 @@ function salto_core_menu() {
     'page arguments' => ['salto_core_admin_settings'],
     'file' => 'salto_core.admin.inc',
   ];
+
+  $items['admin/config/salto/migrate'] = [
+    'title' => 'Migrate ',
+    'description' => 'Migrate a community from edubreak',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_core_migration_form'],
+    'file' => 'salto_core.admin.inc',
+  ];
+
+  $items['admin/config/salto/graylog'] = [
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_core_graylog_settings_form'],
+    'title' => 'Graylog Settings',
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => ['administer site configuration'],
+    'file' => 'salto_core.admin.inc',
+  ];
+
+  $items['admin/config/salto/customization'] = [
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_core_customization_settings_form'],
+    'title' => 'Customization',
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => ['administer site configuration'],
+    'file' => 'salto_core.admin.inc',
+  ];
+
+
   return $items;
 }
+
+function salto_core_autoload($class_name) {
+
+  $parts = explode("\\", $class_name);
+  if ($parts[0] == 'salto_core') {
+    array_shift($parts);
+    $path = drupal_get_path('module', 'salto_core') . '/inc/' . implode("/", $parts) . '.php';
+
+    include $path;
+  }
+}
+
+spl_autoload_register('salto_core_autoload');
 
 
 /**
@@ -202,8 +247,13 @@ function salto_core_preprocess_htmlmail(&$variables) {
   // override logo
   if (!empty($conf['wn_blanko']['logo'])) {
     $variables['logo_fix_size'] = FALSE;
-    $variables['logo'] = url("/" . drupal_get_path('module', 'wn_blanko') . "/images/" . $conf['wn_blanko']['logo'], ['absolute' => TRUE]);
+    $variables['logo'] = url($conf['wn_blanko']['logo'], ['absolute' => TRUE]);
   }
+  $mailLogo = $conf['wn_blanko']['mail_logo'] ?? 'logo-wn.png';
+  $variables['eb_logo'] = url($mailLogo, ['absolute' => TRUE]);
+  $variables['mail_primary_color'] = $conf['wn_blanko']['less_variables_overrides']['@dosb-orange'] ?? 'rgb(252, 177, 49)';
+
+
 
   $variables['content'] = $variables['message']['body'];
 
@@ -426,6 +476,8 @@ function salto_core_init() {
     drupal_add_js(drupal_get_path('module', 'salto_core') . "/js/salto_core_slider.js");
     drupal_add_js(['salto_core' => ['salto_core_frontpage_slider_interval' => variable_get('salto_core_frontpage_slider_interval', 6000)]], ['type' => 'setting']);
   }
+
+  module_load_include('inc', "taxonomy", "taxonomy.admin");
 
 }
 
@@ -923,5 +975,84 @@ function _salto_core_node_check_batch(&$sandbox) {
     return t('The batch salto_core_node_check did what it was supposed to do: @message', [
       '@message' => $final_message,
     ]);
+  }
+}
+
+function salto_core_get_default_value_themenfeld_filter(){
+  return variable_get("themenfelder_filter_default_value_override", TRUE);
+}
+
+function salto_core_get_posts_show_active_category_only(){
+  return variable_get("salto_core_get_posts_show_active_category_only", FALSE);
+}
+
+function salto_core_posts_send_notification_default_value(){
+  return variable_get("salto_core_posts_send_notification_default_value", TRUE);
+}
+
+function salto_core_get_users_filter_by_organisation() {
+  return variable_get('users_filter_by_organisation', FALSE);
+}
+
+function salto_core_cron(){
+    $kernel = new \salto_core\tasks\Kernel();
+    $kernel->cron();
+
+}
+
+
+/**
+ * Disable the Drupal page cache.
+ */
+function salto_core_disable_page_cache() {
+  // PressFlow and Drupal 7 method.
+  if (function_exists('drupal_page_is_cacheable')) {
+    drupal_page_is_cacheable(FALSE);
+  }
+}
+
+function salto_core_render_social_video_help_info(){
+  $socialVideoHelp = \salto_core\service\SettingsService::getSocialVideoHelp();
+  return '<h2 class="pane-title custom-pane-title">'. $socialVideoHelp['panel_heading'] .'</h2>
+         <a target="_blank" href="'. $socialVideoHelp['target_url'] .'">
+         <img src="'. $socialVideoHelp['gif_url'] .'" style="width:100%;"> </a>  ';
+}
+
+function salto_core_generate_signature($base_url, $params = [], $expires_in_seconds = 0, $secret_key) {
+  // Calculate the expiration time
+  if($expires_in_seconds !== 0) {
+    $expires_at = time() + $expires_in_seconds;
+
+    // Add the expiration time to the parameters
+    $params['expires'] = $expires_at;
+  }
+
+  // Create a query string from the parameters
+  $query_string = http_build_query($params);
+
+  // Generate the signature using HMAC and SHA256
+  $signature = hash_hmac('sha256', $query_string, $secret_key);
+  return $signature;
+}
+
+function salto_core_verify_signature($params, $signature, $secret_key) {
+  // Parse the URL
+  // Verify the expiration time
+
+  if ($params['expires'] != 0 && time() > $params['expires']) {
+    return false; // URL has expired
+  }
+
+  // Recreate the query string from the parameters
+  $query_string = http_build_query($params);
+
+  // Generate the expected signature
+  $expected_signature = hash_hmac('sha256', $query_string, $secret_key);
+
+  // Compare the signatures
+  if (hash_equals($expected_signature, $signature)) {
+    return true; // URL is valid
+  } else {
+    return false; // Invalid signature
   }
 }

@@ -541,6 +541,7 @@ function ajax_comments_preprocess_comment_wrapper(&$variables) {
  * (comment_form_location is COMMENT_FORM_SEPARATE_PAGE)
  */
 function ajax_comments_reply($node, $pid = 0, $flag = 0) {
+  global $user;
   if (!user_access('post comments')) {
     return MENU_ACCESS_DENIED;
   }
@@ -581,12 +582,16 @@ function ajax_comments_reply($node, $pid = 0, $flag = 0) {
     $form_build = drupal_get_form("comment_node_{$node->type}_form", (object) array('nid' => $node->nid, 'pid' => $pid), array('flag' => $flag));
   }
 
+  //inject current user image to form
+  $form_build['comment_body'][LANGUAGE_NONE][0]['#prefix'] .= theme('user_picture', array('account' => $user));
+
   $form = trim(drupal_render($form_build));
 
   if (variable_get('ajax_comments_reply_autoclose') && !empty($pid)) {
     $commands[] = ajax_command_remove('.ajax-comments-form-reply');
     $commands[] = ajax_command_invoke('.ajax-comments-reply', 'show');
   }
+
 
   // Add the new form.
   if (!empty($pid)) {
@@ -633,6 +638,7 @@ function ajax_comments_reply($node, $pid = 0, $flag = 0) {
     $commands[] = array('command' => 'ajaxCommentsScrollToElement', 'selector' => '.ajax-comments-reply-form-' . $node->nid . '-' . $pid . '-0');
     $commands[] = ajax_command_invoke('.ajax-comments-reply-form-' . $node->nid . '-' . $pid . '-0 .form-textarea' , 'focus');
   }
+
 
   return array('#type' => 'ajax', '#commands' => $commands);
 }

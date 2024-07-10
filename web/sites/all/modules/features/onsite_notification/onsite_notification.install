@@ -252,3 +252,33 @@ function onsite_notification_update_31000() {
   }
 
 }
+
+/**
+ * Set default settings for new notification notification_user_mentioned
+ */
+function onsite_notification_update_42200() {
+  //set the notification settings to default settings for all users
+  $users = array_keys(db_select('users', "u")
+    ->fields("u")
+    ->condition("status", 1, "=")
+    ->execute()
+    ->fetchAllKeyed());
+  foreach ($users as $uid) {
+    onsite_notification_settings_save($uid, MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED, ["mail" => 1], 1);
+  }
+}
+
+/**
+ * Set default settings for new notification notification_online_meeting_scheduled
+ */
+function onsite_notification_update_42201() {
+  //set the notification settings to default settings for all users
+  $users = array_keys(db_select('users', "u")
+    ->fields("u")
+    ->condition("status", 1, "=")
+    ->execute()
+    ->fetchAllKeyed());
+  foreach ($users as $uid) {
+    onsite_notification_settings_save($uid, MESSAGE_TYPE_NOTIFICATION_ONLINE_MEETING_SCHEDULED, ["mail" => 1], 1);
+  }
+}

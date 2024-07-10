@@ -9,7 +9,6 @@ class OnlineMeetingService {
    */
   private $gatewayAPI;
 
-
   /**
    * OnlineMeetingService constructor.
    */
@@ -18,10 +17,14 @@ class OnlineMeetingService {
     $this->settings = salto_online_meeting_get_gateway_settings();
     $this->gatewayAPI = new DialogGatewayAPI($this->settings);
     $this->node = $node;
-    $this->og_nid = $group_nid = salto_group_get_group_id_from_node($this->node);
-
+    $this->og_nid = salto_group_get_group_id_from_node($this->node) ?? $node->nid;
   }
 
+  public function render() {
+    if ($this->renderRecordingsAccess()) {
+      return $this->renderRecordings(TRUE);
+    }
+  }
 
   public function renderJoinLink($bootstrap = FALSE) {
 
@@ -36,15 +39,12 @@ class OnlineMeetingService {
         ],
       ];
 
-
       drupal_add_js($js_settings, 'setting');
       drupal_add_js(drupal_get_path('module', 'salto_online_meeting') . '/js/dialog_gateway.js');
-
 
       $out = '<div class="alert alert-info">' . t("Loading online meeting information") . '</div>';
       return '<div id="dialog_status" data-nid="' . $this->node->nid . '">' . $out . '</div>';
     }
-
 
     $remoteInfo = $this->getRemoteInfo();
     $dialogStatus = $remoteInfo['body']['dialog_status'];
@@ -66,7 +66,6 @@ class OnlineMeetingService {
       case DialogGatewayAPI::DialogSessionStatusWaitingForHost:
         $out = $this->renderStartLinkForDialogSessionWaiting($remoteInfo);
     }
-
 
     return $out;
   }
@@ -115,8 +114,8 @@ class OnlineMeetingService {
    */
   function renderStartLinkForDialogSessionNotActive($remoteInfo) {
 
-    $group_nid = salto_group_get_group_id_from_node($this->node);
-    $has_start_dialog_permission = og_user_access('node', $group_nid, "create online_meeting content");
+    global $user;
+    $has_start_dialog_permission = node_access('update', $this->node, $user);
 
     $is_webinar = salto_online_meeting_is_webinar($this->node);
 
@@ -126,10 +125,12 @@ class OnlineMeetingService {
     }
 
     //2) check if start timeframe for webinars is ok
-    $timeAuthorization = $this->mayStartWebinarTimeAuthorization();
-    if ($is_webinar && $timeAuthorization['allowed_to_start'] == FALSE) {
-      return "<div class='alert alert-info'>" . $timeAuthorization['message'] . "</div>";
+    if ($is_webinar){
+      $timeAuthorization = $this->mayStartWebinarTimeAuthorization();
+      if ($timeAuthorization['allowed_to_start'] == FALSE) {
+        return "<div class='alert alert-info'>" . $timeAuthorization['message'] . "</div>";
 
+      }
     }
 
     $dialogStatus = $remoteInfo['body']['dialog_status'];
@@ -149,7 +150,6 @@ class OnlineMeetingService {
     $label = !$is_webinar ?
       t('Start Meeting') :
       t("Start Webinar");
-
 
     $query = [
       'action' => 'start_meeting',
@@ -197,25 +197,32 @@ class OnlineMeetingService {
         $additional_info = "<div class='alert alert-error'>" . t('You cannot start a webinar at the moment, but you can start a Online-meeting instead.') . "</div>";
         $query['force_meeting'] = 1;
       }
-      elseif ($upgrade_capacity && $mayStartWebinar) {
-        $query['upgrade_webinar'] = $upgrade_capacity;
-      }
-      elseif (!$upgrade_capacity && $mayStartWebinar && $downgrade_capacity) {
-        $additional_info = "<div class='alert alert-error'>" . t('You cannot start a webinar with up to %desired attendees but you could start a webinar with the up to %max attendees.', [
-            '%max' => $downgrade_capacity,
-            '%desired' => $desired_capacity,
-          ]) . "</div>";
-        $query['upgrade_webinar'] = $downgrade_capacity;
-      }
-      elseif (!$upgrade_capacity && $mayStartWebinar) {
-        $additional_info = "<div class='alert alert-info'>" . t('The max number of attendees for this webinar is %max.', ['%max' => $desired_capacity]) . "</div>";
-
-      }
       else {
-        return "tbi downgrade webinar capacity";
+        if ($upgrade_capacity && $mayStartWebinar) {
+          $query['upgrade_webinar'] = $upgrade_capacity;
+        }
+        else {
+          if (!$upgrade_capacity && $mayStartWebinar && $downgrade_capacity) {
+            $additional_info = "<div class='alert alert-error'>" . t('You cannot start a webinar with up to %desired attendees but you could start a webinar with the up to %max attendees.',
+                [
+                  '%max' => $downgrade_capacity,
+                  '%desired' => $desired_capacity,
+                ]) . "</div>";
+            $query['upgrade_webinar'] = $downgrade_capacity;
+          }
+          else {
+            if (!$upgrade_capacity && $mayStartWebinar) {
+              $additional_info = "<div class='alert alert-info'>" .
+                t('The max number of attendees for this webinar is %max.', ['%max' => $desired_capacity]) . "</div>";
+
+            }
+            else {
+              return "tbi downgrade webinar capacity";
+            }
+          }
+        }
       }
     }
-
 
     $url = url('node/' . $this->node->nid, [
       'query' => $query,
@@ -261,10 +268,8 @@ class OnlineMeetingService {
   private function renderStartLinkForDialogSessionWaiting($remoteInfo) {
     $out = '';
 
-    $group_nid = salto_group_get_group_id_from_node($this->node);
-
-    $has_start_dialog_permission = og_user_access('node', $group_nid, "create online_meeting content");
-
+    global $user;
+    $has_start_dialog_permission = node_access('update', $this->node, $user);
 
     if ($has_start_dialog_permission) {
       $out .= "<div class='alert alert-info'>" . t("Waiting for host to start") . "</div>";
@@ -280,6 +285,7 @@ class OnlineMeetingService {
 
     return $out;
   }
+
 
   /**
    * Process all url statuses
@@ -304,12 +310,14 @@ class OnlineMeetingService {
       return $this->processActionStart($force_meeting, $force_capacity);
 
     }
-    elseif ($action == 'join_meeting') {
-      if (!$this->checkAccess('join')) {
-        drupal_access_denied();
-        exit();
+    else {
+      if ($action == 'join_meeting') {
+        if (!$this->checkAccess('join')) {
+          drupal_access_denied();
+          exit();
+        }
+        return $this->processActionJoin();
       }
-      return $this->processActionJoin();
     }
   }
 
@@ -332,7 +340,6 @@ class OnlineMeetingService {
     }
     return FALSE;
   }
-
 
   /**
    * Try to start a meeting via gateway call and redirect to external redirect
@@ -381,19 +388,26 @@ class OnlineMeetingService {
 
   }
 
-
   /**
    * Get all settings we pass to the  dialog
    *
    * @return array|bool
    */
   private function getDialogSessionParameters() {
+    global $user;
+    $account = user_load($user->uid);
+    $names = explode(' ', $account->realname);
 
+    $profile_name_last = $names[0];
+    $profile_name_first = $names[1];
     $dialog_settings['password'] = $this->settings['online_meeting_default_meeting_password'] ?? 'wissensnet';
     $dialog_settings['waiting_room'] = 1;
-    $dialog_settings['cloud_recording_enabled'] = FALSE;
+    $dialog_settings['cloud_recording_enabled'] = salto_online_cloud_recording_enabled();
     $dialog_settings['auto_record'] = FALSE;
-
+    $dialog_settings['host'] = [
+      'first_name' => $profile_name_last ?? 'Dialog',
+      'last_name' => $profile_name_first ?? 'Host'
+    ];
     //check large meeting 1000 exceptions
     $dialog_settings['large_meeting_1000_enabled'] = FALSE;
 
@@ -428,13 +442,12 @@ class OnlineMeetingService {
       $displayedName = format_username($user);
     }
 
-
     $url = $this->gatewayAPI->joinDialogSession([
       'host' => $this->getDialogSessionID(),
     ]);
 
     if (empty($url)) {
-      drupal_set_message(t("An error occured, could not join dialog"), 'error');
+      drupal_set_message(t("An error occured, could not join meeting"), 'error');
       return;
     }
 
@@ -445,7 +458,6 @@ class OnlineMeetingService {
     drupal_goto($url, ['external' => TRUE]);
 
   }
-
 
   private function renderActionLink($path, $title, $classes = [], $additional_info = '') {
 
@@ -467,7 +479,6 @@ class OnlineMeetingService {
     ];
     $rendered_link = render($link);
 
-
     $out = '<div class="pane-action-links">';
     $out .= '<div class="pane-content">' . $rendered_link . '</div>' . $additional_info;
     $out .= '</div>';
@@ -480,7 +491,6 @@ class OnlineMeetingService {
     $this->node->field_online_meeting_status[LANGUAGE_NONE][0]['value'] = $status;
     node_save($this->node);
   }
-
 
   function shorten_username($user) {
     $account = user_load($user->uid);
@@ -509,4 +519,189 @@ class OnlineMeetingService {
     return $shortenedUsername;
   }
 
+  /**
+   * Generate form for completed recordings
+   *
+   * @param bool $bootstrap
+   *
+   * @return mixed|string|string[]|void|null
+   */
+  public function renderRecordings($bootstrap = TRUE) {
+
+    if ($bootstrap) {
+      return '<div class="salto-online-meeting-recordings-wrapper" data-nid="' . $this->node->nid . '"></div>';
+    }
+
+    $recordings = $this->getRecordingsFromGateway();
+
+    if (empty($recordings)) {
+      return "";
+    }
+
+    $recordings_to_process = [];
+
+    foreach ($recordings as $i => $recording) {
+      if (empty($this->data['recordings'][$recording['recording_id']])) {
+
+        $recordingFilePath = $this->getRecordingPath($recording['recording_id']);
+        $query = db_select('file_managed', 'm')
+          ->fields('m', ['fid'])
+          ->condition('m.uri', $recordingFilePath, '=');
+
+        $fids = $query->execute()->fetchCol();
+
+        if (empty($fids)) {
+          $recordings_to_process[$recording['recording_id']] = $recording;
+
+        }
+      }
+    }
+
+    if (empty($recordings_to_process)) {
+      return "";
+    }
+
+    return theme("gateway_recording_downloads_info", ['node' => $this->node, 'recordings' => $recordings_to_process]);
+  }
+
+  public function getRecordingsFromGateway($silent = TRUE) {
+    return $this->gatewayAPI->getDialogRecordings($this->getDialogSessionID());
+  }
+
+  public function deleteRecordingsFromGateway($recording) {
+    return $this->gatewayAPI->deleteDialogRecordings($recording['recording_id'], $this->getDialogSessionID());
+  }
+
+  public function getOnlineMeetingNode() {
+    return $this->node;
+  }
+
+  public function processRecordings($recordings = []) {
+
+    global $user;
+
+    $recordingsDirectory = $this->getRecordingDirectory();
+    file_prepare_directory($recordingsDirectory, FILE_CREATE_DIRECTORY);
+
+    $batch = [
+      'operations' => [
+        [
+          'salto_online_meeting_process_recordings',
+          [$recordings, $this->node->nid],
+        ],
+      ],
+      'finished' => 'salto_online_meeting_process_recordings_finished',
+      'title' => t('Process Recordings'),
+    ];
+    batch_set($batch);
+  }
+
+  private function getRecordingDirectory() {
+    return 'private://dialogs/' . $this->node->nid . '/recordings';
+  }
+
+
+  private function getRecordingPath($recordingId) {
+    return $this->getRecordingDirectory() . '/' . $recordingId . '.mp4';
+  }
+
+  public function downloadDialogRecording($downloadUrl, $targetFilename) {
+    set_time_limit(0);
+
+    // File to save the contents to
+    $fp = fopen($targetFilename, 'w+');
+
+    // Here is the file we are downloading, replace spaces with %20
+    $ch = curl_init(str_replace(" ", "%20", $downloadUrl));
+
+    curl_setopt($ch, CURLOPT_TIMEOUT, 50);
+
+    // give curl the file pointer so that it can write to it
+    curl_setopt($ch, CURLOPT_FILE, $fp);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+
+    $data = curl_exec($ch);//get curl response
+
+    //done
+    curl_close($ch);
+  }
+
+  private function renderRecordingsAccess() {
+
+    $drupalUser = \Wissensnetz\User\DrupalUser::current();
+    if($drupalUser->isCommunityManager()){
+      return TRUE;
+    }
+
+    $og_node = node_load($this->og_nid);
+    if (og_user_access_entity('administer group', 'node', $og_node, $drupalUser->getUser())) {
+      return TRUE;
+    }
+
+    if ($drupalUser->getUser() == $this->node->uid) {
+      return TRUE;
+    }
+
+    return FALSE;
+
+  }
+
+  public function importRecording($recording) {
+    global $user;
+    $account = user_load($user->uid);
+
+    $targetFilepath = $this->getRecordingPath($recording['recording_id']);
+
+    $url = $recording['download_url'];#'https://stream19.edubreak.de/streaming/dialog/download.php';
+
+    $this->downloadDialogRecording($url, $targetFilepath);
+
+    $title = $this->getRecordingTitle($recording);
+
+    $file = new stdClass();
+    $file->fid = NULL;
+    $file->uri = $targetFilepath;
+    $file->filename = transliteration_clean_filename($title. '.mp4');
+    $file->filemime = file_get_mimetype($targetFilepath);
+    $file->type = 'video';
+    $file->title = $title;
+    $file->field_file_title[LANGUAGE_NONE][0]['value'] = $title;
+    $file->field_post_collaboration = $this->node->field_post_collaboration;
+    $file->field_file_license_type[LANGUAGE_NONE][0]['value'] = 'CC_BY';
+    $file->field_file_originator[LANGUAGE_NONE][0]['value'] = $account->realname;
+    $file->field_file_originator[LANGUAGE_NONE][0]['safe_value'] = $account->realname;
+    $file->field_og_group = $this->node->field_og_group;
+    $file->uid = $account->uid;
+    $file->status = 1;
+
+
+    if(empty($this->node->field_og_group)){
+      $file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'] = \salto_core\service\SettingsService::getKnowledgeBaseFallbackTid();
+    }
+    $file = file_save($file);
+
+    if (!empty($file->fid)) {
+      $this->node->field_online_meeting_recordings[LANGUAGE_NONE][] = ['target_id' => $file->fid];
+      node_save($this->node);
+
+    }
+
+    return $file;
+  }
+
+  public function getRecordingTitle($recording) {
+    $start_date = strtotime($recording['meta_data']['recording_start']);
+    $end_date = strtotime($recording['meta_data']['recording_end']);
+    $file_size = format_size($recording['meta_data']['file_size']);
+
+    return t("!recording_title: !start - !end (!size)", [
+      '!start' => format_date($start_date, 'small'),
+      '!end' => format_date($end_date, 'custom', "H:i"),
+      '!size' => $file_size,
+      '!recording_title' =>  $this->node->title,
+    ]);
+  }
+
+
 }
+

@@ -2,10 +2,29 @@
 
 require_once dirname(__FILE__) . '/includes/media_webresource.formatter.inc';
 
+
+/**
+ * Implements hook_menu().
+ */
+function media_webresource_menu() {
+  $items['admin/config/salto/media-webresource-metadata-preview'] = [
+    'title' => 'Webresource url2info settings',
+    'description' => 'Settings for webresource metadata preview',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['media_webresource_settings_page'],
+    'file' => 'media_webresource.admin.inc',
+  ];
+
+  return $items;
+}
+
 /**
  * Implements hook_media_internet_providers().
  *
- * Implementors return an multidim array, keyed by a class name with the
+ * Implementors return a multidim array, keyed by a class name with the
  * following elements:
  * - title
  * - image (optional)
@@ -19,6 +38,7 @@ function media_webresource_media_internet_providers() {
     ],
   ];
 }
+
 
 /**
  * Implements hook_stream_wrappers().
@@ -77,4 +97,17 @@ function media_webresource_theme($existing, $type, $theme, $path) {
       'template' => 'media_webresource_youtube_player',
     ],
   ];
+}
+
+function media_webresource_service_get_url2info_settings() {
+
+  $defaults = [
+    'url' => 'http://10.0.1.118:3012',
+    'proxy_url' => 'https://proxy.ghostthinker.de/img/img.php',
+    'proxy_secret' => '',
+  ];
+
+  $options = variable_get('media_webresource_url2info_settings', []);
+
+  return array_merge($defaults, $options);
 }

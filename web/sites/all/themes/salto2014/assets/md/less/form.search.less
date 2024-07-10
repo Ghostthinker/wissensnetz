@@ -23,7 +23,7 @@
     .pane-menu-suche.mobile.responsive {
       .menu.nav.nav-pills.nav-fill {
         li.leaf > a {
-            font-size: 1.1rem;
+            font-size: 0.7rem;
             padding-left: 1em;
             text-overflow: ellipsis;
             overflow: hidden;
@@ -76,16 +76,13 @@
 
 
 
-#navbar-primary,
-#salto-facet-search-container {
 
   #salto-search-search-form--2,
   #salto-search-search-form {
     display: block;
     margin: 0 0 1em 0;
     padding: 0;
-    box-shadow: @card-background-shadow;
-    background-color: #fff;
+
     > div {
       display: flex;
       justify-content: center;
@@ -103,14 +100,29 @@
       z-index: 1;
       top: auto;
     }
+    input.salto-search{
+      border-top-left-radius: 25px;
+      border-bottom-left-radius: 25px;
+    }
+    input.salto-search{
+      border-top-left-radius: 25px;
+      border-bottom-left-radius: 25px;
+
+    }
+
+    .input-group:not(:has(.input-group-addon)){
+      border-top-right-radius: 25px;
+      border-bottom-right-radius: 25px;
+    }
+
+    .input-group-addon{
+      border-top-right-radius: 25px;
+      border-bottom-right-radius: 25px;
+    }
     input {
-      border: none;
       background-color: @background-input;
       z-index: 0;
       padding-left: 2.5em;
-    }
-    .input-group-addon {
-      border: none;
     }
     .salto-search-result-container {
       border: none;
@@ -163,29 +175,11 @@
         padding: 0;
       }
     }
-    .card img {
-      border-radius: 0;
-    }
     .node-readmore {
       text-align: right;
       font-weight: bold;
     }
   }
-
-  .pagination {
-    display: flex;
-    justify-content: center;
-
-    > li {
-      display: none;
-    }
-    .prev,
-    .active,
-    .next {
-      display: block;
-    }
-  }
-}
 
 #navbar-primary {
   #salto-search-search-form--2,

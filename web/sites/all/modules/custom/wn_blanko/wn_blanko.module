@@ -9,6 +9,7 @@ function wn_blanko_form_user_profile_form_alter(&$form, &$form_state) {
 
   if (!module_exists('dosb_license')) {
     unset($form['account']['roles']['#options'][SALTO_ROLE_LICENSE_MANAGER_RID]);
+    $form['account']['roles']['#options'][ROLE_GLOBAL_DOSB_RID] = t('Community-Manager');
   }
 }
 
@@ -35,5 +36,83 @@ function wn_blanko_less_variables_alter(array &$less_variables, $system_name) {
     foreach ($conf['wn_blanko']['less_variables_overrides'] as $var_name => $color) {
       $less_variables[$var_name] = $color;
     }
+  }
+}
+
+/**
+ * @param mixed $setting_string
+ *
+ * @return void
+ * @throws \FieldException
+ */
+function _wn_blanko_update_field_instances($setting_string): void {
+  $field_instance_overrides = _wn_blanko_update_field_instances_get_assoc_array($setting_string);
+
+  foreach ($field_instance_overrides as $key => $value) {
+
+    //get all fields to override
+    $field = field_read_instance('profile2', $key, 'main');
+    // Check if the field instance exists.
+    if ($field) {
+      // Modify the settings as needed.
+      $field['label'] = $value;
+
+      $desciption_key = $key . '_description';
+      if (!empty($field_instance_overrides[$desciption_key])) {
+        $field['description'] = $field_instance_overrides[$desciption_key];
+      }
+
+      // Save the updated field instance.
+      field_update_instance($field);
+    }
+  }
+}
+
+/**
+ * get associative array of key = field_name , value = label override
+ *
+ * @param $setting_string
+ *
+ * @return array
+ */
+function _wn_blanko_update_field_instances_get_assoc_array($setting_string) {
+  $lines = explode("\n", $setting_string);
+
+  $result = [];
+  foreach ($lines as $line) {
+    // Split each line by '=>' to separate key and value
+    $keyValue = explode('=>', $line);
+
+    // Remove leading/trailing spaces from keys and values
+    $key = trim($keyValue[0]);
+    $value = trim($keyValue[1]);
+
+    $result[$key] = $value;
+  }
+
+  return $result;
+}
+
+function wn_blanko_admin_settings_submit_handler($form, &$form_state) {
+  _wn_blanko_update_field_instances($form_state['values']['field_instance_label_overrides']);
+}
+
+function wn_blanko_form_alter(&$form, &$form_state, $form_id) {
+
+  if($form_id == 'views_exposed_form') {
+
+    $field_overrides_assoc = _wn_blanko_update_field_instances_get_assoc_array(variable_get('field_instance_label_overrides', ''));
+    if (!empty($field_overrides_assoc['field_profile_competencies'])) {
+      if (!empty($form['#info']['filter-field_profile_competencies_tid']['label'])) {
+        $form['#info']['filter-field_profile_competencies_tid']['label'] = $field_overrides_assoc['field_profile_competencies'];
+      }
+    }
+
+    if (!empty($field_overrides_assoc['field_profile_categories'])) {
+      if (!empty($form['#info']['filter-field_profile_themenfelder_tid']['label'])) {
+        $form['#info']['filter-field_profile_themenfelder_tid']['label'] = $field_overrides_assoc['field_profile_categories'];
+      }
+    }
+
   }
 }

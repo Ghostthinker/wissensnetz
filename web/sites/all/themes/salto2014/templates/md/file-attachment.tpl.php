@@ -2,15 +2,21 @@
 $derivatives = $attachment['media_derivatives'];
 $hasDerivatives = $derivatives['has_derivatives'] && file_exists($derivatives['derivatives_list']['document']->unmanaged_uri);
 $hasFilesize = $attachment['filesize'] > 0;
-$isImage = strpos($attachment['filemime'], 'image') !== FALSE && file_exists($attachment['url']);
+
+$isImage = strpos($attachment['filemime'], 'image') !== FALSE;
+if ($isImage) {
+  $style = "media_140x140";
+  $imgPreviewUrl = image_style_url($style, $attachment['uri']);
+}
+
 ?>
 <div class="file-attachments">
   <div class="preview-image">
     <?php if ($hasDerivatives): ?>
       <img class="img-responsive"
-           src="<?php $derivatives['derivatives_list']['document']->unmanaged_uri ?>"
+           src="<?php echo file_create_url($derivatives['derivatives_list']['document']->unmanaged_uri); ?>"
            width="90" height="90" alt="derivatives-img">
-    <?php elseif ($isImage): ?>
+    <?php elseif ($isImage && $imgPreviewUrl): ?>
       <img class="img-responsive"
            src="<?php echo $attachment['url'] ?>"
            width="90" height="90" alt="thumbnail-img">
@@ -21,7 +27,7 @@ $isImage = strpos($attachment['filemime'], 'image') !== FALSE && file_exists($at
   </div>
   <div class="info-section">
     <div class="file-title section-info">
-      <?php echo $attachment['file_title'] ?>
+      <?php echo l($attachment['file_title'], 'file/'. $attachment['fid']) ?>
     </div>
     <div class="file-user section-info section-info-small">
       <?php

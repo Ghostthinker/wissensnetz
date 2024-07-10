@@ -11,8 +11,8 @@
 function wysiwyg_markitup_editor() {
   $editor['markitup'] = array(
     'title' => 'markItUp',
-    'vendor url' => 'http://markitup.jaysalvat.com',
-    'download url' => 'http://markitup.jaysalvat.com/downloads',
+    'vendor url' => 'https://markitup.jaysalvat.com',
+    'download url' => 'https://markitup.jaysalvat.com/downloads',
     'library path' => wysiwyg_get_path('markitup'),
     'libraries' => array(
       '' => array(
@@ -24,6 +24,7 @@ function wysiwyg_markitup_editor() {
         'files' => array('markitup/jquery.markitup.pack.js'),
       ),
     ),
+    'deprecation message' => t('@editor is no longer being developed and support will be dropped by Wysiwyg module after May 2022.', array('@editor' => 'markItUp')),
     'install note callback' => 'wysiwyg_markitup_install_note',
     'verified version range' => array('1.1.5', '1.1.14'),
     'version callback' => 'wysiwyg_markitup_version',
@@ -44,7 +45,9 @@ function wysiwyg_markitup_editor() {
  * Return an install note.
  */
 function wysiwyg_markitup_install_note() {
-  return '<p class="warning">' . t('Only rename the extracted folder from "latest" to "markitup", no other changes needed.') . '</p>';
+  $output = '<p class="warning">' . t('Only rename the extracted folder from "latest" to "markitup", no other changes needed.') . '</p>';
+  $output .= '<p class="warning">' . t('@editor is no longer being developed and support will be dropped by Wysiwyg module after May 2022.', array('@editor' => 'markItUp')) . '</p>';
+  return $output;
 }
 
 /**

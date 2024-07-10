@@ -66,7 +66,7 @@ function salto_group_default_page_manager_handlers() {
     ),
   );
   $display = new panels_display();
-  $display->layout = 'salto_363';
+  $display->layout = 'salto_372';
   $display->layout_settings = array();
   $display->panel_settings = array(
     'style_settings' => array(
@@ -343,6 +343,7 @@ return false;',
     'override_title' => 0,
     'override_title_text' => '',
     'type' => 'groups',
+    'override_title_heading' => 'h2',
   );
   $pane->cache = array();
   $pane->style = array(
@@ -780,7 +781,7 @@ if (isset($node ->field_og_group[LANGUAGE_NONE][0][\'target_id\'])) {
  return true ;
 }
 else{
-return  false; 
+return  false;
 }',
           ),
           'not' => FALSE,
@@ -789,7 +790,7 @@ return  false;
     ),
   );
   $display = new panels_display();
-  $display->layout = 'salto_363';
+  $display->layout = 'salto_372';
   $display->layout_settings = array();
   $display->panel_settings = array(
     'style_settings' => array(
@@ -883,6 +884,7 @@ return  false;
     'override_title' => 0,
     'override_title_text' => '',
     'type' => 'groups',
+    'override_title_heading' => 'h2',
   );
   $pane->cache = array();
   $pane->style = array(
@@ -1110,6 +1112,450 @@ function salto_group_default_page_manager_pages() {
   $page = new stdClass();
   $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
   $page->api_version = 1;
+  $page->name = 'group';
+  $page->task = 'page';
+  $page->admin_title = 'group-files-download';
+  $page->admin_description = 'Knowledgebase main area';
+  $page->path = 'groups/%node/files/download/!term';
+  $page->access = array(
+    'plugins' => array(
+      0 => array(
+        'name' => 'role',
+        'settings' => array(
+          'rids' => array(
+            0 => 2,
+          ),
+        ),
+        'context' => 'logged-in-user',
+        'not' => FALSE,
+      ),
+    ),
+    'logic' => 'and',
+    'type' => 'none',
+    'settings' => NULL,
+  );
+  $page->menu = array(
+    'type' => 'none',
+    'title' => 'Materialien',
+    'name' => 'main-menu',
+    'weight' => '-49',
+    'parent' => array(
+      'type' => 'none',
+      'title' => '',
+      'name' => 'navigation',
+      'weight' => '0',
+    ),
+  );
+  $page->arguments = array(
+    'node' => array(
+      'id' => 1,
+      'identifier' => 'Node: ID',
+      'name' => 'entity_id:node',
+      'settings' => array(),
+    ),
+    'term' => array(
+      'id' => 1,
+      'identifier' => 'Taxonomy term: ID',
+      'name' => 'term',
+      'settings' => array(
+        'input_form' => 'tid',
+        'vocabularies' => array(
+          'lehr_lern_material_kategorien' => 'lehr_lern_material_kategorien',
+        ),
+        'breadcrumb' => 0,
+        'transform' => 0,
+      ),
+    ),
+  );
+  $page->conf = array(
+    'admin_paths' => FALSE,
+  );
+  $page->default_handlers = array();
+  $handler = new stdClass();
+  $handler->disabled = FALSE; /* Edit this to true to make a default handler disabled initially */
+  $handler->api_version = 1;
+  $handler->name = 'page_group__panel_context_bf63724f-037e-48e9-80b8-a851631da327';
+  $handler->task = 'page';
+  $handler->subtask = 'group';
+  $handler->handler = 'panel_context';
+  $handler->weight = 0;
+  $handler->conf = array(
+    'title' => 'Zielseite',
+    'no_blocks' => 1,
+    'pipeline' => 'standard',
+    'body_classes_to_remove' => '',
+    'body_classes_to_add' => '',
+    'css_id' => '',
+    'css' => '',
+    'contexts' => array(),
+    'relationships' => array(),
+    'name' => '',
+    'access' => array(
+      'logic' => 'and',
+    ),
+  );
+  $display = new panels_display();
+  $display->layout = 'onecol';
+  $display->layout_settings = array();
+  $display->panel_settings = array(
+    'style_settings' => array(
+      'default' => NULL,
+      'left' => NULL,
+      'middle' => NULL,
+      'right' => NULL,
+    ),
+    'left' => array(
+      'style' => '-1',
+    ),
+  );
+  $display->cache = array();
+  $display->title = '';
+  $display->uuid = 'e41a225e-1178-4815-b625-8c481227457c';
+  $display->storage_type = 'page_manager';
+  $display->storage_id = 'page_group__panel_context_bf63724f-037e-48e9-80b8-a851631da327';
+  $display->content = array();
+  $display->panels = array();
+  $pane = new stdClass();
+  $pane->pid = 'new-52c0fd93-3878-48e6-beb3-3d34302209d1';
+  $pane->panel = 'middle';
+  $pane->type = 'menu_tree';
+  $pane->subtype = 'menu-groups';
+  $pane->shown = FALSE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'parent' => 'menu-groups:0',
+    'title_link' => 0,
+    'admin_title' => '',
+    'level' => '1',
+    'follow' => 0,
+    'depth' => '0',
+    'depth_relative' => 0,
+    'expanded' => 0,
+    'sort' => 0,
+    'menu_name' => 'menu-groups',
+    'parent_mlid' => '0',
+    'override_title' => 1,
+    'override_title_text' => '',
+    'override_title_heading' => 'h2',
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 0;
+  $pane->locks = array();
+  $pane->uuid = '52c0fd93-3878-48e6-beb3-3d34302209d1';
+  $display->content['new-52c0fd93-3878-48e6-beb3-3d34302209d1'] = $pane;
+  $display->panels['middle'][0] = 'new-52c0fd93-3878-48e6-beb3-3d34302209d1';
+  $pane = new stdClass();
+  $pane->pid = 'new-77ddeec4-def0-45ad-bdd6-05f44261f012';
+  $pane->panel = 'middle';
+  $pane->type = 'block';
+  $pane->subtype = 'salto_search-salto_block_search';
+  $pane->shown = FALSE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'override_title' => 0,
+    'override_title_text' => '',
+    'override_title_heading' => 'h2',
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 1;
+  $pane->locks = array();
+  $pane->uuid = '77ddeec4-def0-45ad-bdd6-05f44261f012';
+  $display->content['new-77ddeec4-def0-45ad-bdd6-05f44261f012'] = $pane;
+  $display->panels['middle'][1] = 'new-77ddeec4-def0-45ad-bdd6-05f44261f012';
+  $pane = new stdClass();
+  $pane->pid = 'new-85873a03-fa3a-4f22-b8f9-b91c28f2a68e';
+  $pane->panel = 'middle';
+  $pane->type = 'views_panes';
+  $pane->subtype = 'groups_files-panel_pane_1';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array();
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 2;
+  $pane->locks = array();
+  $pane->uuid = '85873a03-fa3a-4f22-b8f9-b91c28f2a68e';
+  $display->content['new-85873a03-fa3a-4f22-b8f9-b91c28f2a68e'] = $pane;
+  $display->panels['middle'][2] = 'new-85873a03-fa3a-4f22-b8f9-b91c28f2a68e';
+  $pane = new stdClass();
+  $pane->pid = 'new-010ee379-a790-4d12-8dc9-6f930be59ec0';
+  $pane->panel = 'middle';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'admin_title' => 'Set title',
+    'title' => '',
+    'body' => '<?php
+
+if(is_numeric("%category:tid")){
+drupal_set_title("%category:name"); 
+}
+else{
+drupal_set_title("Materialien");
+}
+?>',
+    'format' => 'php_code',
+    'substitute' => 1,
+    'title_heading' => 'h2',
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 3;
+  $pane->locks = array();
+  $pane->uuid = '010ee379-a790-4d12-8dc9-6f930be59ec0';
+  $display->content['new-010ee379-a790-4d12-8dc9-6f930be59ec0'] = $pane;
+  $display->panels['middle'][3] = 'new-010ee379-a790-4d12-8dc9-6f930be59ec0';
+  $display->hide_title = PANELS_TITLE_FIXED;
+  $display->title_pane = '0';
+  $handler->conf['display'] = $display;
+  $page->default_handlers[$handler->name] = $handler;
+  $pages['group'] = $page;
+
+  $page = new stdClass();
+  $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
+  $page->api_version = 1;
+  $page->name = 'group_files_edit';
+  $page->task = 'page';
+  $page->admin_title = 'group-files-edit';
+  $page->admin_description = 'Knowledgebase main area';
+  $page->path = 'groups/%node/files/edit/!term';
+  $page->access = array(
+    'plugins' => array(
+      0 => array(
+        'name' => 'role',
+        'settings' => array(
+          'rids' => array(
+            0 => 2,
+          ),
+        ),
+        'context' => 'logged-in-user',
+        'not' => FALSE,
+      ),
+    ),
+    'logic' => 'and',
+    'type' => 'none',
+    'settings' => NULL,
+  );
+  $page->menu = array(
+    'type' => 'none',
+    'title' => 'Materialien',
+    'name' => 'main-menu',
+    'weight' => '-49',
+    'parent' => array(
+      'type' => 'none',
+      'title' => '',
+      'name' => 'navigation',
+      'weight' => '0',
+    ),
+  );
+  $page->arguments = array(
+    'node' => array(
+      'id' => 1,
+      'identifier' => 'Node: ID',
+      'name' => 'entity_id:node',
+      'settings' => array(),
+    ),
+    'term' => array(
+      'id' => 1,
+      'identifier' => 'Taxonomy term: ID',
+      'name' => 'term',
+      'settings' => array(
+        'input_form' => 'tid',
+        'vocabularies' => array(
+          'lehr_lern_material_kategorien' => 'lehr_lern_material_kategorien',
+        ),
+        'breadcrumb' => 0,
+        'transform' => 0,
+      ),
+    ),
+  );
+  $page->conf = array(
+    'admin_paths' => FALSE,
+  );
+  $page->default_handlers = array();
+  $handler = new stdClass();
+  $handler->disabled = FALSE; /* Edit this to true to make a default handler disabled initially */
+  $handler->api_version = 1;
+  $handler->name = 'page_group_files_edit__panel_context_90d70759-3e76-4b29-903e-09696628bbb4';
+  $handler->task = 'page';
+  $handler->subtask = 'group_files_edit';
+  $handler->handler = 'panel_context';
+  $handler->weight = 0;
+  $handler->conf = array(
+    'title' => 'Zielseite',
+    'no_blocks' => 1,
+    'pipeline' => 'standard',
+    'body_classes_to_remove' => '',
+    'body_classes_to_add' => '',
+    'css_id' => '',
+    'css' => '',
+    'contexts' => array(),
+    'relationships' => array(),
+    'name' => '',
+    'access' => array(
+      'logic' => 'and',
+    ),
+  );
+  $display = new panels_display();
+  $display->layout = 'onecol';
+  $display->layout_settings = array();
+  $display->panel_settings = array(
+    'style_settings' => array(
+      'default' => NULL,
+      'left' => NULL,
+      'middle' => NULL,
+      'right' => NULL,
+    ),
+    'left' => array(
+      'style' => '-1',
+    ),
+  );
+  $display->cache = array();
+  $display->title = '';
+  $display->uuid = 'e41a225e-1178-4815-b625-8c481227457c';
+  $display->storage_type = 'page_manager';
+  $display->storage_id = 'page_group_files_edit__panel_context_90d70759-3e76-4b29-903e-09696628bbb4';
+  $display->content = array();
+  $display->panels = array();
+  $pane = new stdClass();
+  $pane->pid = 'new-52c0fd93-3878-48e6-beb3-3d34302209d1';
+  $pane->panel = 'middle';
+  $pane->type = 'menu_tree';
+  $pane->subtype = 'menu-groups';
+  $pane->shown = FALSE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'parent' => 'menu-groups:0',
+    'title_link' => 0,
+    'admin_title' => '',
+    'level' => '1',
+    'follow' => 0,
+    'depth' => '0',
+    'depth_relative' => 0,
+    'expanded' => 0,
+    'sort' => 0,
+    'menu_name' => 'menu-groups',
+    'parent_mlid' => '0',
+    'override_title' => 1,
+    'override_title_text' => '',
+    'override_title_heading' => 'h2',
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 0;
+  $pane->locks = array();
+  $pane->uuid = '52c0fd93-3878-48e6-beb3-3d34302209d1';
+  $display->content['new-52c0fd93-3878-48e6-beb3-3d34302209d1'] = $pane;
+  $display->panels['middle'][0] = 'new-52c0fd93-3878-48e6-beb3-3d34302209d1';
+  $pane = new stdClass();
+  $pane->pid = 'new-77ddeec4-def0-45ad-bdd6-05f44261f012';
+  $pane->panel = 'middle';
+  $pane->type = 'block';
+  $pane->subtype = 'salto_search-salto_block_search';
+  $pane->shown = FALSE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'override_title' => 0,
+    'override_title_text' => '',
+    'override_title_heading' => 'h2',
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 1;
+  $pane->locks = array();
+  $pane->uuid = '77ddeec4-def0-45ad-bdd6-05f44261f012';
+  $display->content['new-77ddeec4-def0-45ad-bdd6-05f44261f012'] = $pane;
+  $display->panels['middle'][1] = 'new-77ddeec4-def0-45ad-bdd6-05f44261f012';
+  $pane = new stdClass();
+  $pane->pid = 'new-0dd28420-aa08-4c08-b4a9-1f7214ff16d9';
+  $pane->panel = 'middle';
+  $pane->type = 'views_panes';
+  $pane->subtype = 'groups_files-panel_pane_2';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array();
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 2;
+  $pane->locks = array();
+  $pane->uuid = '0dd28420-aa08-4c08-b4a9-1f7214ff16d9';
+  $display->content['new-0dd28420-aa08-4c08-b4a9-1f7214ff16d9'] = $pane;
+  $display->panels['middle'][2] = 'new-0dd28420-aa08-4c08-b4a9-1f7214ff16d9';
+  $pane = new stdClass();
+  $pane->pid = 'new-010ee379-a790-4d12-8dc9-6f930be59ec0';
+  $pane->panel = 'middle';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'admin_title' => 'Set title',
+    'title' => '',
+    'body' => '<?php
+
+if(is_numeric("%category:tid")){
+drupal_set_title("%category:name"); 
+}
+else{
+drupal_set_title("Materialien");
+}
+?>',
+    'format' => 'php_code',
+    'substitute' => 1,
+    'title_heading' => 'h2',
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 3;
+  $pane->locks = array();
+  $pane->uuid = '010ee379-a790-4d12-8dc9-6f930be59ec0';
+  $display->content['new-010ee379-a790-4d12-8dc9-6f930be59ec0'] = $pane;
+  $display->panels['middle'][3] = 'new-010ee379-a790-4d12-8dc9-6f930be59ec0';
+  $display->hide_title = PANELS_TITLE_FIXED;
+  $display->title_pane = '0';
+  $handler->conf['display'] = $display;
+  $page->default_handlers[$handler->name] = $handler;
+  $pages['group_files_edit'] = $page;
+
+  $page = new stdClass();
+  $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
+  $page->api_version = 1;
   $page->name = 'groups';
   $page->task = 'page';
   $page->admin_title = 'Groups';
@@ -1237,29 +1683,6 @@ function salto_group_default_page_manager_pages() {
   $display->content['new-3c872048-fcb8-443e-9531-6c7a878bd24e'] = $pane;
   $display->panels['left'][0] = 'new-3c872048-fcb8-443e-9531-6c7a878bd24e';
   $pane = new stdClass();
-  $pane->pid = 'new-367a887b-dced-4029-84f5-0d51e4187bce';
-  $pane->panel = 'middle';
-  $pane->type = 'block';
-  $pane->subtype = 'salto_search-salto_block_search';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array(
-    'override_title' => 0,
-    'override_title_text' => '',
-    'override_title_heading' => 'h2',
-  );
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-  );
-  $pane->css = array();
-  $pane->extras = array();
-  $pane->position = 0;
-  $pane->locks = array();
-  $pane->uuid = '367a887b-dced-4029-84f5-0d51e4187bce';
-  $display->content['new-367a887b-dced-4029-84f5-0d51e4187bce'] = $pane;
-  $display->panels['middle'][0] = 'new-367a887b-dced-4029-84f5-0d51e4187bce';
-  $pane = new stdClass();
   $pane->pid = 'new-1956b2cf-fbfc-4380-a00e-3e86fdccf914';
   $pane->panel = 'middle';
   $pane->type = 'page_title';
@@ -1279,11 +1702,11 @@ function salto_group_default_page_manager_pages() {
   );
   $pane->css = array();
   $pane->extras = array();
-  $pane->position = 1;
+  $pane->position = 0;
   $pane->locks = array();
   $pane->uuid = '1956b2cf-fbfc-4380-a00e-3e86fdccf914';
   $display->content['new-1956b2cf-fbfc-4380-a00e-3e86fdccf914'] = $pane;
-  $display->panels['middle'][1] = 'new-1956b2cf-fbfc-4380-a00e-3e86fdccf914';
+  $display->panels['middle'][0] = 'new-1956b2cf-fbfc-4380-a00e-3e86fdccf914';
   $pane = new stdClass();
   $pane->pid = 'new-8a007577-5d41-4ebb-83bc-f09fb1272b41';
   $pane->panel = 'middle';
@@ -1298,11 +1721,11 @@ function salto_group_default_page_manager_pages() {
   );
   $pane->css = array();
   $pane->extras = array();
-  $pane->position = 2;
+  $pane->position = 1;
   $pane->locks = array();
   $pane->uuid = '8a007577-5d41-4ebb-83bc-f09fb1272b41';
   $display->content['new-8a007577-5d41-4ebb-83bc-f09fb1272b41'] = $pane;
-  $display->panels['middle'][2] = 'new-8a007577-5d41-4ebb-83bc-f09fb1272b41';
+  $display->panels['middle'][1] = 'new-8a007577-5d41-4ebb-83bc-f09fb1272b41';
   $pane = new stdClass();
   $pane->pid = 'new-4282dcc8-8d29-4d28-976a-4b1903f26727';
   $pane->panel = 'right';
@@ -1557,6 +1980,7 @@ function salto_group_default_page_manager_pages() {
     ),
     'override_title' => 0,
     'override_title_text' => '',
+    'override_title_heading' => 'h2',
   );
   $pane->cache = array();
   $pane->style = array(
@@ -1574,7 +1998,7 @@ function salto_group_default_page_manager_pages() {
   $pane->panel = 'right';
   $pane->type = 'block';
   $pane->subtype = 'user-login';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'override_title' => 0,

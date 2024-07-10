@@ -77,7 +77,7 @@ class GroupsUnitCest {
         'user' => $GROUP_AUTHOR,
         'title' => 'Wird gelöscht',
         'body' => "Test Inhalt 270_05",
-        'group' => $GROUP,
+        'group' => $GROUP->nid,
         'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
         'groupAccess' => $GROUP->nid,
@@ -87,7 +87,7 @@ class GroupsUnitCest {
         'user' => $GROUP_AUTHOR,
         'title' => 'Nur Read',
         'body' => "Test Inhalt 270_05",
-        'group' => $GROUP,
+        'group' => $GROUP->nid,
         'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
         'groupAccess' => $GROUP->nid,
@@ -97,7 +97,7 @@ class GroupsUnitCest {
         'user' => $GROUP_AUTHOR,
         'title' => 'Nur View',
         'body' => "Test Inhalt 270_05",
-        'group' => $GROUP,
+        'group' => $GROUP->nid,
         'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
         'groupAccess' => $GROUP->nid,
@@ -107,7 +107,7 @@ class GroupsUnitCest {
         'user' => $GROUP_AUTHOR,
         'title' => 'Gruppe Public',
         'body' => "Test Inhalt 270_05",
-        'group' => $GROUP,
+        'group' => $GROUP->nid,
         'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
         'groupAccess' => $GROUP->nid,
@@ -124,34 +124,34 @@ class GroupsUnitCest {
       $MATERIAL_GROUP_ONLY = $I->haveMaterial([
         'user' => $GROUP_AUTHOR,
         'group' => $GROUP,
-        'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
+        'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
       ]);
 
       $MATERIAL_ONLY_READ = $I->haveMaterial([
         'user' => $GROUP_AUTHOR,
         'group' => $GROUP,
-        'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
+        'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
       ]);
 
       $MATERIAL_ONLY_VIEW = $I->haveMaterial([
         'user' => $GROUP_AUTHOR,
         'group' => $GROUP,
-        'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+        'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_GROUP,
       ]);
 
       $MATERIAL_PUBLIC = $I->haveMaterial([
         'user' => $GROUP_AUTHOR,
         'group' => $GROUP,
-        'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+        'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
       ]);
 
       $MATERIAL_NO_GROUP = $I->haveMaterial([
         'user' => $GROUP_AUTHOR,
-        'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+        'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
         'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
       ]);
 
@@ -225,4 +225,84 @@ class GroupsUnitCest {
       $I->assertEmpty($MATERIAL_PUBLIC->field_og_group);
 
   }
+
+  public function test_groups_filter_relevant_groups(UnitTester $I) {
+
+    $communityManager = $I->haveUser([
+      'firstname' => 'Founder',
+      'lastname' => 'tester',
+       'role_dosb' => TRUE,
+    ]);
+
+    $user = $I->haveUser([
+      'firstname' => 'Founder',
+      'lastname' => 'tester',
+      'role_dosb' => TRUE,
+    ]);
+
+    $ORGANISATION = $I->createOrganisation('OnlineMeetingOrganisation_1', [
+        'body' => 'OnlineMeetingOrganisation_1',
+        'parent' => null,
+        'language' => 'en'
+      ]
+    );
+
+    $ORGANISATION_JOINED = $I->createOrganisation('OnlineMeetingOrganisation_1', [
+        'body' => 'OnlineMeetingOrganisation_1',
+        'parent' => null,
+        'language' => 'en'
+      ]
+    );
+
+    $I->addMemberToOrganisation($user, $ORGANISATION_JOINED, array(SALTO_OG_ROLE_MANAGER_RID));
+
+    $GROUP_APPROVAL_REQUIRED = $I->createGroup($communityManager,[
+      'join_mode' => SALTO_GROUP_JOIN_REQUIRE_APPROVAL
+    ]);
+
+    $GROUP_ALLREADY_MEMBER = $I->createGroup($communityManager,[
+      'join_mode' => SALTO_GROUP_JOIN_ON_INVITATION
+    ]);
+
+    $GROUP_CLOSED = $I->createGroup($communityManager,[
+      'join_mode' => SALTO_GROUP_JOIN_ON_INVITATION
+    ]);
+
+    $GROUP_ORGANISATION_NOT_MEMBER = $I->createGroup($communityManager,[
+      'join_mode' => SALTO_GROUP_JOIN_SELECTED_ORGANISATIONS,
+      'org_id' =>  $ORGANISATION->nid
+    ]);
+
+    $GROUP_ORGANISATION_MEMBER = $I->createGroup($communityManager,[
+      'join_mode' => SALTO_GROUP_JOIN_SELECTED_ORGANISATIONS,
+      'org_id' =>  $ORGANISATION_JOINED->nid
+    ]);
+
+    $GROUP_OPEN = $I->createGroup($communityManager,[
+      'join_mode' => SALTO_GROUP_JOIN_OPEN
+    ]);
+
+
+
+    $I->addMemberToGroup($user, $GROUP_ALLREADY_MEMBER->nid);
+
+    $I->actAsUser($user);
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_APPROVAL_REQUIRED->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_OPEN->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_ALLREADY_MEMBER->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_ORGANISATION_MEMBER->nid));
+    $I->assertTrue(salto_group_filter_relevant_group($GROUP_ORGANISATION_NOT_MEMBER->nid));
+    $I->assertTrue(salto_group_filter_relevant_group($GROUP_CLOSED->nid));
+
+    $I->actAsUser($communityManager);
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_APPROVAL_REQUIRED->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_OPEN->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_ALLREADY_MEMBER->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_ORGANISATION_MEMBER->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_ORGANISATION_NOT_MEMBER->nid));
+    $I->assertFalse(salto_group_filter_relevant_group($GROUP_CLOSED->nid));
+  }
+
+
+
 }

@@ -14,6 +14,26 @@ define('DOCUMENT_FILE_MIME_DOCX', 'application/vnd.openxmlformats-officedocument
 define('DOCUMENT_FILE_MIME_XLSX', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 define('DOCUMENT_FILE_MIME_PPTX', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
 
+
+/**
+ * Implements hook_menu().
+ */
+function media_derivatives_document_menu() {
+
+  $items['admin/config/salto/media-derivatives-document-preview'] = [
+    'title' => 'Media derivatives document preview',
+    'description' => 'Settings for media derivatives document preview',
+    'access arguments' => ['administer site configuration'],
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['media_derivatives_document_settings_page'],
+    'file' => 'media_derivatives_document.admin.inc',
+  ];
+
+  return $items;
+}
+
 /**
  * Implements hook_media_derivatives_engine_info().
  */
@@ -27,95 +47,150 @@ function media_derivatives_document_media_derivatives_engine_info() {
 
 function media_derivatives_document_ui_callback() {
   $form = [];
-  $form['bildungsnetz_convert_endpoint'] = [
-    '#type' => 'textfield',
-    '#default_value' => BILDUNGSNETZ_CONVERT_ENDPOINT,
+
+  //options - pdf, image
+  $form['job_type'] = [
+    '#type' => 'select',
+    '#options' => [
+      'pdf' => 'pdf',
+      'image' => 'image'
+    ],
+    '#default_value' => 'image',
     '#title' => t('document convert endpoint'),
     '#description' => t('Url of file convert service for create preview image. Example: ' . BILDUNGSNETZ_CONVERT_ENDPOINT),
-  ];
-
-  $form['document_output'] = [
-    '#type' => 'textfield',
-    '#maxlength' => 256,
-    '#title' => t('document output dir'),
-    '#description' => t('Directory for the preview images.'),
-  ];
-
-  $form['document_extension'] = [
-    '#type' => 'textfield',
-    '#title' => t('Derivative extension'),
-    '#description' => t('File extension for derivative file (without dot). Examples: jpeg, ...'),
   ];
 
   return $form;
 }
 
 function media_derivatives_document_media_derivatives_create_derivative($file, $derivative) {
+  $pdfPreviewService = new \Wissensnetz\File\PdfPreviewService();
 
-  $file_name_with_full_path = drupal_realpath($file->uri);
+  //Todo: Admin Setting url für gotenberg und admine steting für phpToImage url
+  //Todo: Temp file für die PDF's
+  //Todo: Tests check filesize
+  //Todo: Live implementierung SH Code einchecken
+  //Todo: Zweimal Speichern beheben -> optimiertes Speichern - Überlegungen $derivative untersuchen ob man update erkennt - andere Möglichkeit
+  // auf Filetime schauen, wenn es gerade erst geändert wurde dann skippen
 
-  if (!file_exists($file_name_with_full_path)) {
+  $documentFilePath = drupal_realpath($file->uri);
+
+  $filehash = sha1($file->uri);
+
+  $jobType = $derivative->preset->engine_settings['job_type'] ?? 'image';
+
+  $media_derivative_document_directory = PRIVATE_MEDIA_DERIVATIVE_CONVERTED_PATH . "/". $derivative->preset->machine_name;
+  if (!file_prepare_directory($media_derivative_document_directory, FILE_CREATE_DIRECTORY)){
+    throw new MediaDerivativesException($derivative->mdid, t('Could not prepare directory'));
+  }
+
+  if (!file_exists($documentFilePath)) {
     throw new MediaDerivativesException($derivative->mdid, t('Unable to find document'));
   }
-  variable_set('media_derivatives_display_status_messages', FALSE);
 
-  //create dir in case it was not there yet
-  if (!empty($derivative->preset->engine_settings['document_output'])) {
-    $dir = $derivative->preset->engine_settings['document_output'];
-  }
-  else {
-    $dir = variable_get('media_derivatives_derivative_document_path', PRIVATE_MEDIA_DERIVATIVE_CONVERTED_PATH);
-  }
-  file_prepare_directory($dir, FILE_CREATE_DIRECTORY);
+  $derivative_path_pdf = $media_derivative_document_directory . "/" . $filehash.".pdf";
+  $derivative_path_jpg = $media_derivative_document_directory . "/" . $filehash.".jpg";
 
-  $extension = $derivative->preset->engine_settings['document_extension'];
-  $extension = isset($extension) ? $extension : 'jpg';
+  $derivative_path_pdf = file_destination($derivative_path_pdf, FILE_EXISTS_REPLACE);
+  $derivative_path_jpg = file_destination($derivative_path_jpg, FILE_EXISTS_REPLACE);
 
-  if (!empty($derivative->preset->engine_settings['bildungsnetz_convert_endpoint'])) {
-    $convert_endpoint = $derivative->preset->engine_settings['bildungsnetz_convert_endpoint'] . $extension;
-  }
-  else {
-    $convert_endpoint = variable_get("bildungsnetz_convert_endpoint", BILDUNGSNETZ_CONVERT_ENDPOINT) . $extension;
-  }
+  $mimeType = file_get_mimetype($documentFilePath);
 
-  if (function_exists('curl_file_create')) { // php 5.5+
-    $cFile = curl_file_create($file_name_with_full_path);
-  }
-  else {
-    $cFile = '@' . realpath($file_name_with_full_path);
+
+  if( $mimeType != 'application/pdf') {
+    $pdfFileResult = $pdfPreviewService->convertDocument2Pdf($documentFilePath, $derivative_path_pdf);
+
+    if($jobType == 'pdf') {
+      return $pdfFileResult;
+    }
+    $pdfSourceFilePath = $pdfFileResult;
+  }else{
+    $pdfSourceFilePath = $documentFilePath;
   }
 
-  $post = ['file' => $cFile];
-  $curl = curl_init();
-  curl_setopt($curl, CURLOPT_URL, $convert_endpoint);
-  curl_setopt($curl, CURLOPT_POST, 1);
-  curl_setopt($curl, CURLOPT_POSTFIELDS, $post);
-  curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
 
-  $contents = curl_exec($curl);
-  if (curl_errno($curl)) {
-    $info = curl_getinfo($curl);
-    $msg = 'Es wurden ' . $info['total_time'] . ' Sekunden benötigt für einen Request an ' . $info['url'];
-    throw new MediaDerivativesException($derivative->mdid, $msg);
+  if($jobType == 'image') {
+
+    $jpegFileResult = $pdfPreviewService->convertPdf2Image($pdfSourceFilePath, $derivative_path_jpg);
+    return $jpegFileResult;
   }
 
-  $new_file = $dir . "/" . $file->filename;
-  $new_file .= '-' . $derivative->preset->machine_name;
-  $new_file .= '.' . $extension;
-  $new_file = file_destination($new_file, FILE_EXISTS_RENAME);
+  return null;
+}
 
-  $fp = fopen($new_file, "w");
 
-  $size = fwrite($fp, $contents);
-  if ($size < 36500) {
-    $msg = t('File was successfully uploaded, unfortunately the preview image could not be generated from the source file.');
-    throw new MediaDerivativesException($derivative->mdid, $msg);
-  }
+function media_derivatives_document_media_derivatives_create_derivative_old($file, $derivative) {
 
-  curl_close($curl);
-  fclose($fp);
 
-  return $new_file;
+  //Todo: Admin Setting url für gotenberg und admine steting für phpToImage url
+  //Todo: Tests check filesize
+
+    $file_name_with_full_path = drupal_realpath($file->uri);
+
+
+
+    if (!file_exists($file_name_with_full_path)) {
+      throw new MediaDerivativesException($derivative->mdid, t('Unable to find document'));
+    }
+    variable_set('media_derivatives_display_status_messages', FALSE);
+
+    //create dir in case it was not there yet
+    if (!empty($derivative->preset->engine_settings['document_output'])) {
+      $dir = $derivative->preset->engine_settings['document_output'];
+    }
+    else {
+      $dir = variable_get('media_derivatives_derivative_document_path', PRIVATE_MEDIA_DERIVATIVE_CONVERTED_PATH);
+    }
+    file_prepare_directory($dir, FILE_CREATE_DIRECTORY);
+
+    $extension = $derivative->preset->engine_settings['document_extension'];
+    $extension = isset($extension) ? $extension : 'jpg';
+
+    if (!empty($derivative->preset->engine_settings['bildungsnetz_convert_endpoint'])) {
+      $convert_endpoint = $derivative->preset->engine_settings['bildungsnetz_convert_endpoint'] . $extension;
+    }
+    else {
+      $convert_endpoint = variable_get("bildungsnetz_convert_endpoint", BILDUNGSNETZ_CONVERT_ENDPOINT) . $extension;
+    }
+
+    if (function_exists('curl_file_create')) { // php 5.5+
+      $cFile = curl_file_create($file_name_with_full_path);
+    }
+    else {
+      $cFile = '@' . realpath($file_name_with_full_path);
+    }
+
+    $post = ['file' => $cFile];
+    $curl = curl_init();
+    curl_setopt($curl, CURLOPT_URL, $convert_endpoint);
+    curl_setopt($curl, CURLOPT_POST, 1);
+    curl_setopt($curl, CURLOPT_POSTFIELDS, $post);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+
+    $contents = curl_exec($curl);
+    if (curl_errno($curl)) {
+      $info = curl_getinfo($curl);
+      $msg = 'Es wurden ' . $info['total_time'] . ' Sekunden benötigt für einen Request an ' . $info['url'];
+      throw new MediaDerivativesException($derivative->mdid, $msg);
+    }
+
+    $new_file = $dir . "/" . $file->filename;
+    $new_file .= '-' . $derivative->preset->machine_name;
+    $new_file .= '.' . $extension;
+    $new_file = file_destination($new_file, FILE_EXISTS_RENAME);
+
+    $fp = fopen($new_file, "w");
+
+    $size = fwrite($fp, $contents);
+    if ($size < 36500) {
+      $msg = t('File was successfully uploaded, unfortunately the preview image could not be generated from the source file.');
+      throw new MediaDerivativesException($derivative->mdid, $msg);
+    }
+
+    curl_close($curl);
+    fclose($fp);
+
+    return $new_file;
 }
 
 function media_derivatives_document_permission() {
@@ -376,33 +451,40 @@ function media_derivatives_document_preprocess_media_derivatives_document_image(
  * Implements hook_requirements().
  */
 function media_derivatives_document_requirements($phase) {
-  $requirements = [];
-  // Ensure translations don't break during installation.
-  $t = get_t();
+  $requirements = array();
 
+  // Only check requirements for the runtime phase.
   if ($phase == 'runtime') {
-    // Test document status
-    $requirements['document_status'] = [
-      'title' => $t('document status'),
-    ];
+    $pdfPreviewService = new \Wissensnetz\File\PdfPreviewService();
 
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, variable_get("bildungsnetz_convert_endpoint", BILDUNGSNETZ_CONVERT_ENDPOINT));
-    curl_setopt($ch, CURLOPT_HEADER, FALSE);
+    // Check the status of Gotenberg health check.
+    $gotenbergStatus = $pdfPreviewService->healthCheckGotenberg();
+    $pdfToImageStatus = $pdfPreviewService->healthCheckPdfToImage();
 
-    $content = curl_exec($ch);
-    if ($content == 1) {
-      $requirements['document_status']['value'] = 'Endpoint is available';
+    // Determine the status of the module's requirements.
+    $isModuleHealthy = $gotenbergStatus && $pdfToImageStatus;
+
+    // Add a requirement message depending on the status.
+    if ($isModuleHealthy) {
+      $requirements['media_derivatives_document'] = array(
+        'title' => t('Media Derivatives Document Module'),
+        'value' => t('OK'),
+        'description' => t('Both Gotenberg and PdfToImage services are operational.'),
+        'severity' => REQUIREMENT_OK,
+      );
+    } else {
+      $requirements['media_derivatives_document'] = array(
+        'title' => t('Media Derivatives Document Module'),
+        'value' => t('Error'),
+        'description' => t('One or both of the services failed the health check.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
     }
-    else {
-      $requirements['document_status']['value'] = 'Endpoint is not available';
-      $requirements['document_status']['severity'] = REQUIREMENT_ERROR;
-    }
-
-    curl_close($ch);
   }
+
   return $requirements;
 }
+
 
 /**
  * Implements hook_media_derivatives_conditions_info().
@@ -419,3 +501,16 @@ function media_derivatives_document_media_derivatives_conditions_info() {
   ];
   return $conditions;
 }
+
+function media_derivatives_service_get_document_preview_settings() {
+
+  $defaults = [
+    'gotenberg_url' => 'http://10.0.1.118:3011',
+    'pdf_to_image_url' => 'http://10.0.1.118:3010',
+  ];
+
+  $options = variable_get('media_derivatives_document_settings', []);
+
+  return array_merge($defaults, $options);
+}
+

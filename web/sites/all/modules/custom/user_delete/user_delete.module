@@ -144,7 +144,6 @@ function user_delete_own_account_submit($form, &$form_state) {
   if (!empty($edit['user_cancel_notify'])) {
     _user_mail_notify('status_canceled', $account);
   }
-  user_delete_og_memberships($account->uid);
 
   user_delete($account->uid);
 

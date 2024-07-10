@@ -21,12 +21,21 @@ class SiteActivity extends HeartbeatStream {
   protected function queryAlter() {
 
     //get active user's themenfelder and preprocess for query IN condition
-    $users_themenfelder = salto_user_get_themenfelder();
+
+    $users_themenfelder = salto_user_get_themenfelder($this->getViewed());
+
     $users_themenfelder_tids = array();
     foreach($users_themenfelder as $ti) {
       $users_themenfelder_tids[] = $ti->tid;
     }
 
+    if($this->config->beforeTimestamp){
+      $this->query->condition('ha.timestamp', $this->config->beforeTimestamp, '<=' );
+    }
+
+    if($this->config->limit){
+      $this->query->limit($this->config->limit);
+    }
 
     //root logic not changed
     $this->query->condition('ha.access', 0, '>=');
@@ -90,7 +99,6 @@ class SiteActivity extends HeartbeatStream {
     $og_and_node_type_or_condition->condition('n.type', 'post', '<>');
 
     $this->query->condition($og_and_node_type_or_condition);
-
 
   }
 

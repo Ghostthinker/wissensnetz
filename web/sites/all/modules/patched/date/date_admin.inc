@@ -366,7 +366,8 @@ function _date_field_widget_settings_form($field, $instance) {
         5 => t('5 minute'),
         10 => t('10 minute'),
         15 => t('15 minute'),
-        30 => t('30 minute')),
+        30 => t('30 minute'),
+        60 => t('60 minute')),
       '#weight' => 7,
       '#fieldset' => 'date_format',
     );

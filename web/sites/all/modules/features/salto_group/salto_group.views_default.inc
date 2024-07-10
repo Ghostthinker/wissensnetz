@@ -267,6 +267,7 @@ if(is_numeric($post_id )) {
   $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
+  $handler->display->display_options['query']['options']['distinct'] = TRUE;
   $handler->display->display_options['exposed_form']['type'] = 'basic';
   $handler->display->display_options['exposed_form']['options']['submit_button'] = 'Anwenden';
   $handler->display->display_options['exposed_form']['options']['reset_button'] = TRUE;
@@ -325,20 +326,30 @@ if(is_numeric($post_id )) {
   $handler->display->display_options['fields']['title']['label'] = '';
   $handler->display->display_options['fields']['title']['exclude'] = TRUE;
   $handler->display->display_options['fields']['title']['element_label_colon'] = FALSE;
-  /* Field: Content: Inhalt */
+  /* Field: Content: Body */
   $handler->display->display_options['fields']['body']['id'] = 'body';
   $handler->display->display_options['fields']['body']['table'] = 'field_data_body';
   $handler->display->display_options['fields']['body']['field'] = 'body';
   $handler->display->display_options['fields']['body']['label'] = '';
   $handler->display->display_options['fields']['body']['exclude'] = TRUE;
   $handler->display->display_options['fields']['body']['alter']['max_length'] = '150';
-  $handler->display->display_options['fields']['body']['alter']['trim'] = TRUE;
   $handler->display->display_options['fields']['body']['alter']['html'] = TRUE;
   $handler->display->display_options['fields']['body']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['body']['type'] = 'text_plain';
+  $handler->display->display_options['fields']['body']['type'] = 'smart_trim_format';
   $handler->display->display_options['fields']['body']['settings'] = array(
-    'trim_length' => '150',
+    'trim_link' => '0',
+    'trim_length' => '270',
+    'trim_type' => 'chars',
+    'trim_suffix' => '...',
+    'more_link' => '0',
+    'more_text' => 'Read more',
+    'summary_handler' => 'full',
+    'trim_options' => array(
+      'text' => 'text',
+    ),
+    'trim_preserve_tags' => '',
   );
+  $handler->display->display_options['fields']['body']['group_column'] = 'entity_id';
   /* Field: Realname: Real name */
   $handler->display->display_options['fields']['realname']['id'] = 'realname';
   $handler->display->display_options['fields']['realname']['table'] = 'realname';
@@ -363,7 +374,9 @@ if(is_numeric($post_id )) {
  $members = og_membership_load_multiple(FALSE, array(\'gid\' => $row->nid, \'entity_type\' => \'user\', \'state\' => OG_STATE_ACTIVE));
  if(count($members )> SALTO_GROUP_MAX_USER_PICS){
     $diff = count($members)-SALTO_GROUP_MAX_USER_PICS;
-    print $diff  . \' \' .  format_plural($diff , \'weiterer\', \'weitere\');
+    if(!empty($diff)){
+     print \'<div class="members more"> + \' .  $diff . \'</div>\';
+  }
  }
 
 ?>';
@@ -375,13 +388,49 @@ if(is_numeric($post_id )) {
   $handler->display->display_options['fields']['php_1']['field'] = 'php';
   $handler->display->display_options['fields']['php_1']['label'] = 'Beiträge';
   $handler->display->display_options['fields']['php_1']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['php_1']['hide_empty'] = TRUE;
   $handler->display->display_options['fields']['php_1']['use_php_setup'] = 0;
   $handler->display->display_options['fields']['php_1']['php_output'] = '<?php
   $posts = og_membership_load_multiple(FALSE, array(\'gid\' => $row->nid, \'entity_type\' => \'node\', \'state\' => OG_STATE_ACTIVE)); 
-  print count($posts) . \' \' . format_plural(count($posts),\'Beitrag\', \'Beiträge\');
+if(!empty($posts)){
+ print \'<div class="icon-article col-md-12 group-num-nodes">\' . count($posts) . \' \' . format_plural(count($posts),\'Beitrag\', \'Beiträge\') . \'</div>\';
+}
 ?>';
   $handler->display->display_options['fields']['php_1']['use_php_click_sortable'] = '0';
   $handler->display->display_options['fields']['php_1']['php_click_sortable'] = '';
+  /* Field: Global: PHP */
+  $handler->display->display_options['fields']['php_4']['id'] = 'php_4';
+  $handler->display->display_options['fields']['php_4']['table'] = 'views';
+  $handler->display->display_options['fields']['php_4']['field'] = 'php';
+  $handler->display->display_options['fields']['php_4']['label'] = 'Dateien';
+  $handler->display->display_options['fields']['php_4']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['php_4']['hide_empty'] = TRUE;
+  $handler->display->display_options['fields']['php_4']['use_php_setup'] = 0;
+  $handler->display->display_options['fields']['php_4']['php_output'] = '<?php
+  $files = og_membership_load_multiple(FALSE, array(\'gid\' => $row->nid, \'entity_type\' => \'file\', \'state\' => OG_STATE_ACTIVE)); 
+if(!empty($files)){
+  print \'<div class="icon-attach col-md-12 group-num-files">\' . count($files) . \' \' . format_plural(count($files),\'Datei\', \'Dateien\') . \'</div>\';
+}
+
+?>';
+  $handler->display->display_options['fields']['php_4']['use_php_click_sortable'] = '0';
+  $handler->display->display_options['fields']['php_4']['php_click_sortable'] = '';
+  /* Field: Global: PHP */
+  $handler->display->display_options['fields']['php_5']['id'] = 'php_5';
+  $handler->display->display_options['fields']['php_5']['table'] = 'views';
+  $handler->display->display_options['fields']['php_5']['field'] = 'php';
+  $handler->display->display_options['fields']['php_5']['label'] = 'Mitglieder';
+  $handler->display->display_options['fields']['php_5']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['php_5']['hide_empty'] = TRUE;
+  $handler->display->display_options['fields']['php_5']['use_php_setup'] = 0;
+  $handler->display->display_options['fields']['php_5']['php_output'] = '<?php
+  $members = og_membership_load_multiple(FALSE, array(\'gid\' => $row->nid, \'entity_type\' => \'user\', \'state\' => OG_STATE_ACTIVE)); 
+if(!empty($members)){
+   print \'<div class="icon-user col-md-12 group-num-members">\' . count($members) . \' \' . format_plural(count($members),\'Mitglied\', \'Mitglieder\') . \'</div>\';
+}
+?>';
+  $handler->display->display_options['fields']['php_5']['use_php_click_sortable'] = '0';
+  $handler->display->display_options['fields']['php_5']['php_click_sortable'] = '';
   /* Field: Global: PHP */
   $handler->display->display_options['fields']['php_3']['id'] = 'php_3';
   $handler->display->display_options['fields']['php_3']['table'] = 'views';
@@ -426,13 +475,15 @@ if(is_numeric($post_id )) {
     </div>
   </div>
   <div class="row group-view-item-footer">
-   <div class="col-md-12 group-num-nodes">[php_1]</div>
+   [php_1]
+   [php_4]
+   [php_5]
   </div>
 </div>
 <div class="col-md-12 group-footer">
    <div class="flex">
      <div class="members">[php_3]</div>
-     <div class="members more">[php]</div>
+     [php]
    </div>
    <div class="group-actions action-links left">[php_2]</div>
 </div>
@@ -568,6 +619,81 @@ if(is_numeric($post_id )) {
     6 => 0,
   );
   $handler->display->display_options['filters']['field_post_tags_tid']['vocabulary'] = 'tags';
+  /* Filter criterion: User: Group size */
+  $handler->display->display_options['filters']['group_member_count']['id'] = 'group_member_count';
+  $handler->display->display_options['filters']['group_member_count']['table'] = 'users';
+  $handler->display->display_options['filters']['group_member_count']['field'] = 'group_member_count';
+  $handler->display->display_options['filters']['group_member_count']['relationship'] = 'uid';
+  $handler->display->display_options['filters']['group_member_count']['group'] = 1;
+  $handler->display->display_options['filters']['group_member_count']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['group_member_count']['expose']['operator_id'] = '';
+  $handler->display->display_options['filters']['group_member_count']['expose']['label'] = 'Group size';
+  $handler->display->display_options['filters']['group_member_count']['expose']['operator'] = 'group_member_count_op';
+  $handler->display->display_options['filters']['group_member_count']['expose']['identifier'] = 'group_member_count';
+  $handler->display->display_options['filters']['group_member_count']['expose']['required'] = TRUE;
+  $handler->display->display_options['filters']['group_member_count']['expose']['multiple'] = TRUE;
+  $handler->display->display_options['filters']['group_member_count']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  $handler->display->display_options['filters']['group_member_count']['is_grouped'] = TRUE;
+  $handler->display->display_options['filters']['group_member_count']['group_info']['label'] = 'Group size';
+  $handler->display->display_options['filters']['group_member_count']['group_info']['identifier'] = 'group_member_count';
+  $handler->display->display_options['filters']['group_member_count']['group_info']['optional'] = FALSE;
+  $handler->display->display_options['filters']['group_member_count']['group_info']['group_items'] = array(
+    1 => array(
+      'title' => '-Alle-',
+      'operator' => '=',
+      'value' => array(
+        'value' => '1',
+        'min' => '3',
+        'max' => '3',
+      ),
+    ),
+    2 => array(
+      'title' => '< 5',
+      'operator' => '<',
+      'value' => array(
+        'value' => '5',
+        'min' => '3',
+        'max' => '3',
+      ),
+    ),
+    3 => array(
+      'title' => '5 - 25',
+      'operator' => 'between',
+      'value' => array(
+        'value' => '3',
+        'min' => '5',
+        'max' => '25',
+      ),
+    ),
+    4 => array(
+      'title' => '25 - 50',
+      'operator' => 'between',
+      'value' => array(
+        'value' => '3',
+        'min' => '25',
+        'max' => '50',
+      ),
+    ),
+    5 => array(
+      'title' => '> 50',
+      'operator' => '>',
+      'value' => array(
+        'value' => '50',
+        'min' => '3',
+        'max' => '3',
+      ),
+    ),
+  );
   /* Filter criterion: OG membership: State */
   $handler->display->display_options['filters']['state']['id'] = 'state';
   $handler->display->display_options['filters']['state']['table'] = 'og_membership';
@@ -587,6 +713,12 @@ if(is_numeric($post_id )) {
     5 => 0,
     6 => 0,
   );
+  /* Filter criterion: Global: PHP */
+  $handler->display->display_options['filters']['php']['id'] = 'php';
+  $handler->display->display_options['filters']['php']['table'] = 'views';
+  $handler->display->display_options['filters']['php']['field'] = 'php';
+  $handler->display->display_options['filters']['php']['use_php_setup'] = 0;
+  $handler->display->display_options['filters']['php']['php_filter'] = 'return salto_group_filter_relevant_group($data->nid);';
 
   /* Display: Groups Directory (!) */
   $handler = $view->new_display('panel_pane', 'Groups Directory (!)', 'panel_groups_directory');
@@ -648,6 +780,7 @@ if(is_numeric($post_id )) {
     t('Gruppen-Manager'),
     t('Mitglieder'),
     t('Beiträge'),
+    t('Dateien'),
     t('Mitglieder Bilder'),
     t('Beitreten'),
     t('Beitrittsmodus'),
@@ -660,13 +793,15 @@ if(is_numeric($post_id )) {
     </div>
   </div>
   <div class="row group-view-item-footer">
-   <div class="col-md-12 group-num-nodes">[php_1]</div>
+   [php_1]
+   [php_4]
+   [php_5]
   </div>
 </div>
 <div class="col-md-12 group-footer">
    <div class="flex">
      <div class="members">[php_3]</div>
-     <div class="members more">[php]</div>
+     [php]
    </div>
    <div class="group-actions action-links left">[php_2]</div>
 </div>
@@ -675,6 +810,7 @@ if(is_numeric($post_id )) {
     t('Gründer/Manager'),
     t('Themenfelder'),
     t('Schlagworte'),
+    t('Group size'),
     t('Mein Mitgliedsstatus'),
     t('Groups Directory (!)'),
     t('List of groups'),
@@ -788,6 +924,10 @@ if(is_numeric($post_id )) {
   $handler->display->display_options['fields']['realname']['field'] = 'realname';
   $handler->display->display_options['fields']['realname']['relationship'] = 'uid';
   $handler->display->display_options['fields']['realname']['exclude'] = TRUE;
+  /* Field: Bulk operations: File */
+  $handler->display->display_options['fields']['views_bulk_operations']['id'] = 'views_bulk_operations';
+  $handler->display->display_options['fields']['views_bulk_operations']['table'] = 'views_entity_file';
+  $handler->display->display_options['fields']['views_bulk_operations']['field'] = 'views_bulk_operations';
   /* Sort criterion: File: Upload date */
   $handler->display->display_options['sorts']['timestamp']['id'] = 'timestamp';
   $handler->display->display_options['sorts']['timestamp']['table'] = 'file_managed';
@@ -1127,6 +1267,625 @@ if(is_numeric($post_id )) {
       'label' => 'Feld: OG vocabulary (og_vocabulary)',
     ),
   );
+
+  /* Display: Files Directory Download */
+  $handler = $view->new_display('panel_pane', 'Files Directory Download', 'panel_pane_1');
+  $handler->display->display_options['defaults']['style_plugin'] = FALSE;
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'views_bulk_operations' => 'views_bulk_operations',
+    'fid' => 'fid',
+    'rendered' => 'rendered',
+    'filename' => 'filename',
+    'download' => 'download',
+    'realname' => 'realname',
+    'timestamp' => 'timestamp',
+    'field_post_tags' => 'field_post_tags',
+  );
+  $handler->display->display_options['style_options']['default'] = '-1';
+  $handler->display->display_options['style_options']['info'] = array(
+    'views_bulk_operations' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'fid' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'rendered' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'filename' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'download' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'realname' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'timestamp' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_post_tags' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+  );
+  $handler->display->display_options['defaults']['style_options'] = FALSE;
+  $handler->display->display_options['defaults']['row_plugin'] = FALSE;
+  $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['exposed_block'] = TRUE;
+  $handler->display->display_options['defaults']['fields'] = FALSE;
+  /* Field: Bulk operations: File */
+  $handler->display->display_options['fields']['views_bulk_operations']['id'] = 'views_bulk_operations';
+  $handler->display->display_options['fields']['views_bulk_operations']['table'] = 'views_entity_file';
+  $handler->display->display_options['fields']['views_bulk_operations']['field'] = 'views_bulk_operations';
+  $handler->display->display_options['fields']['views_bulk_operations']['label'] = '';
+  $handler->display->display_options['fields']['views_bulk_operations']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['display_type'] = '1';
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['enable_select_all_pages'] = 1;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['row_clickable'] = 1;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['force_single'] = 0;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['entity_load_capacity'] = '10';
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_operations'] = array(
+    'action::views_bulk_operations_archive_action' => array(
+      'selected' => 1,
+      'postpone_processing' => 0,
+      'skip_confirmation' => 1,
+      'skip_permission_check' => 0,
+      'override_label' => 1,
+      'label' => 'Download selected files',
+      'settings' => array(
+        'scheme' => 'private',
+        'temporary' => 1,
+      ),
+    ),
+  );
+  /* Field: File: File ID */
+  $handler->display->display_options['fields']['fid']['id'] = 'fid';
+  $handler->display->display_options['fields']['fid']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['fid']['field'] = 'fid';
+  $handler->display->display_options['fields']['fid']['exclude'] = TRUE;
+  /* Field: File: Rendered */
+  $handler->display->display_options['fields']['rendered']['id'] = 'rendered';
+  $handler->display->display_options['fields']['rendered']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['rendered']['field'] = 'rendered';
+  $handler->display->display_options['fields']['rendered']['label'] = '';
+  $handler->display->display_options['fields']['rendered']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['rendered']['alter']['path'] = 'file/[fid]';
+  $handler->display->display_options['fields']['rendered']['alter']['absolute'] = TRUE;
+  $handler->display->display_options['fields']['rendered']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['rendered']['file_view_mode'] = 'colorbox';
+  /* Field: File: Name */
+  $handler->display->display_options['fields']['filename']['id'] = 'filename';
+  $handler->display->display_options['fields']['filename']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['filename']['field'] = 'filename';
+  $handler->display->display_options['fields']['filename']['label'] = '';
+  $handler->display->display_options['fields']['filename']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['filename']['alter']['make_link'] = TRUE;
+  $handler->display->display_options['fields']['filename']['alter']['path'] = 'file/[fid]';
+  $handler->display->display_options['fields']['filename']['alter']['max_length'] = '16';
+  $handler->display->display_options['fields']['filename']['alter']['word_boundary'] = FALSE;
+  $handler->display->display_options['fields']['filename']['alter']['trim'] = TRUE;
+  $handler->display->display_options['fields']['filename']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['filename']['link_to_file'] = FALSE;
+  /* Field: Global: PHP */
+  $handler->display->display_options['fields']['php']['id'] = 'php';
+  $handler->display->display_options['fields']['php']['table'] = 'views';
+  $handler->display->display_options['fields']['php']['field'] = 'php';
+  $handler->display->display_options['fields']['php']['label'] = 'Dateititel';
+  $handler->display->display_options['fields']['php']['use_php_setup'] = 0;
+  $handler->display->display_options['fields']['php']['php_output'] = '<?php
+
+echo salto_files_view_multiple_files_set_titel($row->fid);
+
+?>';
+  $handler->display->display_options['fields']['php']['use_php_click_sortable'] = '0';
+  $handler->display->display_options['fields']['php']['php_click_sortable'] = '';
+  /* Field: Realname: Real name */
+  $handler->display->display_options['fields']['realname']['id'] = 'realname';
+  $handler->display->display_options['fields']['realname']['table'] = 'realname';
+  $handler->display->display_options['fields']['realname']['field'] = 'realname';
+  $handler->display->display_options['fields']['realname']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['realname']['label'] = 'Autor:in';
+  /* Field: File: Upload date */
+  $handler->display->display_options['fields']['timestamp']['id'] = 'timestamp';
+  $handler->display->display_options['fields']['timestamp']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['timestamp']['field'] = 'timestamp';
+  $handler->display->display_options['fields']['timestamp']['label'] = 'Uploaddate';
+  $handler->display->display_options['fields']['timestamp']['date_format'] = 'custom';
+  $handler->display->display_options['fields']['timestamp']['custom_date_format'] = 'd.m.Y';
+  $handler->display->display_options['fields']['timestamp']['second_date_format'] = 'privatemsg_current_day';
+  /* Field: Field: Schlagworte */
+  $handler->display->display_options['fields']['field_post_tags']['id'] = 'field_post_tags';
+  $handler->display->display_options['fields']['field_post_tags']['table'] = 'field_data_field_post_tags';
+  $handler->display->display_options['fields']['field_post_tags']['field'] = 'field_post_tags';
+  $handler->display->display_options['fields']['field_post_tags']['empty'] = '-';
+  $handler->display->display_options['fields']['field_post_tags']['type'] = 'taxonomy_term_reference_plain';
+  $handler->display->display_options['fields']['field_post_tags']['group_column'] = 'entity_id';
+  $handler->display->display_options['fields']['field_post_tags']['delta_offset'] = '0';
+  $handler->display->display_options['defaults']['filter_groups'] = FALSE;
+  $handler->display->display_options['filter_groups']['groups'] = array(
+    1 => 'AND',
+    2 => 'OR',
+  );
+  $handler->display->display_options['defaults']['filters'] = FALSE;
+  /* Filter criterion: File: Status */
+  $handler->display->display_options['filters']['status']['id'] = 'status';
+  $handler->display->display_options['filters']['status']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['status']['field'] = 'status';
+  $handler->display->display_options['filters']['status']['value'] = array(
+    1 => '1',
+  );
+  $handler->display->display_options['filters']['status']['group'] = 1;
+  /* Filter criterion: File: Name */
+  $handler->display->display_options['filters']['filename']['id'] = 'filename';
+  $handler->display->display_options['filters']['filename']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['filename']['field'] = 'filename';
+  $handler->display->display_options['filters']['filename']['operator'] = 'contains';
+  $handler->display->display_options['filters']['filename']['group'] = 1;
+  $handler->display->display_options['filters']['filename']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['filename']['expose']['operator_id'] = 'filename_op';
+  $handler->display->display_options['filters']['filename']['expose']['label'] = 'Name';
+  $handler->display->display_options['filters']['filename']['expose']['operator'] = 'filename_op';
+  $handler->display->display_options['filters']['filename']['expose']['identifier'] = 'filename';
+  $handler->display->display_options['filters']['filename']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_field'] = 'filename';
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_dependent'] = 0;
+  /* Filter criterion: Field: Schlagworte (field_post_tags) */
+  $handler->display->display_options['filters']['field_post_tags_tid']['id'] = 'field_post_tags_tid';
+  $handler->display->display_options['filters']['field_post_tags_tid']['table'] = 'field_data_field_post_tags';
+  $handler->display->display_options['filters']['field_post_tags_tid']['field'] = 'field_post_tags_tid';
+  $handler->display->display_options['filters']['field_post_tags_tid']['operator'] = 'and';
+  $handler->display->display_options['filters']['field_post_tags_tid']['value'] = '';
+  $handler->display->display_options['filters']['field_post_tags_tid']['group'] = 1;
+  $handler->display->display_options['filters']['field_post_tags_tid']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['operator_id'] = 'field_post_tags_tid_op';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['label'] = 'Schlagworte';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['operator'] = 'field_post_tags_tid_op';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['identifier'] = 'field_post_tags_tid';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['multiple'] = TRUE;
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  $handler->display->display_options['filters']['field_post_tags_tid']['reduce_duplicates'] = TRUE;
+  $handler->display->display_options['filters']['field_post_tags_tid']['vocabulary'] = 'tags';
+  $handler->display->display_options['filters']['field_post_tags_tid']['error_message'] = FALSE;
+  /* Filter criterion: File: Type */
+  $handler->display->display_options['filters']['type']['id'] = 'type';
+  $handler->display->display_options['filters']['type']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['type']['field'] = 'type';
+  $handler->display->display_options['filters']['type']['group'] = 1;
+  $handler->display->display_options['filters']['type']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['type']['expose']['operator_id'] = 'type_op';
+  $handler->display->display_options['filters']['type']['expose']['label'] = 'Typ';
+  $handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
+  $handler->display->display_options['filters']['type']['expose']['identifier'] = 'type';
+  $handler->display->display_options['filters']['type']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  /* Filter criterion: Realname: Name */
+  $handler->display->display_options['filters']['realname']['id'] = 'realname';
+  $handler->display->display_options['filters']['realname']['table'] = 'realname';
+  $handler->display->display_options['filters']['realname']['field'] = 'realname';
+  $handler->display->display_options['filters']['realname']['relationship'] = 'uid';
+  $handler->display->display_options['filters']['realname']['operator'] = 'contains';
+  $handler->display->display_options['filters']['realname']['group'] = 1;
+  $handler->display->display_options['filters']['realname']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['realname']['expose']['operator_id'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['label'] = 'Eigentümer';
+  $handler->display->display_options['filters']['realname']['expose']['operator'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['identifier'] = 'realname';
+  $handler->display->display_options['filters']['realname']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_filter'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_field'] = 'realname';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_dependent'] = 0;
+  /* Filter criterion: File: Path */
+  $handler->display->display_options['filters']['uri']['id'] = 'uri';
+  $handler->display->display_options['filters']['uri']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['uri']['field'] = 'uri';
+  $handler->display->display_options['filters']['uri']['operator'] = 'not';
+  $handler->display->display_options['filters']['uri']['value'] = '/user_pictures/';
+  $handler->display->display_options['filters']['uri']['group'] = 1;
+  /* Filter criterion: File Usage: Entity type */
+  $handler->display->display_options['filters']['type_1']['id'] = 'type_1';
+  $handler->display->display_options['filters']['type_1']['table'] = 'file_usage';
+  $handler->display->display_options['filters']['type_1']['field'] = 'type';
+  $handler->display->display_options['filters']['type_1']['operator'] = '!=';
+  $handler->display->display_options['filters']['type_1']['value'] = 'profile2';
+  $handler->display->display_options['filters']['type_1']['group'] = 2;
+  /* Filter criterion: File Usage: Entity type */
+  $handler->display->display_options['filters']['type_2']['id'] = 'type_2';
+  $handler->display->display_options['filters']['type_2']['table'] = 'file_usage';
+  $handler->display->display_options['filters']['type_2']['field'] = 'type';
+  $handler->display->display_options['filters']['type_2']['operator'] = 'empty';
+  $handler->display->display_options['filters']['type_2']['group'] = 2;
+  $handler->display->display_options['pane_category']['name'] = 'Gruppen';
+  $handler->display->display_options['pane_category']['weight'] = '0';
+  $handler->display->display_options['argument_input'] = array(
+    'gid' => array(
+      'type' => 'panel',
+      'context' => 'entity:node.nid',
+      'context_optional' => 0,
+      'panel' => '0',
+      'fixed' => '',
+      'label' => 'OG Mitgliedschaft: Gruppen-ID',
+    ),
+    'og_vocabulary_target_id' => array(
+      'type' => 'panel',
+      'context' => 'entity:search_api_autocomplete_search.name',
+      'context_optional' => 0,
+      'panel' => '1',
+      'fixed' => '',
+      'label' => 'Feld: OG vocabulary (og_vocabulary)',
+    ),
+  );
+
+  /* Display: Files Directory Edit */
+  $handler = $view->new_display('panel_pane', 'Files Directory Edit', 'panel_pane_2');
+  $handler->display->display_options['defaults']['style_plugin'] = FALSE;
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'views_bulk_operations' => 'views_bulk_operations',
+    'fid' => 'fid',
+    'rendered' => 'rendered',
+    'filename' => 'filename',
+    'download' => 'download',
+    'realname' => 'realname',
+    'timestamp' => 'timestamp',
+    'field_post_tags' => 'field_post_tags',
+  );
+  $handler->display->display_options['style_options']['default'] = '-1';
+  $handler->display->display_options['style_options']['info'] = array(
+    'views_bulk_operations' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'fid' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'rendered' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'filename' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'download' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'realname' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'timestamp' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_post_tags' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+  );
+  $handler->display->display_options['defaults']['style_options'] = FALSE;
+  $handler->display->display_options['defaults']['row_plugin'] = FALSE;
+  $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['exposed_block'] = TRUE;
+  $handler->display->display_options['defaults']['fields'] = FALSE;
+  /* Field: Bulk operations: File */
+  $handler->display->display_options['fields']['views_bulk_operations']['id'] = 'views_bulk_operations';
+  $handler->display->display_options['fields']['views_bulk_operations']['table'] = 'views_entity_file';
+  $handler->display->display_options['fields']['views_bulk_operations']['field'] = 'views_bulk_operations';
+  $handler->display->display_options['fields']['views_bulk_operations']['label'] = '';
+  $handler->display->display_options['fields']['views_bulk_operations']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['display_type'] = '1';
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['enable_select_all_pages'] = 1;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['row_clickable'] = 1;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['force_single'] = 0;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['entity_load_capacity'] = '10';
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_operations'] = array(
+    'action::salto_files_edit_multiple_files' => array(
+      'selected' => 1,
+      'skip_confirmation' => 1,
+      'skip_permission_check' => 1,
+      'override_label' => 1,
+      'label' => 'Edit selected files',
+    ),
+  );
+  /* Field: File: File ID */
+  $handler->display->display_options['fields']['fid']['id'] = 'fid';
+  $handler->display->display_options['fields']['fid']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['fid']['field'] = 'fid';
+  $handler->display->display_options['fields']['fid']['exclude'] = TRUE;
+  /* Field: File: Rendered */
+  $handler->display->display_options['fields']['rendered']['id'] = 'rendered';
+  $handler->display->display_options['fields']['rendered']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['rendered']['field'] = 'rendered';
+  $handler->display->display_options['fields']['rendered']['label'] = '';
+  $handler->display->display_options['fields']['rendered']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['rendered']['alter']['path'] = 'file/[fid]';
+  $handler->display->display_options['fields']['rendered']['alter']['absolute'] = TRUE;
+  $handler->display->display_options['fields']['rendered']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['rendered']['file_view_mode'] = 'colorbox';
+  /* Field: File: Name */
+  $handler->display->display_options['fields']['filename']['id'] = 'filename';
+  $handler->display->display_options['fields']['filename']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['filename']['field'] = 'filename';
+  $handler->display->display_options['fields']['filename']['label'] = '';
+  $handler->display->display_options['fields']['filename']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['filename']['alter']['make_link'] = TRUE;
+  $handler->display->display_options['fields']['filename']['alter']['path'] = 'file/[fid]';
+  $handler->display->display_options['fields']['filename']['alter']['max_length'] = '16';
+  $handler->display->display_options['fields']['filename']['alter']['word_boundary'] = FALSE;
+  $handler->display->display_options['fields']['filename']['alter']['trim'] = TRUE;
+  $handler->display->display_options['fields']['filename']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['filename']['link_to_file'] = FALSE;
+  /* Field: Global: PHP */
+  $handler->display->display_options['fields']['php']['id'] = 'php';
+  $handler->display->display_options['fields']['php']['table'] = 'views';
+  $handler->display->display_options['fields']['php']['field'] = 'php';
+  $handler->display->display_options['fields']['php']['label'] = 'Dateititel';
+  $handler->display->display_options['fields']['php']['use_php_setup'] = 0;
+  $handler->display->display_options['fields']['php']['php_output'] = '<?php
+
+echo salto_files_view_multiple_files_set_titel($row->fid);
+
+?>';
+  $handler->display->display_options['fields']['php']['use_php_click_sortable'] = '0';
+  $handler->display->display_options['fields']['php']['php_click_sortable'] = '';
+  /* Field: Realname: Real name */
+  $handler->display->display_options['fields']['realname']['id'] = 'realname';
+  $handler->display->display_options['fields']['realname']['table'] = 'realname';
+  $handler->display->display_options['fields']['realname']['field'] = 'realname';
+  $handler->display->display_options['fields']['realname']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['realname']['label'] = 'Autor:in';
+  /* Field: File: Upload date */
+  $handler->display->display_options['fields']['timestamp']['id'] = 'timestamp';
+  $handler->display->display_options['fields']['timestamp']['table'] = 'file_managed';
+  $handler->display->display_options['fields']['timestamp']['field'] = 'timestamp';
+  $handler->display->display_options['fields']['timestamp']['label'] = 'Uploaddate';
+  $handler->display->display_options['fields']['timestamp']['date_format'] = 'custom';
+  $handler->display->display_options['fields']['timestamp']['custom_date_format'] = 'd.m.Y';
+  $handler->display->display_options['fields']['timestamp']['second_date_format'] = 'privatemsg_current_day';
+  /* Field: Field: Schlagworte */
+  $handler->display->display_options['fields']['field_post_tags']['id'] = 'field_post_tags';
+  $handler->display->display_options['fields']['field_post_tags']['table'] = 'field_data_field_post_tags';
+  $handler->display->display_options['fields']['field_post_tags']['field'] = 'field_post_tags';
+  $handler->display->display_options['fields']['field_post_tags']['empty'] = '-';
+  $handler->display->display_options['fields']['field_post_tags']['type'] = 'taxonomy_term_reference_plain';
+  $handler->display->display_options['fields']['field_post_tags']['group_column'] = 'entity_id';
+  $handler->display->display_options['fields']['field_post_tags']['delta_offset'] = '0';
+  $handler->display->display_options['defaults']['filter_groups'] = FALSE;
+  $handler->display->display_options['filter_groups']['groups'] = array(
+    1 => 'AND',
+    2 => 'OR',
+  );
+  $handler->display->display_options['defaults']['filters'] = FALSE;
+  /* Filter criterion: File: Status */
+  $handler->display->display_options['filters']['status']['id'] = 'status';
+  $handler->display->display_options['filters']['status']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['status']['field'] = 'status';
+  $handler->display->display_options['filters']['status']['value'] = array(
+    1 => '1',
+  );
+  $handler->display->display_options['filters']['status']['group'] = 1;
+  /* Filter criterion: File: Name */
+  $handler->display->display_options['filters']['filename']['id'] = 'filename';
+  $handler->display->display_options['filters']['filename']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['filename']['field'] = 'filename';
+  $handler->display->display_options['filters']['filename']['operator'] = 'contains';
+  $handler->display->display_options['filters']['filename']['group'] = 1;
+  $handler->display->display_options['filters']['filename']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['filename']['expose']['operator_id'] = 'filename_op';
+  $handler->display->display_options['filters']['filename']['expose']['label'] = 'Name';
+  $handler->display->display_options['filters']['filename']['expose']['operator'] = 'filename_op';
+  $handler->display->display_options['filters']['filename']['expose']['identifier'] = 'filename';
+  $handler->display->display_options['filters']['filename']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_field'] = 'filename';
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['filename']['expose']['autocomplete_dependent'] = 0;
+  /* Filter criterion: Field: Schlagworte (field_post_tags) */
+  $handler->display->display_options['filters']['field_post_tags_tid']['id'] = 'field_post_tags_tid';
+  $handler->display->display_options['filters']['field_post_tags_tid']['table'] = 'field_data_field_post_tags';
+  $handler->display->display_options['filters']['field_post_tags_tid']['field'] = 'field_post_tags_tid';
+  $handler->display->display_options['filters']['field_post_tags_tid']['operator'] = 'and';
+  $handler->display->display_options['filters']['field_post_tags_tid']['value'] = '';
+  $handler->display->display_options['filters']['field_post_tags_tid']['group'] = 1;
+  $handler->display->display_options['filters']['field_post_tags_tid']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['operator_id'] = 'field_post_tags_tid_op';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['label'] = 'Schlagworte';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['operator'] = 'field_post_tags_tid_op';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['identifier'] = 'field_post_tags_tid';
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['multiple'] = TRUE;
+  $handler->display->display_options['filters']['field_post_tags_tid']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  $handler->display->display_options['filters']['field_post_tags_tid']['reduce_duplicates'] = TRUE;
+  $handler->display->display_options['filters']['field_post_tags_tid']['vocabulary'] = 'tags';
+  $handler->display->display_options['filters']['field_post_tags_tid']['error_message'] = FALSE;
+  /* Filter criterion: File: Type */
+  $handler->display->display_options['filters']['type']['id'] = 'type';
+  $handler->display->display_options['filters']['type']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['type']['field'] = 'type';
+  $handler->display->display_options['filters']['type']['group'] = 1;
+  $handler->display->display_options['filters']['type']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['type']['expose']['operator_id'] = 'type_op';
+  $handler->display->display_options['filters']['type']['expose']['label'] = 'Typ';
+  $handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
+  $handler->display->display_options['filters']['type']['expose']['identifier'] = 'type';
+  $handler->display->display_options['filters']['type']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  /* Filter criterion: Realname: Name */
+  $handler->display->display_options['filters']['realname']['id'] = 'realname';
+  $handler->display->display_options['filters']['realname']['table'] = 'realname';
+  $handler->display->display_options['filters']['realname']['field'] = 'realname';
+  $handler->display->display_options['filters']['realname']['relationship'] = 'uid';
+  $handler->display->display_options['filters']['realname']['operator'] = 'contains';
+  $handler->display->display_options['filters']['realname']['group'] = 1;
+  $handler->display->display_options['filters']['realname']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['realname']['expose']['operator_id'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['label'] = 'Eigentümer';
+  $handler->display->display_options['filters']['realname']['expose']['operator'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['identifier'] = 'realname';
+  $handler->display->display_options['filters']['realname']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_filter'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_field'] = 'realname';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_dependent'] = 0;
+  /* Filter criterion: File: Path */
+  $handler->display->display_options['filters']['uri']['id'] = 'uri';
+  $handler->display->display_options['filters']['uri']['table'] = 'file_managed';
+  $handler->display->display_options['filters']['uri']['field'] = 'uri';
+  $handler->display->display_options['filters']['uri']['operator'] = 'not';
+  $handler->display->display_options['filters']['uri']['value'] = '/user_pictures/';
+  $handler->display->display_options['filters']['uri']['group'] = 1;
+  /* Filter criterion: File Usage: Entity type */
+  $handler->display->display_options['filters']['type_1']['id'] = 'type_1';
+  $handler->display->display_options['filters']['type_1']['table'] = 'file_usage';
+  $handler->display->display_options['filters']['type_1']['field'] = 'type';
+  $handler->display->display_options['filters']['type_1']['operator'] = '!=';
+  $handler->display->display_options['filters']['type_1']['value'] = 'profile2';
+  $handler->display->display_options['filters']['type_1']['group'] = 2;
+  /* Filter criterion: File Usage: Entity type */
+  $handler->display->display_options['filters']['type_2']['id'] = 'type_2';
+  $handler->display->display_options['filters']['type_2']['table'] = 'file_usage';
+  $handler->display->display_options['filters']['type_2']['field'] = 'type';
+  $handler->display->display_options['filters']['type_2']['operator'] = 'empty';
+  $handler->display->display_options['filters']['type_2']['group'] = 2;
+  /* Filter criterion: Global: PHP */
+  $handler->display->display_options['filters']['php']['id'] = 'php';
+  $handler->display->display_options['filters']['php']['table'] = 'views';
+  $handler->display->display_options['filters']['php']['field'] = 'php';
+  $handler->display->display_options['filters']['php']['use_php_setup'] = 0;
+  $handler->display->display_options['filters']['php']['php_filter'] = 'return !salto_files_view_user_has_file_edit_access($row->fid);';
+  $handler->display->display_options['pane_category']['name'] = 'Gruppen';
+  $handler->display->display_options['pane_category']['weight'] = '0';
+  $handler->display->display_options['argument_input'] = array(
+    'gid' => array(
+      'type' => 'panel',
+      'context' => 'entity:node.nid',
+      'context_optional' => 0,
+      'panel' => '0',
+      'fixed' => '',
+      'label' => 'OG Mitgliedschaft: Gruppen-ID',
+    ),
+    'og_vocabulary_target_id' => array(
+      'type' => 'panel',
+      'context' => 'entity:search_api_autocomplete_search.name',
+      'context_optional' => 0,
+      'panel' => '1',
+      'fixed' => '',
+      'label' => 'Feld: OG vocabulary (og_vocabulary)',
+    ),
+  );
   $translatables['groups_files'] = array(
     t('Master'),
     t('Dateien'),
@@ -1149,6 +1908,8 @@ if(is_numeric($post_id )) {
     t('File ID'),
     t(' '),
     t('Real name'),
+    t('File'),
+    t('- Choose an operation -'),
     t('Alle'),
     t('%2'),
     t('Name'),
@@ -1160,6 +1921,14 @@ if(is_numeric($post_id )) {
     t('more'),
     t('Files Directory'),
     t('Gruppen'),
+    t('Files Directory Download'),
+    t('Download selected files'),
+    t('Dateititel'),
+    t('Autor:in'),
+    t('Uploaddate'),
+    t('-'),
+    t('Files Directory Edit'),
+    t('Edit selected files'),
   );
   $export['groups_files'] = $view;
 

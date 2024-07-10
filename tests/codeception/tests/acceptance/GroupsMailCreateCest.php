@@ -6,7 +6,7 @@
  * Time: 14:42
  */
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * all tests for start pages
@@ -61,7 +61,7 @@ class GroupsMailCreateCest {
       'role_api_user' => TRUE
     ]);
 
-    $og = $I->haveOrganisation('NotificationTestOG-27005', ['body' => 'dummy og',]);
+    $og = $I->createOrganisation('NotificationTestOG-27005', ['body' => 'dummy og',]);
     $I->addMemberToOrganisation($this->AUser, $og, array(SALTO_ORGANISATION_OG_ROLE_LIZENZVERWALTER_RID));
 
     $I->loginAsUser($this->GAuthor);
@@ -69,7 +69,7 @@ class GroupsMailCreateCest {
     // Gruppe 1
     $I->expect('Founding a new group');
     $I->amOnPage('node/add/group');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'A Group GP270.05-' . $microTime;
     $I->submitForm('#group-node-form', ['title' => $title,]);
 
@@ -95,7 +95,7 @@ class GroupsMailCreateCest {
       'Titel' => $title,
       'Inhalt' => "Test Inhalt 270_05",
       'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => Bildungsnetz::KB_CATEGORY_EDUCATION,
+      'Kategorie' => Wissensnetz::KB_CATEGORY_EDUCATION,
     ]);
 
     $I->saveTestUsers(array('GAuthor' => $this->GAuthor, 'GMember' => $this->GMember, 'AUser' => $this->AUser));
@@ -157,7 +157,7 @@ class GroupsMailCreateCest {
     // Gruppe 1
     $I->expect('Founding a new group');
     $I->amOnPage('node/add/group');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'A GroupTest GM32.359-' . $microTime;
     $I->submitForm('#group-node-form', ['title' => $title,]);
 

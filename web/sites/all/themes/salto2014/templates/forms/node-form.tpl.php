@@ -12,6 +12,10 @@
           <?php print $body ?>
         <?php endif ?>
 
+        <?php if ($teaser_image): ?>
+          <?php print $teaser_image ?>
+        <?php endif ?>
+
         <?php if ($attachment): ?>
           <?php print $attachment ?>
         <?php endif ?>
@@ -21,7 +25,7 @@
     </div>
 
     <div class="panel-panel col-md-3">
-      <div class="inside legacy">
+      <div class="inside legacy node-action-buttons">
         <?php print $sidebar_content ?>
       </div>
 

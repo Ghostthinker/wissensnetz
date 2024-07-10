@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_help.strongarm.inc
@@ -96,6 +97,77 @@ function salto_help_strongarm() {
   $strongarm->name = 'menu_parent_help';
   $strongarm->value = 'main-menu:0';
   $export['menu_parent_help'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'nodeaccess_help';
+  $strongarm->value = array(
+    0 => array(
+      'gid' => 1,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    1 => array(
+      'gid' => 2,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    2 => array(
+      'gid' => 3,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    3 => array(
+      'gid' => 4,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    4 => array(
+      'gid' => 5,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    5 => array(
+      'gid' => 6,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 1,
+      'grant_update' => 1,
+      'grant_delete' => 1,
+    ),
+    6 => array(
+      'gid' => 7,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    7 => array(
+      'gid' => 8,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    8 => array(
+      'gid' => 9,
+      'realm' => 'nodeaccess_rid',
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+  );
+  $export['nodeaccess_help'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */

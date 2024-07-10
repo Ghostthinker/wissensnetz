@@ -979,6 +979,156 @@ function salto_files_ds_field_settings_info() {
   );
   $export['file|webresource|listing'] = $ds_fieldsetting;
 
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'heartbeat_activity|heartbeat_video_add|default';
+  $ds_fieldsetting->entity_type = 'heartbeat_activity';
+  $ds_fieldsetting->bundle = 'heartbeat_video_add';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'heartbeat_content_preview' => array(
+      'weight' => '2',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'heartbeat_type_symbol' => array(
+      'weight' => '3',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'test3' => array(
+      'weight' => '0',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_video_add|default'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'heartbeat_activity|heartbeat_video_react|default';
+  $ds_fieldsetting->entity_type = 'heartbeat_activity';
+  $ds_fieldsetting->bundle = 'heartbeat_video_react';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'heartbeat_content_preview' => array(
+      'weight' => '2',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'heartbeat_type_symbol' => array(
+      'weight' => '3',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'test3' => array(
+      'weight' => '0',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_video_react|default'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'heartbeat_activity|heartbeat_video_update|default';
+  $ds_fieldsetting->entity_type = 'heartbeat_activity';
+  $ds_fieldsetting->bundle = 'heartbeat_video_update';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'heartbeat_content_preview' => array(
+      'weight' => '2',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'heartbeat_type_symbol' => array(
+      'weight' => '3',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'test3' => array(
+      'weight' => '0',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_video_update|default'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'heartbeat_activity|heartbeat_videocomment_add|default';
+  $ds_fieldsetting->entity_type = 'heartbeat_activity';
+  $ds_fieldsetting->bundle = 'heartbeat_videocomment_add';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'heartbeat_content_preview' => array(
+      'weight' => '2',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'heartbeat_type_symbol' => array(
+      'weight' => '3',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'test3' => array(
+      'weight' => '0',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_videocomment_add|default'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'heartbeat_activity|heartbeat_videocomment_react|default';
+  $ds_fieldsetting->entity_type = 'heartbeat_activity';
+  $ds_fieldsetting->bundle = 'heartbeat_videocomment_react';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'heartbeat_content_preview' => array(
+      'weight' => '2',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'heartbeat_type_symbol' => array(
+      'weight' => '3',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'test3' => array(
+      'weight' => '0',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_videocomment_react|default'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'heartbeat_activity|heartbeat_videocomment_recomment|default';
+  $ds_fieldsetting->entity_type = 'heartbeat_activity';
+  $ds_fieldsetting->bundle = 'heartbeat_videocomment_recomment';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'heartbeat_content_preview' => array(
+      'weight' => '2',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'heartbeat_type_symbol' => array(
+      'weight' => '3',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'test3' => array(
+      'weight' => '0',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_videocomment_recomment|default'] = $ds_fieldsetting;
+
   return $export;
 }
 
@@ -2090,6 +2240,300 @@ function salto_files_ds_layout_settings_info() {
     'layout_disable_css' => FALSE,
   );
   $export['file|webresource|listing'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'heartbeat_activity|heartbeat_video_add|default';
+  $ds_layout->entity_type = 'heartbeat_activity';
+  $ds_layout->bundle = 'heartbeat_video_add';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'heartbeat_social_video';
+  $ds_layout->settings = array(
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'heartbeat_left' => 'div',
+      'heartbeat_content' => 'div',
+      'heartbeat_footer' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => 0,
+    'regions' => array(
+      'heartbeat_left' => array(
+        0 => 'test3',
+      ),
+      'heartbeat_content' => array(
+        0 => 'message',
+        1 => 'heartbeat_content_preview',
+      ),
+      'heartbeat_footer' => array(
+        0 => 'heartbeat_type_symbol',
+        1 => 'time',
+        2 => 'buttons',
+      ),
+    ),
+    'fields' => array(
+      'test3' => 'heartbeat_left',
+      'message' => 'heartbeat_content',
+      'heartbeat_content_preview' => 'heartbeat_content',
+      'heartbeat_type_symbol' => 'heartbeat_footer',
+      'time' => 'heartbeat_footer',
+      'buttons' => 'heartbeat_footer',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_video_add|default'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'heartbeat_activity|heartbeat_video_react|default';
+  $ds_layout->entity_type = 'heartbeat_activity';
+  $ds_layout->bundle = 'heartbeat_video_react';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'heartbeat_social_video';
+  $ds_layout->settings = array(
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'heartbeat_left' => 'div',
+      'heartbeat_content' => 'div',
+      'heartbeat_footer' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => 0,
+    'regions' => array(
+      'heartbeat_left' => array(
+        0 => 'test3',
+      ),
+      'heartbeat_content' => array(
+        0 => 'message',
+        1 => 'heartbeat_content_preview',
+      ),
+      'heartbeat_footer' => array(
+        0 => 'heartbeat_type_symbol',
+        1 => 'time',
+        2 => 'buttons',
+      ),
+    ),
+    'fields' => array(
+      'test3' => 'heartbeat_left',
+      'message' => 'heartbeat_content',
+      'heartbeat_content_preview' => 'heartbeat_content',
+      'heartbeat_type_symbol' => 'heartbeat_footer',
+      'time' => 'heartbeat_footer',
+      'buttons' => 'heartbeat_footer',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_video_react|default'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'heartbeat_activity|heartbeat_video_update|default';
+  $ds_layout->entity_type = 'heartbeat_activity';
+  $ds_layout->bundle = 'heartbeat_video_update';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'heartbeat_social_video';
+  $ds_layout->settings = array(
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'heartbeat_left' => 'div',
+      'heartbeat_content' => 'div',
+      'heartbeat_footer' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => 0,
+    'regions' => array(
+      'heartbeat_left' => array(
+        0 => 'test3',
+      ),
+      'heartbeat_content' => array(
+        0 => 'message',
+        1 => 'heartbeat_content_preview',
+      ),
+      'heartbeat_footer' => array(
+        0 => 'heartbeat_type_symbol',
+        1 => 'time',
+        2 => 'buttons',
+      ),
+    ),
+    'fields' => array(
+      'test3' => 'heartbeat_left',
+      'message' => 'heartbeat_content',
+      'heartbeat_content_preview' => 'heartbeat_content',
+      'heartbeat_type_symbol' => 'heartbeat_footer',
+      'time' => 'heartbeat_footer',
+      'buttons' => 'heartbeat_footer',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_video_update|default'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'heartbeat_activity|heartbeat_videocomment_add|default';
+  $ds_layout->entity_type = 'heartbeat_activity';
+  $ds_layout->bundle = 'heartbeat_videocomment_add';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'heartbeat_social_video';
+  $ds_layout->settings = array(
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'heartbeat_left' => 'div',
+      'heartbeat_content' => 'div',
+      'heartbeat_footer' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => 0,
+    'regions' => array(
+      'heartbeat_left' => array(
+        0 => 'test3',
+      ),
+      'heartbeat_content' => array(
+        0 => 'message',
+        1 => 'heartbeat_content_preview',
+      ),
+      'heartbeat_footer' => array(
+        0 => 'heartbeat_type_symbol',
+        1 => 'time',
+        2 => 'buttons',
+      ),
+    ),
+    'fields' => array(
+      'test3' => 'heartbeat_left',
+      'message' => 'heartbeat_content',
+      'heartbeat_content_preview' => 'heartbeat_content',
+      'heartbeat_type_symbol' => 'heartbeat_footer',
+      'time' => 'heartbeat_footer',
+      'buttons' => 'heartbeat_footer',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_videocomment_add|default'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'heartbeat_activity|heartbeat_videocomment_react|default';
+  $ds_layout->entity_type = 'heartbeat_activity';
+  $ds_layout->bundle = 'heartbeat_videocomment_react';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'heartbeat_social_video';
+  $ds_layout->settings = array(
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'heartbeat_left' => 'div',
+      'heartbeat_content' => 'div',
+      'heartbeat_footer' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => 0,
+    'regions' => array(
+      'heartbeat_left' => array(
+        0 => 'test3',
+      ),
+      'heartbeat_content' => array(
+        0 => 'message',
+        1 => 'heartbeat_content_preview',
+      ),
+      'heartbeat_footer' => array(
+        0 => 'heartbeat_type_symbol',
+        1 => 'time',
+        2 => 'buttons',
+      ),
+    ),
+    'fields' => array(
+      'test3' => 'heartbeat_left',
+      'message' => 'heartbeat_content',
+      'heartbeat_content_preview' => 'heartbeat_content',
+      'heartbeat_type_symbol' => 'heartbeat_footer',
+      'time' => 'heartbeat_footer',
+      'buttons' => 'heartbeat_footer',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_videocomment_react|default'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'heartbeat_activity|heartbeat_videocomment_recomment|default';
+  $ds_layout->entity_type = 'heartbeat_activity';
+  $ds_layout->bundle = 'heartbeat_videocomment_recomment';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'heartbeat_social_video';
+  $ds_layout->settings = array(
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'heartbeat_left' => 'div',
+      'heartbeat_content' => 'div',
+      'heartbeat_footer' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => 0,
+    'regions' => array(
+      'heartbeat_left' => array(
+        0 => 'test3',
+      ),
+      'heartbeat_content' => array(
+        0 => 'message',
+        1 => 'heartbeat_content_preview',
+      ),
+      'heartbeat_footer' => array(
+        0 => 'heartbeat_type_symbol',
+        1 => 'time',
+        2 => 'buttons',
+      ),
+    ),
+    'fields' => array(
+      'test3' => 'heartbeat_left',
+      'message' => 'heartbeat_content',
+      'heartbeat_content_preview' => 'heartbeat_content',
+      'heartbeat_type_symbol' => 'heartbeat_footer',
+      'time' => 'heartbeat_footer',
+      'buttons' => 'heartbeat_footer',
+    ),
+  );
+  $export['heartbeat_activity|heartbeat_videocomment_recomment|default'] = $ds_layout;
 
   return $export;
 }

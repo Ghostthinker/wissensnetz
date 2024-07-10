@@ -330,20 +330,6 @@ system/ajax/*';
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
-  $strongarm->name = 'ds_extras_fields_extra';
-  $strongarm->value = 0;
-  $export['ds_extras_fields_extra'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'ds_extras_fields_extra_list';
-  $strongarm->value = '';
-  $export['ds_extras_fields_extra_list'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
   $strongarm->name = 'ds_extras_field_permissions';
   $strongarm->value = 0;
   $export['ds_extras_field_permissions'] = $strongarm;
@@ -354,6 +340,20 @@ system/ajax/*';
   $strongarm->name = 'ds_extras_field_template';
   $strongarm->value = 1;
   $export['ds_extras_field_template'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'ds_extras_fields_extra';
+  $strongarm->value = 0;
+  $export['ds_extras_fields_extra'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'ds_extras_fields_extra_list';
+  $strongarm->value = '';
+  $export['ds_extras_fields_extra_list'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
@@ -606,16 +606,6 @@ system/ajax/*';
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
-  $strongarm->name = 'mail_system';
-  $strongarm->value = array(
-    'default-system' => 'SaltoMailSystem',
-    'onsite_notification' => 'SaltoMailSystem',
-  );
-  $export['mail_system'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
   $strongarm->name = 'menu_options_page';
   $strongarm->value = array(
     0 => 'main-menu',
@@ -632,64 +622,33 @@ system/ajax/*';
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
-  $strongarm->name = 'nodeaccess-grants';
+  $strongarm->name = 'node_options_page';
   $strongarm->value = array(
-    'view' => 1,
-    'edit' => 1,
-    'delete' => 1,
+    0 => 'status',
+    1 => 'promote',
   );
-  $export['nodeaccess-grants'] = $strongarm;
+  $export['node_options_page'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
-  $strongarm->name = 'nodeaccess-preserve';
+  $strongarm->name = 'node_preview_book';
+  $strongarm->value = '0';
+  $export['node_preview_book'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'node_preview_page';
+  $strongarm->value = '0';
+  $export['node_preview_page'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'node_submitted_page';
   $strongarm->value = 0;
-  $export['nodeaccess-preserve'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'nodeaccess-priority';
-  $strongarm->value = 0;
-  $export['nodeaccess-priority'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'nodeaccess-roles';
-  $strongarm->value = array(
-    3 => 0,
-    6 => 0,
-    7 => 0,
-    8 => 0,
-    9 => 0,
-    1 => 1,
-    2 => 1,
-    4 => 1,
-    5 => 1,
-  );
-  $export['nodeaccess-roles'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'nodeaccess-types';
-  $strongarm->value = array(
-    'page' => 1,
-    'group' => 0,
-    'help' => 0,
-    'post' => 1,
-    'ausbildungskonzept' => 0,
-    'earemote' => 0,
-    'weiterbildungsmassnahme' => 0,
-    'organisation' => 0,
-    'shared_post' => 0,
-    'statistics_daily' => 0,
-    'book' => 0,
-    'file_comments' => 0,
-  );
-  $export['nodeaccess-types'] = $strongarm;
+  $export['node_submitted_page'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
@@ -716,6 +675,21 @@ system/ajax/*';
       'grant_update' => 1,
       'grant_delete' => 1,
     ),
+    'ausbildungskonzept' => array(
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    'earemote' => array(
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    'weiterbildungsmassnahme' => array(
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
     'organisation' => array(
       'grant_view' => 1,
       'grant_update' => 0,
@@ -727,6 +701,11 @@ system/ajax/*';
       'grant_delete' => 0,
     ),
     'statistics_daily' => array(
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    ),
+    'book' => array(
       'grant_view' => 0,
       'grant_update' => 0,
       'grant_delete' => 0,
@@ -753,77 +732,6 @@ system/ajax/*';
     ),
   );
   $export['nodeaccess_authors'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'nodeaccess_help';
-  $strongarm->value = array(
-    0 => array(
-      'gid' => 1,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 1,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    1 => array(
-      'gid' => 2,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 1,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    2 => array(
-      'gid' => 3,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 0,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    3 => array(
-      'gid' => 4,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 0,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    4 => array(
-      'gid' => 5,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 0,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    5 => array(
-      'gid' => 6,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 0,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    6 => array(
-      'gid' => 7,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 0,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    7 => array(
-      'gid' => 8,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 0,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-    8 => array(
-      'gid' => 9,
-      'realm' => 'nodeaccess_rid',
-      'grant_view' => 0,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-    ),
-  );
-  $export['nodeaccess_help'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
@@ -899,33 +807,64 @@ system/ajax/*';
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
-  $strongarm->name = 'node_options_page';
+  $strongarm->name = 'nodeaccess-grants';
   $strongarm->value = array(
-    0 => 'status',
-    1 => 'promote',
+    'view' => 1,
+    'edit' => 1,
+    'delete' => 1,
   );
-  $export['node_options_page'] = $strongarm;
+  $export['nodeaccess-grants'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
-  $strongarm->name = 'node_preview_book';
-  $strongarm->value = '0';
-  $export['node_preview_book'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'node_preview_page';
-  $strongarm->value = '0';
-  $export['node_preview_page'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'node_submitted_page';
+  $strongarm->name = 'nodeaccess-preserve';
   $strongarm->value = 0;
-  $export['node_submitted_page'] = $strongarm;
+  $export['nodeaccess-preserve'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'nodeaccess-priority';
+  $strongarm->value = 0;
+  $export['nodeaccess-priority'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'nodeaccess-roles';
+  $strongarm->value = array(
+    3 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+    1 => 1,
+    2 => 1,
+    4 => 1,
+    5 => 1,
+  );
+  $export['nodeaccess-roles'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'nodeaccess-types';
+  $strongarm->value = array(
+    'page' => 1,
+    'group' => 0,
+    'help' => 0,
+    'post' => 1,
+    'ausbildungskonzept' => 0,
+    'earemote' => 0,
+    'weiterbildungsmassnahme' => 0,
+    'organisation' => 0,
+    'shared_post' => 0,
+    'statistics_daily' => 0,
+    'book' => 0,
+    'file_comments' => 0,
+  );
+  $export['nodeaccess-types'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */

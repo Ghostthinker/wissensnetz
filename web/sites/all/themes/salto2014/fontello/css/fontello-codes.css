@@ -72,8 +72,12 @@
 .icon-right-circled:before { content: '\e844'; } /* '' */
 .icon-left-circled:before { content: '\e845'; } /* '' */
 .icon-home:before { content: '\e846'; } /* '' */
+.icon-videocam:before { content: '\e847'; } /* '' */
+.icon-video-chat:before { content: '\e848'; } /* '' */
 .icon-calendar-meeting:before { content: '\f133'; } /* '' */
 .icon-doc-text-inv:before { content: '\f15c'; } /* '' */
+.icon-hourglass-o:before { content: '\f250'; } /* '' */
+.icon-hourglass-2:before { content: '\f252'; } /* '' */
 .icon-calendar-recurring:before { content: '\f271'; } /* '' */
 .icon-calendar-completed:before { content: '\f273'; } /* '' */
 .icon-calendar:before { content: '\f274'; } /* '' */

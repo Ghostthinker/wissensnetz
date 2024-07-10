@@ -1,6 +1,8 @@
 <?php
 //@file access control pr bildungsnetz
 
+use salto_core\service\SettingsService;
+
 define('SALTO_KNOWLEDGEBASE_ACCESS_OPTION_PUBLIC', -1);
 define('SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL', 1);
 define('SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ORGANISATION', 2);
@@ -184,7 +186,6 @@ function salto_knowledgebase_post_access_options($op = NULL) {
  * Implements hook_node_access_records().
  */
 function salto_knowledgebase_node_access_records($node) {
-
   $grants = [];
   // We only care about the node if it has been marked private. If not, it is
   // treated just like any other node and we completely ignore it.
@@ -251,6 +252,15 @@ function salto_knowledgebase_node_access_records($node) {
         'grant_delete' => 0,
         'priority' => 0,
       ];
+    }
+
+    //post publish access
+    if ($node->type === 'post' && $node->field_publishing_options[LANGUAGE_NONE][0]['value'] != POST_PUBLISH_IMMEDIATE){
+      foreach($grants as &$grant){
+        if ($grant['grant_update'] != 1){
+          $grant['grant_view'] = 0;
+        }
+      }
     }
   }
 
@@ -378,6 +388,21 @@ function salto_knowledgebase_file_access_records($file) {
 }
 
 
+function salto_knowledgebase_file_access_records_alter(&$grants, $file) {
+
+  //publish access
+  $drupalFile = \Wissensnetz\Core\File\DrupalFile::make($file->fid);
+  if (!$drupalFile->hasPublishedNodeReferences()) {
+    foreach ($grants as &$grant) {
+      if ($grant['grant_update'] != 1) {
+        $grant['grant_view'] = 0;
+      }
+    }
+  }
+
+  return $grants;
+}
+
 /**
  * Implements hook_node_grants().
  */
@@ -432,6 +457,8 @@ function salto_knowledgebase_file_grants($account, $op) {
  */
 function salto_knowledgebase_field_attach_form($entity_type, $entity, &$form, &$form_state, $langcode) {
 
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
+
   //hide the collaboration and author field
   if ($entity_type == 'node' && !empty($entity->field_post_collaboration)) {
     //only authors and admins can edit all permissions
@@ -447,6 +474,9 @@ function salto_knowledgebase_field_attach_form($entity_type, $entity, &$form, &$
     }
 
     drupal_alter('field_post_collaboration_access', $access, $entity);
+    if(SettingsService::assignGroupsRetrospectivelyEnabled() && $drupalUser->isCommunityManager()){
+      $access = TRUE;
+    }
 
     $form['field_post_collaboration']['#access'] = $access;
 

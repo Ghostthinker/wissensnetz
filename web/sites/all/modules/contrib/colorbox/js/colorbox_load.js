@@ -40,13 +40,38 @@ Drupal.behaviors.initColorboxLoad = {
         }
         if (e[1] == 'width') { e[1] = 'innerWidth'; }
         if (e[1] == 'height') { e[1] = 'innerHeight'; }
+        if (e[2]) {
+          e[2] = Drupal.checkPlain(e[2]);
+        }
         p[e[1]] = e[2];
       }
       return p;
     };
+
     $('.colorbox-load', context)
       .once('init-colorbox-load', function () {
-        var params = $.urlParams($(this).attr('href'));
+        var href = $(this).attr('href');
+
+        var params = $.urlParams(href);
+
+        // Always load in an iframe.
+        params.iframe = true;
+
+        // Set inner width and height if not already specified.
+        if (!params.hasOwnProperty('innerWidth')) {
+          params.innerWidth = $(window).width() * .8;
+        }
+        if (!params.hasOwnProperty('innerHeight')) {
+          params.innerHeight = $(window).height() * .8;
+        }
+
+        if (!params.hasOwnProperty('title')) {
+          // If a title attribute is supplied, sanitize it.
+          var title = $(this).attr('title');
+          if (title) {
+            params.title = Drupal.colorbox.sanitizeMarkup(title);
+          }
+        }
         $(this).colorbox($.extend({}, settings.colorbox, params));
       });
   }

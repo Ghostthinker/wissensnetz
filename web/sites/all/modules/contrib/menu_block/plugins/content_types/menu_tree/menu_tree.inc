@@ -86,6 +86,29 @@ function menu_block_menu_tree_content_type_render($subtype, $conf, $args, $conte
   $delta = ++$ids[$conf['menu_name']];
   $conf['delta'] = 'ctools-' . $conf['menu_name'] . '-' . $delta;
 
+  //GTHACK START
+  if ($conf['menu_name'] == 'menu-knowledgebase') {
+    if (salto_knowledgebase_jojo_menu_enabled()) {
+      $node = menu_get_object();
+      $tid = arg(1);
+      if ($node) {
+        $tid = $node->field_kb_content_category[LANGUAGE_NONE][0]['tid'];
+
+      }
+      $all= taxonomy_get_parents_all($tid);
+      $parent = end($all);
+      $tid = $parent->tid;
+
+      $term = taxonomy_term_load($tid);
+      $mlid = _taxonomy_menu_get_mlid($term->tid, $term->vid, LANGUAGE_NONE);
+
+      $conf['parent'] = 'menu-knowledgebase:' . $mlid;
+      $conf['parent_mlid'] = $mlid;
+      $conf['level'] = 1;
+    }
+  }
+  //GTHACK - END
+
   $tree = menu_tree_build($conf);
 
   $block              = new stdClass();

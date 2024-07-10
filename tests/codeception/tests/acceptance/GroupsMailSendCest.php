@@ -6,7 +6,7 @@
  * Time: 14:42
  */
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * all tests for start pages

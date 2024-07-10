@@ -1,6 +1,6 @@
 <?php
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * Class GroupsCest
@@ -47,7 +47,7 @@ class GroupsCest {
     $I->expect('Founding a group (first)');
     $I->amOnPage("/groups");
     $I->click('Gruppe gründen');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title1 = 'Gruppe1 G260_14' . microtime(true);
     $I->submitForm('#group-node-form', [
       'title' => $title1,
@@ -67,7 +67,7 @@ class GroupsCest {
     $I->expect('Founding a group (second)');
     $I->amOnPage("/groups");
     $I->click('Gruppe gründen');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title2 = 'Gruppe2 G260_14' . microtime(true);
     $I->submitForm('#group-node-form', [
       'title' => $title2,
@@ -87,7 +87,7 @@ class GroupsCest {
     $I->expect('Founding a group (third)');
     $I->amOnPage("/groups");
     $I->click('Gruppe gründen');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title3 = 'Gruppe3 G260_14' . microtime(true);
     $I->submitForm('#group-node-form', [
       'title' => $title3,
@@ -171,7 +171,7 @@ class GroupsCest {
     $I->expect('Founding a new group');
     $I->amOnPage("/groups");
     $I->click('Gruppe gründen');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'Gruppe G260_14' . microtime(true);
     $I->submitForm('#group-node-form', [
       'title' => $title,
@@ -257,7 +257,7 @@ class GroupsCest {
     $I->expect('Founding a new group');
     $I->amOnPage("/groups");
     $I->click('Gruppe gründen');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'Gruppe G260_14_delete_element' . microtime(true);
     $I->submitForm('#group-node-form', ['title' => $title,]);
 
@@ -325,8 +325,8 @@ class GroupsCest {
       'lastname' => 'member',
     ]);
 
-    $og1 = $I->haveOrganisation('TestOG');
-    $og2 = $I->haveOrganisation('TestOG2');
+    $og1 = $I->createOrganisation('TestOG');
+    $og2 = $I->createOrganisation('TestOG2');
 
     $I->addMemberToOrganisation($U1, $og1, [SALTO_OG_ROLE_MANAGER_RID]);
     $I->addMemberToOrganisation($U2, $og2, [SALTO_OG_ROLE_MANAGER_RID]);
@@ -337,7 +337,7 @@ class GroupsCest {
     $I->expect('Founding a new group');
     $I->amOnPage('node/add/group');
 
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'Group G310-' . $microTime;
     $I->submitForm('#group-node-form', ['title' => $title,]);
     $I->see($title);
@@ -388,7 +388,7 @@ class GroupsCest {
 
   }
 
-    public function G310_09_Delete_group(AcceptanceTester $I) {
+    public function G_05_0_delete_group(AcceptanceTester $I) {
         $I->wantTo('310.09 BenutzerIn - Gruppen - Gruppe löschen');
 
         //gruppenbenutzer
@@ -397,15 +397,107 @@ class GroupsCest {
           'lastname' => 'rebmem',
         ]);
 
-        $group = $I->createGroup($user);
+        $group = \Helper\Wissensnetz::createGroup($user);
 
         $I->addMemberToGroup($user, $group->nid);
 
         $I->loginAsUser($user);
         $I->amOnPage('/node/' . $group->nid . '/edit');
+        $I->checkFirstCategory();
         $I->click("Löschen");
-        $I->see("Löschen der Gruppe bestätigen");
+        $I->click("Löschen");
+        $I->see('Gruppe ' . $group->title . ' wurde gelöscht.');
 
     }
+
+  /**
+   * 260.13 Gruppen-ManagerIn - Gruppen - Organisationsstruktur von Beiträgen & Dateien
+   *
+   *
+   * @UserStory 260.13 https://trello.com/c/cbdIagwh/642-26013-gruppen-managerin-gruppen-organisationsstruktur-von-beitr%C3%A4gen-dateien
+   *
+   * @example { "file": "images/150524-19-50.jpg", "type": "image", "mime":"image/jpeg" }
+   *
+   * @param \AcceptanceTester $I
+   */
+
+  public function G_06_0_group_member_view(AcceptanceTester $I,  \Codeception\Example $example) {
+    $I->wantTo('check that group members are correctly shown on group overview page');
+
+    //gruppenbenutzer
+    $GROUPMANAGER = $I->haveUser([
+      'firstname' => 'Inviter',
+      'lastname' => microtime(true),
+    ]);
+
+    $I->loginAsUser($GROUPMANAGER);
+    $I->amOnPage('/user/' . $GROUPMANAGER->uid . '/edit/main?destination=user/' . $GROUPMANAGER->uid . '#');
+    $I->attachFile('//input[@name="files[profile_main_field_user_picture_und_0]"]', 'images/default_user.jpg');
+
+    $I->executeJS("return document.querySelector('#edit-profile-main-field-profile-categories-und .form-checkbox').click()");
+
+    $I->click('Speichern');
+
+
+    $group = \Helper\Wissensnetz::createGroup($GROUPMANAGER);
+
+
+    for ($i=0; $i<5; $i++){
+      $USER = $I->haveUser([
+        'firstname' => 'maximilian' . $i,
+        'lastname' => 'mustermann',
+      ]);
+
+      $I->addMemberToGroup($USER, $group);
+
+      $I->loginAsUser($USER);
+      $I->amOnPage('/user/' . $USER->uid . '/edit/main?destination=user/' . $USER->uid . '#');
+      $I->attachFile('//input[@name="files[profile_main_field_user_picture_und_0]"]', 'images/default_user.jpg');
+
+      $I->executeJS("return document.querySelector('#edit-profile-main-field-profile-categories-und .form-checkbox').click()");
+
+      $I->click('Speichern');
+    }
+
+    for($i=0; $i<12;$i++){
+      $I->haveMaterial([
+        'user' => $GROUPMANAGER,
+        'group' => $group,
+        'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+        'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      ]);
+    }
+
+    $I->loginAsUser($GROUPMANAGER);
+
+    for($i=0; $i<4;$i++){
+      $I->createGroupBeitrag([
+        'Titel' => 'Beitrag_' . $i,
+        'Inhalt' => "body",
+        'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+        'user' => $GROUPMANAGER
+      ],$group->nid);
+    }
+
+
+    $I->completedSetup();
+
+    $I->amOnPage('/node/' . $group->nid . '/edit');
+    $I->checkFirstCategory();
+    $I->click('Speichern');
+
+    $I->amOnPage("groups");
+
+    $I->fillField('title', $group->title);
+    $I->selectOption('form select[name=field_group_themenfelder_tid]', 'All');
+    $I->click('#edit-submit-groups');
+
+    $I->expect('to see all new group node view details');
+    $I->see('4 Beiträge');
+    $I->see('12 Dateien');
+    $I->see('6 Mitglieder');
+    $I->see('+ 3');
+
+  }
 
 }

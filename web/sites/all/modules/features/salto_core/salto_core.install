@@ -13,3 +13,16 @@ function salto_core_update_33001($node) {
 function salto_core_update_38001($node) {
   variable_set('klaro_privacy_config', '/module/configs/config.wn.js');
 }
+
+/**
+ * disable theme style embedding in mail
+ */
+function salto_core_update_43300($node) {
+  variable_set('mimemail_sitestyle', FALSE);
+}
+
+function salto_core_update_50001($node) {
+  db_delete('url_alias')
+    ->condition('alias', 'redaktionelles')
+    ->execute();
+}

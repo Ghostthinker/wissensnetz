@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_help.ctools_content.inc

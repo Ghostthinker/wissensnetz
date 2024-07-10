@@ -29,11 +29,6 @@ function salto_online_meeting_online_meetings_active_content_type_render($subtyp
 
   $group_node = isset($context[0]->data->nid) ? clone($context[0]->data) : NULL;
 
-  if (empty($group_node->nid)) {
-    return;
-  }
-
-
   $block = new stdClass();
   $block->title = '';
 
@@ -44,11 +39,13 @@ function salto_online_meeting_online_meetings_active_content_type_render($subtyp
     ],
   ];
 
+  $nid = $group_node->nid ?? NULL;
+
   drupal_add_js($js_settings, 'setting');
   drupal_add_css(drupal_get_path('module', 'salto_online_meeting') . '/less/salto_online_meeting.less');
   drupal_add_js(drupal_get_path('module', 'salto_online_meeting') . '/js/dialog_gateway.js');
 
-  $out = '<div id="salto-online-meeting-group-active" data-gid="' . $group_node->nid . '"></div>';
+  $out = '<div id="salto-online-meeting-group-active" data-gid="' . $nid . '"></div>';
 
   $block->content = $out;
   return $block;
@@ -72,3 +69,36 @@ function salto_online_meeting_online_meetings_active_content_type_admin_info($su
   $block->content = " ";
   return $block;
 }
+
+
+/**
+ * The submit form stores the data in $conf.
+ */
+function salto_online_meeting_online_meetings_active_content_type_edit_form_submit($form, &$form_state) {
+  foreach (array_keys($form_state['plugin']['defaults']) as $key) {
+    if (isset($form_state['values'][$key])) {
+      $form_state['conf'][$key] = $form_state['values'][$key];
+    }
+  }
+}
+
+/**
+ * The form to add or edit a profile as content.
+ */
+function salto_online_meeting_online_meetings_active_content_type_edit_form($form, &$form_state) {
+  $conf = $form_state['conf'];
+  // Select type of profile to display.
+  $form['type'] = [
+    '#type' => 'select',
+    '#title' => t('Image preset'),
+    '#options' => [
+      'all' => t("All (groups and no groups)"),
+      'group none' => t("Only meetings without groups"),
+      'group specific' => t("Only meetings in the context group"),
+      'group all' => t("Only meetings in any group of the user"),
+    ],
+    '#default_value' => $conf['image_style'],
+  ];
+  return $form;
+}
+

@@ -185,24 +185,23 @@ function salto_organisation_default_page_manager_handlers() {
   $display->content['new-8528ee4a-fac7-4720-be18-ce102290c873'] = $pane;
   $display->panels['middle'][0] = 'new-8528ee4a-fac7-4720-be18-ce102290c873';
   $pane = new stdClass();
-  $pane->pid = 'new-f25a7ad1-ce43-49e0-b42d-0675050f0e03';
+  $pane->pid = 'new-b904b17a-c071-4be9-a7b1-fa517cbfd470';
   $pane->panel = 'middle';
-  $pane->type = 'entity_field';
-  $pane->subtype = 'node:field_organisation_logo';
+  $pane->type = 'node_content';
+  $pane->subtype = 'node_content';
   $pane->shown = TRUE;
   $pane->access = array();
   $pane->configuration = array(
-    'label' => 'hidden',
-    'formatter' => 'file_rendered',
-    'delta_limit' => 0,
-    'delta_offset' => '0',
-    'delta_reversed' => FALSE,
-    'formatter_settings' => array(
-      'file_view_mode' => 'teaser',
-    ),
-    'context' => 'argument_entity_id:node_1',
+    'links' => 0,
+    'no_extras' => 1,
     'override_title' => 0,
     'override_title_text' => '',
+    'identifier' => '',
+    'link' => 0,
+    'leave_node_title' => 1,
+    'build_mode' => 'full',
+    'context' => 'argument_entity_id:node_1',
+    'override_title_heading' => 'h2',
   );
   $pane->cache = array();
   $pane->style = array(
@@ -212,9 +211,9 @@ function salto_organisation_default_page_manager_handlers() {
   $pane->extras = array();
   $pane->position = 1;
   $pane->locks = array();
-  $pane->uuid = 'f25a7ad1-ce43-49e0-b42d-0675050f0e03';
-  $display->content['new-f25a7ad1-ce43-49e0-b42d-0675050f0e03'] = $pane;
-  $display->panels['middle'][1] = 'new-f25a7ad1-ce43-49e0-b42d-0675050f0e03';
+  $pane->uuid = 'b904b17a-c071-4be9-a7b1-fa517cbfd470';
+  $display->content['new-b904b17a-c071-4be9-a7b1-fa517cbfd470'] = $pane;
+  $display->panels['middle'][1] = 'new-b904b17a-c071-4be9-a7b1-fa517cbfd470';
   $pane = new stdClass();
   $pane->pid = 'new-bd2dad21-9487-4550-aa74-a63784cab329';
   $pane->panel = 'middle';
@@ -574,6 +573,7 @@ function salto_organisation_default_page_manager_pages() {
   $pane->cache = array();
   $pane->style = array(
     'settings' => NULL,
+    'style' => 'blockpanel',
   );
   $pane->css = array(
     'css_id' => '',

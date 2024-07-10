@@ -230,10 +230,22 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
 
 
 
-ini_set('post_max_size', '100M');
-ini_set('upload_max_filesize', '100M');
+ini_set('post_max_size', '1200M');
+ini_set('upload_max_filesize', '1200M');
 ini_set('memory_limit', '4G');
 ini_set('max_input_time', '86400');
 
 $conf['admin_security_enabled'] = 0;// deactivates the module.
 $conf['admin_security_login_blocking_enabled'] = 0;// deactivates the optional login blocking only.
+
+function app_autoload($class) {
+  if (strpos($class, 'Wissensnetz\\') === 0) {
+    $class = str_replace('Wissensnetz\\', '', $class);
+    $file = 'App/' . str_replace('\\', '/', $class) . '.php';
+    if (file_exists($file)) {
+      include_once($file);
+    }
+  }
+}
+
+spl_autoload_register('app_autoload');

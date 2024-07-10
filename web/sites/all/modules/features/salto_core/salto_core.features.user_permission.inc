@@ -720,15 +720,6 @@ function salto_core_user_default_permissions() {
     'module' => 'profile2',
   );
 
-  // Exported permission: 'administer profiles'.
-  $permissions['administer profiles'] = array(
-    'name' => 'administer profiles',
-    'roles' => array(
-      'Admin' => 'Admin',
-    ),
-    'module' => 'profile2',
-  );
-
   // Exported permission: 'administer realname'.
   $permissions['administer realname'] = array(
     'name' => 'administer realname',
@@ -974,6 +965,16 @@ function salto_core_user_default_permissions() {
     'module' => 'user',
   );
 
+  // Exported permission: 'change user status'.
+  $permissions['change user status'] = array(
+    'name' => 'change user status',
+    'roles' => array(
+      'Admin' => 'Admin',
+      'DOSB' => 'DOSB',
+    ),
+    'module' => 'salto_user',
+  );
+
   // Exported permission: 'create files'.
   $permissions['create files'] = array(
     'name' => 'create files',
@@ -982,15 +983,6 @@ function salto_core_user_default_permissions() {
       'authenticated user' => 'authenticated user',
     ),
     'module' => 'file_entity',
-  );
-
-  // Exported permission: 'create help content'.
-  $permissions['create help content'] = array(
-    'name' => 'create help content',
-    'roles' => array(
-      'Support' => 'Support',
-    ),
-    'module' => 'node',
   );
 
   // Exported permission: 'create messages'.
@@ -1069,7 +1061,9 @@ function salto_core_user_default_permissions() {
   // Exported permission: 'delete any help content'.
   $permissions['delete any help content'] = array(
     'name' => 'delete any help content',
-    'roles' => array(),
+    'roles' => array(
+      'DOSB' => 'DOSB',
+    ),
     'module' => 'node',
   );
 
@@ -1141,7 +1135,9 @@ function salto_core_user_default_permissions() {
   // Exported permission: 'delete own help content'.
   $permissions['delete own help content'] = array(
     'name' => 'delete own help content',
-    'roles' => array(),
+    'roles' => array(
+      'DOSB' => 'DOSB',
+    ),
     'module' => 'node',
   );
 
@@ -1366,6 +1362,7 @@ function salto_core_user_default_permissions() {
   $permissions['edit any help content'] = array(
     'name' => 'edit any help content',
     'roles' => array(
+      'DOSB' => 'DOSB',
       'Support' => 'Support',
     ),
     'module' => 'node',
@@ -1404,6 +1401,8 @@ function salto_core_user_default_permissions() {
     'name' => 'edit any page content',
     'roles' => array(
       'Admin' => 'Admin',
+      'DOSB' => 'DOSB',
+      'Support' => 'Support',
     ),
     'module' => 'node',
   );
@@ -1450,7 +1449,9 @@ function salto_core_user_default_permissions() {
   // Exported permission: 'edit own help content'.
   $permissions['edit own help content'] = array(
     'name' => 'edit own help content',
-    'roles' => array(),
+    'roles' => array(
+      'DOSB' => 'DOSB',
+    ),
     'module' => 'node',
   );
 
@@ -2033,6 +2034,18 @@ function salto_core_user_default_permissions() {
   // Exported permission: 'use text format editor'.
   $permissions['use text format editor'] = array(
     'name' => 'use text format editor',
+    'roles' => array(
+      'Admin' => 'Admin',
+      'Ghost' => 'Ghost',
+      'Support' => 'Support',
+      'authenticated user' => 'authenticated user',
+    ),
+    'module' => 'filter',
+  );
+
+  // Exported permission: 'use text format editor_comment'.
+  $permissions['use text format editor_comment'] = array(
+    'name' => 'use text format editor_comment',
     'roles' => array(
       'Admin' => 'Admin',
       'Ghost' => 'Ghost',

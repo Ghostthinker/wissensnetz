@@ -1,0 +1,2 @@
+msgid "Download selected files"
+msgstr "Ausgewählte Dateien herunterladen"

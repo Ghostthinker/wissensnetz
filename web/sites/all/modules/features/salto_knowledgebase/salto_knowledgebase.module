@@ -4,6 +4,10 @@
  * @file
  * Code for the Salto Knowledgebase feature.
  */
+
+use salto_core\service\SettingsService;
+
+include_once 'inc/ReactionService.php';
 include_once 'salto_knowledgebase.features.inc';
 include_once 'inc/salto_knowledgebase.func.inc';
 include_once 'inc/salto_knowledgebase.access.inc';
@@ -34,6 +38,17 @@ define('SALTO_KNOWLEDGEBASE_MENU_NAME_FILES', 'menu-knowledgebase-files-cats');
 define('SALTO_KNOWLEDGEBASE_SORT_COMMENTS_OLDER_FIRST', 1); // default
 define('SALTO_KNOWLEDGEBASE_SORT_COMMENTS_NEWER_FIRST', 2);
 define('SALTO_KNOWLEDGEBASE_SORT_COMMENTS_SYSTEM_DEFAULT', 3); // default in profile settings
+
+define('SALTO_KNOWLEDGEBASE_REACTION_WONDERFUL','wonderful');
+define('SALTO_KNOWLEDGEBASE_REACTION_CLAPPING','clapping');
+define('SALTO_KNOWLEDGEBASE_REACTION_LIKE','like');
+define('SALTO_KNOWLEDGEBASE_REACTION_THOUGHTFUL','thoughtful');
+define('SALTO_KNOWLEDGEBASE_REACTION_INSPIRING','inspiring');
+define('SALTO_KNOWLEDGEBASE_REACTION_SUPPORT','support');
+
+define('POST_PUBLISH_DRAFT', 'draft');
+define('POST_PUBLISH_IMMEDIATE', 'immediate');
+define('POST_PUBLISH_CRON', 'cron');
 
 function salto_knowledgebase_init() {
   $arg0 = arg(0);
@@ -138,9 +153,78 @@ function salto_knowledgebase_menu() {
     'access arguments' => ['assign categories'],
     'type' => MENU_CALLBACK,
   ];
+
+  $items['api/reactions/%/%'] = array(
+    'title' => 'Reaction Callback',
+    'page callback' => 'salto_knowledgebase_reactions_callback',
+    'page arguments' => array(2, 3),
+    'access callback' => 'salto_knowledgebase_reactions_access',
+    'access arguments' => array(2, 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['saltockeditor/mentions'] = array(
+    'title' => 'ajax callback ckeditor mentions',
+    'page callback' => 'salto_knowledgebase_ckeditor_mentions_getpeople',
+    'access arguments' => array('access user profiles'),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'drupal_json_output',
+    'file' => 'inc/salto_knowledgebase_ckeditor_mentions.ajax.inc',
+  );
+
   return $items;
 }
 
+function salto_knowledgebase_theme(){
+  return [
+    'material_card' => [
+      'variables' => array('taxonomy_id' => array()),
+      'template' => 'templates/material_card'
+    ]
+  ];
+}
+
+
+/**
+* @param $entity_type
+* @param $entity_id
+*/
+function salto_knowledgebase_reactions_callback($entity_type, $entity_id) {
+  $response = [];
+  $RS = new ReactionService();
+  if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // POST method
+    $reactiontag = check_plain($_POST['tag']);
+    // save and unsave
+    $response = $RS->saveReaction($reactiontag, $entity_id, $entity_type);
+  } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    // GET method
+    $votesentity = $RS->getReactionsByEntity($entity_id, $entity_type);
+    $uservotes = $RS->getReactionsByEntityAndUser($entity_id, $entity_type);
+    $response['votes'] = $votesentity;
+    $response['uservotes'] = $uservotes;
+  }
+
+  return drupal_json_output($response);
+}
+
+
+/**
+ * @param $entity_type
+ * @param $entity_id
+ *
+ * @return bool
+ */
+function salto_knowledgebase_reactions_access($entity_type, $entity_id) {
+
+  if (user_is_anonymous()) {
+    // deny access for anonymous user
+    return FALSE;
+  }
+  $entities = entity_load($entity_type, [$entity_id]);
+  $entity = reset($entities);
+  return entity_access('view', $entity_type, $entity);
+}
 
 /**
  * js callbacks for salto knowledgebase
@@ -505,12 +589,17 @@ function salto_knowledgebase_content_category_delete_term_form_submit($form, &$f
     $reassign_post_term_tid = NULL;
     $reassign_materials_term_tid = NULL;
 
+
     if ($term->vid == SALTO_KNOWLEDGEBASE_KB_VID) {
       $post_term_tid = $term->tid;
       $materials_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($term);
       $reassign_post_term_tid = $reassign_term_tid;
       $reassign_term = taxonomy_term_load($reassign_post_term_tid);
       $reassign_materials_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($reassign_term);
+      if(empty($reassign_materials_term_tid)){
+        $fallback_term = taxonomy_term_load(salto_knowledgebase_get_fallback_kb_category_tid());
+        $reassign_materials_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($fallback_term);
+      }
     }
     elseif ($term->vid == SALTO_KNOWLEDGEBASE_LLM_VID) {
       $materials_term_tid = $term->tid;
@@ -518,6 +607,9 @@ function salto_knowledgebase_content_category_delete_term_form_submit($form, &$f
       $reassign_materials_term_tid = $reassign_term_tid;
       $reassign_term = taxonomy_term_load($reassign_materials_term_tid);
       $reassign_post_term_tid = salto_knowledgebase_taxonomy_get_refereced_tid($reassign_term);
+      if(empty($reassign_post_term_tid)){
+        $reassign_post_term_tid = salto_knowledgebase_get_fallback_kb_category_tid();
+      }
     }
 
     //1. --- NODES ---
@@ -749,7 +841,6 @@ function _salto_knowledgebase_get_category_hirarchie($type, $term) {
         continue;
       }
     }
-
     $breadcrumb[] = l($parent->name, $basepath . '/' . $parent->tid);
   }
   return $breadcrumb;
@@ -806,7 +897,6 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
     if (!empty($og)) {
       $form_state['og_context'] = $og;
       $node = $form['#node'];
-      $form['#after_build'][] = 'salto_knowledgebase_form_post_node_form_category_after_build';
       array_unshift($form['#submit'], 'salto_knowledgebase_form_post_node_form_submit');
       $form['field_kb_content_category'][LANGUAGE_NONE]['#required'] = FALSE;
 
@@ -822,13 +912,6 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
       }
 
       $form['field_kb_content_category'][LANGUAGE_NONE]['#description'] = t("Description group global category posts");
-
-
-      $form['og_vocabulary']['#prefix'] = '<div class="row col-md-12" id="salto_og_vocab_wrapper"><div class="col-md-6">';
-      $form['og_vocabulary']['#suffix'] = '</div>';
-
-      $form['field_kb_content_category']['#prefix'] = '<div class="col-md-6">';
-      $form['field_kb_content_category']['#suffix'] = '</div></div>';
     }
     else {
       $form['field_kb_content_category'][LANGUAGE_NONE]['#required'] = TRUE;
@@ -846,6 +929,17 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
 
     $attachment_fields = _attachments_field_names();
 
+    // CO-802
+    $counInitialAttachments = !empty($node->field_post_attachment[LANGUAGE_NONE]) ?
+      count(array_filter($node->field_post_attachment[LANGUAGE_NONE],
+        function ($element) {
+            return $element['type'] == 'video';
+        }
+      )) : 0;
+    $svp_preselect = $counInitialAttachments > 0 ? 0 : 1;
+
+    drupal_add_js(['attachment_svp_preselect' => $svp_preselect], 'setting');
+
     if ($fields = array_intersect_key($attachment_fields, $form)) {
       foreach ($fields as $field) {
         $items = &$form[$field]['und'];
@@ -858,6 +952,8 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
           if ($items[$key]['#default_value']['fid'] == 0) {
             continue;
           }
+
+
           $fid = $items[$key]['#default_value']['fid'];
           $file = file_load($fid);
 
@@ -908,26 +1004,40 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
                 $disable = TRUE;
               }
             }
-
             $file_attachment_status = $default_value;
+
             $items[$key]['file_attachment_status'] = [
               '#type' => 'checkbox',
               '#title' => t('Store in Materials'),
-              '#default_value' => $default_value,
+              '#default_value' => $file_attachment_status,
               '#disabled' => $disable,
               '#weight' => 100,
               '#attributes' => ['class' => ['attachmentStatus']],
             ];
           }
 
+          // CO-802
+          $default_value_type = $items[$key]['#default_value']['type'] ?? file_load($items[$key]['#default_value']['fid'])->type;
+          if ($default_value_type == "video") {
+            $default_value_svp_preview = $items[$key]['#default_value']['field_file_attachment_preview'][LANGUAGE_NONE][0]['value'];
+            $items[$key]['field_file_attachment_preview'] = [
+              '#type' => 'checkbox',
+              '#title' => t('Display via SVP player'),
+              '#default_value' => $default_value_svp_preview,
+              '#weight' => 100,
+              '#attributes' => ['class' => ['attachment_preview']],
+            ];
+          }
+
+          $stateValue = $form_state['values']['field_post_attachment'][LANGUAGE_NONE][$key]['file_attachment_title'];
 
           $type = variable_get('file_title_type', 'textfield');
           $value = $file->field_file_title[LANGUAGE_NONE][0]['value'];
           if ($file->type == 'image') {
             $type = variable_get('file_image_title_text_type', 'textfield');
             $value = $file->field_file_image_title_text[LANGUAGE_NONE][0]['value'];
+
           }
-          $stateValue = $form_state['values']['field_post_attachment'][LANGUAGE_NONE][$key]['file_attachment_title'];
 
           //set value = statevalue if formstate was set
           $value = !empty($stateValue) ? $stateValue : $value;
@@ -936,10 +1046,10 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
 
           $items[$key]['file_attachment_title'] = [
             '#type' => $type,
-            '#title' => t('Filename'),
+            '#title' => t('Filename') . ' *',
             '#default_value' => isset($stateValue) ? salto_core_check_plain($stateValue) : salto_core_check_plain($value),
             '#maxlength' => variable_get('file_title_length', 128),
-            '#description' => t('Set you direct the filename of the attachments.'),
+            '#description' => t('Set the direct the title of the attachment directly.'),
           ];
 
           if (!file_entity_access('update', $file, $account)) {
@@ -994,13 +1104,6 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
       }
     }
 
-    //set the attributes for checkboxes og Beitragstags
-    $post_tags_title = $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#title'];
-    $post_tags_desc = $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#description'];
-    $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#title'] = salto_core_check_plain($post_tags_title . ' - ' . $post_tags_desc);
-    $form['field_taxonomy_post_tags'][LANGUAGE_NONE]['#description'] = '';
-
-    $form['field_taxonomy_post_tags']['#process'][] = 'salto_knowledgebase_add_checkbox_attribute';
 
     //control versioning controls - only authors can control it
     if (salto_knowledgebase_user_is_author($node) || user_access('administer nodes')) {
@@ -1016,9 +1119,10 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
 
     //edit form
     if ($node->nid > 0) {
+      //get default value
+      $notify_default = salto_core_posts_send_notification_default_value();
       //node creator and last update > 24h ago
-      $notify_default = TRUE;
-      if ($node->uid == $account->uid && $node->changed >= time() - 60 * 60 * 24) {
+      if ($notify_default && $node->uid == $account->uid && $node->changed >= time() - 60 * 60 * 24) {
         $notify_default = FALSE;
       }
 
@@ -1027,10 +1131,14 @@ function salto_knowledgebase_form_node_form_alter(&$form, &$form_state, $form_id
         '#title' => t('Notify on changes'),
         '#type' => 'checkbox',
         '#default_value' => $notify_default,
+        '#description' => t('Here you can specify whether you want to inform other community users about your changes. For smaller changes, especially spelling improvements or nicer formatting, it is a good idea to suspend the notification. In this case, please uncheck the box above if it is set.'),
       ];
     }
 
-    $form['actions']['submit']['#submit'][] = 'salto_knowledgebase_post_form_submitted';
+    $submit_functions = $form['actions']['submit']['#submit'];
+    array_unshift($submit_functions, "salto_knowledgebase_post_form_submitted");
+
+    $form['actions']['submit']['#submit'] = $submit_functions;
   }
 }
 
@@ -1097,8 +1205,25 @@ function salto_knowledgebase_form_post_node_form_after_build(&$form, &$form_stat
   drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . '/js/salto_knowledgebase_post_length.js', ['scope' => 'footer']);
   $textLengthMax = variable_get('salto_knowledgebase_node_body_txt_length', SALTO_KNOWLEDGEBASE_BODY_TXT_LENGTH_MAX);
   drupal_add_js(["post_length_max" => $textLengthMax], 'setting');
+
+  drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . '/js/salto_knowledgebase.js');
+
   return $form;
 }
+
+
+/**
+ *  WYSIWYG
+ */
+function salto_knowledgebase_wysiwyg_editor_settings_alter(&$settings, $context) {
+
+  drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . '/wysiwyg/salto_knowledgebase_mentions.js', ['scope' => 'footer']);
+
+  if ($context['profile']->editor == 'ckeditor') {
+    $settings['extraPlugins'] .= ',ckeditor_mentions';
+  }
+}
+
 
 
 /**
@@ -1126,10 +1251,12 @@ function salto_knowledgebase_form_post_node_form_submit(&$form, &$form_state) {
  * @param $form_state
  */
 function salto_knowledgebase_post_form_submitted(&$form, &$form_state) {
-
+  global $user;
+  $account = clone $user;
   $node = $form_state['node'];
   $attachment_fields = _attachments_field_names();
   if ($fields = array_intersect_key($attachment_fields, $form_state['values'])) {
+
     foreach ($fields as $field) {
       $items = $form_state['values'][$field]['und'];
 
@@ -1141,8 +1268,7 @@ function salto_knowledgebase_post_form_submitted(&$form, &$form_state) {
 
         $file = file_load($fid);
 
-        global $user;
-        $account = clone $user;
+
         if (isset($value['file_attachment_title']) && file_entity_access('update', $file, $account)) {
 
           if ($file->type == 'image') {
@@ -1170,43 +1296,75 @@ function salto_knowledgebase_post_form_submitted(&$form, &$form_state) {
         else {
           $file_status = $value['file_attachment_status'];
           if ($file->field_file_attachment_status[LANGUAGE_NONE][0]['value'] == $file_status) {
-            continue;
-          }
-
-          if ($file_status == SALTO_FILE_ATTACHMENT_STATUS_CHECKED) {
-            $file = salto_knowledgebase_post_set_attachment_ref($file, $node->nid);
-            $arrayTerms = salto_knowledgebase_post_get_themenfelder($node);
-            if (!empty($arrayTerms)) {
-              $key = 0;
-              foreach ($arrayTerms as $term) {
-                if (!empty($term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'])) {
-                  $file->field_kb_kategorie[LANGUAGE_NONE][$key]['tid'] = $term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'];
-                  $key++;
+            if ($file_status == SALTO_FILE_ATTACHMENT_STATUS_CHECKED) {
+              $file = salto_knowledgebase_post_set_attachment_ref($file, $node->nid);
+              $arrayTerms = salto_knowledgebase_post_get_themenfelder($node);
+              if (!empty($arrayTerms)) {
+                $key = 0;
+                foreach ($arrayTerms as $term) {
+                  if (!empty($term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'])) {
+                    $file->field_kb_kategorie[LANGUAGE_NONE][$key]['tid'] = $term->field_term_sync_material_ref[LANGUAGE_NONE][0]['tid'];
+                    $key++;
+                  }
                 }
               }
             }
-          }
-          else {
-            if ($file_status == SALTO_FILE_ATTACHMENT_STATUS_UNCHECKED) {
-              $file = salto_knowledgebase_post_set_attachment_ref_empty($file, $node->nid);
+            else {
+              if ($file_status == SALTO_FILE_ATTACHMENT_STATUS_UNCHECKED) {
+                $file = salto_knowledgebase_post_set_attachment_ref_empty($file, $node->nid);
+              }
             }
+            $file->field_file_attachment_status[LANGUAGE_NONE][0]['value'] = $file_status;
           }
-
-          $file->field_file_attachment_status[LANGUAGE_NONE][0]['value'] = $file_status;
         }
+
+        // CO-802
+        if (isset($value['field_file_attachment_preview'])) {
+          $file_svp_preview = $value['field_file_attachment_preview'];
+          $file->field_file_attachment_preview[LANGUAGE_NONE][0]['value'] = $file_svp_preview;
+        }
+
         file_save($file);
       }
     }
   }
 
-  if (isset($form_state['values']['salto_notification']) && $form_state['values']['salto_notification'] == FALSE) {
+  if (isset($form_state['values']['salto_notification']) && $form_state['values']['salto_notification'] == TRUE) {
     //set ignore notification flag
     $node->salto_ignore_notification = TRUE;
+    $data = [
+      'node' => $node,
+      'is_new' => TRUE,
+      'actor' => $user ?? salto_user_get_current(),
+    ];
+
+    $queue = CoreSystemQueue::create('onsite_notification_knowledgebase_post_submitted');
+    $queue->createItem($data);
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function salto_knowledgebase_node_insert($node) {
+
+  global $user;
+
+  if ($node->field_publishing_options[LANGUAGE_NONE][0]['value'] != POST_PUBLISH_IMMEDIATE){
+    return;
   }
 
-  module_invoke_all('knowledgebase_post_submitted', $node, empty($form['#node']->nid));
+  $data = [
+    'node' => $node,
+    'is_new' => TRUE,
+    'actor' => $user ?? salto_user_get_current(),
+  ];
+
+  $queue = CoreSystemQueue::create('onsite_notification_knowledgebase_post_submitted');
+  $queue->createItem($data);
 
 }
+
 
 function salto_knowledgebase_post_set_attachment_ref($file, $nid) {
   if (empty($file->field_file_attachment_post_ref)) {
@@ -1317,16 +1475,14 @@ function salto_knowledgebase_category_field_attach(&$form, &$form_state, $entity
 function salto_knowledgebase_form_alter(&$form, &$form_state, $form_id) {
 
   global $user;
-
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
   //override submit callback for term overview form
   if ($form_id == 'taxonomy_overview_terms') {
     $submit_key = array_search('taxonomy_overview_terms_submit', $form['#submit']);
     if ($submit_key !== FALSE) {
       $form['#submit'][$submit_key] = "salto_knowledgebase_taxonomy_overview_terms_submit";
     }
-  }
 
-  if ($form_id == 'taxonomy_overview_terms') {
     if (!empty($form['#vocabulary']) && $form['#vocabulary']->machine_name == 'wissensbasis_kategorien') {
       if (!user_access('manage knowledgebase categories')) {
         $form['#validate'][] = 'salto_knowledgebase_content_taxonomy_overview_depth_lock_validate';
@@ -1335,6 +1491,13 @@ function salto_knowledgebase_form_alter(&$form, &$form_state, $form_id) {
   }
 
   if ($form_id == 'taxonomy_form_term') {
+
+    $materialCardsSettings = SettingsService::getThemenfelderAsCard();
+
+    if(!$materialCardsSettings['enabled']){
+      $form["field_term_icon"]["#access"] = FALSE;
+      $form["field_term_image"]["#access"] = FALSE;
+    }
 
     if (!empty($form["field_term_sync_material_ref"])) {
       $form["field_term_sync_material_ref"]["#access"] = FALSE;
@@ -1414,19 +1577,124 @@ function salto_knowledgebase_form_alter(&$form, &$form_state, $form_id) {
     }
   }
 
+  if ($form_id == 'post_node_form'){
+
+    unset($form['field_publishing_options'][LANGUAGE_NONE]['#options']['_none']);
+    //post publication
+    $form['#validate'][] = 'salto_knowledgebase_form_post_form_validate';
+
+
+    if(SettingsService::assignGroupsRetrospectivelyEnabled() && $drupalUser->isCommunityManager()){
+      if(empty($form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#options'][3])){
+        $form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#options'][3] = '';
+        $form['field_post_collaboration'][LANGUAGE_NONE][0]['edit']['#options'][3] = '';
+      }
+      $form['field_post_collaboration'][LANGUAGE_NONE][0]['read']['#options'][4] = t('Authors and group managers only');
+      $form['field_post_collaboration'][LANGUAGE_NONE][0]['edit']['#options'][4] = t('Authors and group managers only');
+      $form['field_og_group'][LANGUAGE_NONE]['#disabled'] = FALSE;
+    }
+
+
+
+    $hide = FALSE;
+
+    if(!empty($notification_status)) {
+      $hide = TRUE;
+    }
+
+    if(!empty($form['#node']->nid && empty($form['#node']->field_publishing_options[LANGUAGE_NONE][0]['value']))) {
+      $hide = TRUE;
+    }
+
+    if(!empty($form['#node']->nid && $form['#node']->field_publishing_options[LANGUAGE_NONE][0]['value'] == POST_PUBLISH_IMMEDIATE)) {
+      $hide = TRUE;
+    }
+
+    if ($hide) {
+      $form['field_publishing_options']['#prefix'] = '<div style="display:none">';
+      $form['field_publishing_options']['#suffix'] = '</div>';
+      $form['field_publishing_date']['#prefix'] = '<div style="display:none">';
+      $form['field_publishing_date']['#suffix'] = '</div>';
+    }
+  }
+}
+
+function salto_knowledgebase_form_post_form_validate(&$form, &$form_state){
+
+  if ($form_state['values']['field_publishing_options'][LANGUAGE_NONE][0]['value'] == POST_PUBLISH_CRON) {
+    if ($form_state['values']['field_publishing_date'][LANGUAGE_NONE][0]['value'] == NULL ){
+      form_set_error('post', t('Please enter a valid date for automatic post publication.'));
+    }
+    if (strtotime($form_state['values']['field_publishing_date'][LANGUAGE_NONE][0]['value']) < strtotime('NOW') ){
+      form_set_error('post',t('Date for automatic post publication is in the past. Please enter a valid post publication date.'));
+    }
+  }
+
+  salto_knowledgebase_form_post_form_validate_publishing_date($form, $form_state);
+
+
+  foreach($form_state['values']['field_post_attachment'][LANGUAGE_NONE] as $title_field){
+    if (trim($title_field['file_attachment_title']) === '' && array_key_exists('file_attachment_title',$title_field)) {
+      form_set_error('post',t('Title for attachment file must be set.'));
+    }
+  }
+}
+
+function salto_knowledgebase_form_post_form_validate_publishing_date(&$form, &$form_state){
+
+  $date = $form_state['input']['field_publishing_date'][LANGUAGE_NONE][0]['value']['date'];
+  $time = $form_state['input']['field_publishing_date'][LANGUAGE_NONE][0]['value']['time'];
+
+  $datetime = date_create($date . ' ' . $time);
+  $datetime_string = date_format($datetime, 'Y-m-d\TH:i:s');
+
+  if ($form_state['values']['field_publishing_date'][LANGUAGE_NONE][0]['value'] !== $datetime_string && $form_state['values']['field_publishing_options'][LANGUAGE_NONE][0]['value'] === POST_PUBLISH_CRON){
+    form_set_error('post',t('Please enter values only for full hours.'));
+  }
 }
 
 
-function salto_knowledgebase_add_checkbox_attribute($element) {
-  if (!empty($element[LANGUAGE_NONE]) && $element[LANGUAGE_NONE]['#field_name'] == 'field_taxonomy_post_tags') {
-    $element[LANGUAGE_NONE]['#tooltips'] = [];
-    foreach ($element[LANGUAGE_NONE]['#options'] as $key => $value) {
-      $term = taxonomy_term_load($key);
-      $element[LANGUAGE_NONE]['#tooltips'][$key] = strip_tags($term->description);
+/**
+ * Implements hook_cron
+ */
+function salto_knowledgebase_cron() {
+  $pending_posts = salto_knowledgebase_get_pending_posts();
+  salto_knowledgebase_publish_immediate_post($pending_posts);
+}
+
+function salto_knowledgebase_publish_immediate_post($pending_posts){
+  $now = time();
+  foreach ($pending_posts as $post) {
+    $publish_timestamp = strtotime($post->field_publishing_date_value);
+    if ($now > $publish_timestamp) {
+      $post_node = node_load($post->entity_id);
+      $post_node->field_publishing_options[LANGUAGE_NONE][0]['value'] = POST_PUBLISH_IMMEDIATE;
+      $post_node->created = $publish_timestamp;
+      $post_node->revision = FALSE;
+      node_save($post_node);
+
+      onsite_notification_post_created($post_node, user_load($post_node->uid));
+
+      //rebuild access for all file attachments
+      for($i=0;$i<count($post_node->field_post_attachment[LANGUAGE_NONE]); $i++){
+        $file = file_load($post_node->field_post_attachment[LANGUAGE_NONE][$i]['fid']);
+        file_entity_access_acquire_grants($file);
+      }
+
     }
   }
-  return $element;
+}
 
+function salto_knowledgebase_get_pending_posts(){
+  $query = db_select('field_data_field_publishing_date', 'fpd');
+  $query->leftJoin('field_data_field_publishing_options', 'fpo', 'fpo.entity_id = fpd.entity_id');
+  $query->fields('fpd', [
+    'entity_id',
+    'field_publishing_date_value',
+  ])
+    ->condition('fpo.field_publishing_options_value', 'cron');
+
+  return $query->execute()->fetchAll();
 }
 
 /**
@@ -1529,7 +1797,6 @@ function salto_knowledgebase_node_presave($node) {
       $node->body[LANGUAGE_NONE][0]['value'] = $text . ' ... ';
       drupal_set_message(t('Your text body is trimmed of the max !textLengthMax length!', ['!textLengthMax' => $textLengthMax]), 'warning', FALSE);
     }
-
   }
 }
 
@@ -1946,6 +2213,57 @@ function _salto_action_links_materials($file = NULL) {
     $links["add_file"] = $link;
   }
 
+  $regex = '#^materials/([0-9]+)$#s';
+  $matches = [];
+  preg_match($regex, $base_query['destination'], $matches);
+
+  $active_category_tid = NULL;
+  if (!empty($matches)) {
+    $active_category_tid = $matches[1];
+  }
+
+  //files for download
+  if (user_access("create files")) {
+    $path = 'materials/download/'.$active_category_tid;
+    $text = t('Download files');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => $base_query, // $base_query, //$query,
+        'attributes' => [
+          'title' => t('Download multiple files'),
+          'class' => 'action_link action_download_file',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["download_files"] = $link;
+  }
+
+  //files for edit
+  if (user_access("create files")) {
+    $path = 'materials/edit/'.$active_category_tid;
+    $text = t('Edit files');
+    $dest = drupal_get_destination();
+    $link = [
+      '#theme' => 'link',
+      '#text' => $text,
+      '#path' => $path,
+      '#options' => [
+        'query' => $base_query, // $base_query, //$query,
+        'attributes' => [
+          'title' => t('Edit multiple files'),
+          'class' => 'action_link action_edit_file',
+        ],
+        'html' => TRUE,
+      ],
+    ];
+    $links["edit_files"] = $link;
+  }
+
   //categories for DOSB and Admin Role only
   //context sensitive "Manage categories link"
   //file category
@@ -2055,6 +2373,33 @@ function salto_knowledgebase_node_view($node, $view_mode, $langcode) {
         '#attributes' => ['class' => ['links', 'inline', 'left']],
       ];
 
+
+      // CO-802
+      if ($view_mode == 'full') {
+        foreach ($node->field_post_attachment[LANGUAGE_NONE] as $attachment) {
+          if ($attachment['type'] != "video" || empty($attachment['field_file_attachment_preview'][LANGUAGE_NONE][0]['value'])) {
+            continue;
+          }
+
+          $video = file_load($attachment['fid']);
+          $video_title = $video->field_file_title[LANGUAGE_NONE][0]['value'] ?? $video->filename;
+          $video_file_view = file_view($video, 'file_video_svp');
+
+          // Append the additional content to the node.
+          $node->content['svp'] = [
+            '#prefix' => '<hr/> <div class="attachment_svp">' . '<h2><small><strong>' . l($video_title, '/file/' . $video->fid) . '</small></strong></h2>',
+            // Opening wrapper div
+            '#suffix' => '</div>',
+            // Closing wrapper div
+            '#markup' => render($video_file_view['file']),
+            '#weight' => 10,
+            // Adjust weight to control the display order.
+          ];
+
+          break;
+        }
+      }
+
     }
   }
 
@@ -2067,53 +2412,86 @@ function salto_knowledgebase_node_view($node, $view_mode, $langcode) {
     return;
   }
 
-  // show result in teaser view mode
-  $rendered_stars =
-    _salto_knowledgebase_render_fivestar_stars('node', $node, $field_instance, $node->field_content_rating[LANGUAGE_NONE],
-      'average', 'none', TRUE);
 
-  $links['content_rating'] = [
-    'title' => $rendered_stars,
-    'html' => TRUE,
-  ];
+  drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . "/js/salto_knowledgebase.js");
 
-  $node->content['links_right']['content_rating_display'] = [
+  _salto_knowledgebase_add_reactions_js();
+  $node->content['links_right']['content_rating_display'] = array(
     '#theme' => 'links',
-    '#links' => $links,
-    'html' => TRUE,
+    'html' => true,
     '#weight' => 20,
-    '#attributes' => [
-      'class' => [
+    '#attributes' => array(
+      'class' => array(
         'links',
         'inline',
-        'content_rating_display',
-      ],
-    ],
-  ];
+        'content_rating_display'
+      )
+    ),
+  );
 
-  if ($view_mode == 'teaser') {
-    return;
-  }
-
-  $user_link =
-    _salto_knowledgebase_render_fivestar_user_stars('node', $node, $field_instance, $node->field_content_rating[LANGUAGE_NONE]);
-
-  $links['content_rating'] = [
-    'title' => $user_link,
-    '#weight' => 10,
-    'html' => TRUE,
-  ];
-
-  $node->content['links_right']['content_rating_action'] = [
-    '#theme' => 'links',
-    '#links' => $links,
-    'html' => TRUE,
-    '#weight' => -1,
-    '#attributes' => [
-      'class' => ['link', 'content_rating_action'],
-    ],
-  ];
 }
+
+/**
+ *
+ */
+function _salto_knowledgebase_add_reactions_js() {
+
+  $script = [
+    '#tag' => 'script',
+    '#attributes' => [
+      'type' => 'module',
+      'src' => '/' . drupal_get_path('module', 'salto_knowledgebase') . '/webcomponents/GTReactions/gt-reactions-button.js',
+    ],
+    '#value' => '',
+  ];
+  drupal_add_html_head($script, 'script');
+
+  drupal_add_js(drupal_get_path('module', 'salto_knowledgebase') . "/js/salto_knowledgebase.reactions.js");
+
+  $allowedReactions = _salto_knowledgebase_get_allowed_reactions();
+
+  drupal_add_js(['salto_reactions' => $allowedReactions], 'setting');
+}
+
+/**
+ * @return \string[][]
+ */
+function _salto_knowledgebase_get_allowed_reactions() {
+
+  $basePath = base_path() . drupal_get_path('module',
+      'salto_knowledgebase') . '/webcomponents/GTReactions/svg';
+
+  $allowedReactions = [
+    [
+      'key' => SALTO_KNOWLEDGEBASE_REACTION_LIKE,
+      'icon' => $basePath . '/like.svg',
+    ],
+    [
+      'key' => SALTO_KNOWLEDGEBASE_REACTION_CLAPPING,
+      'icon' => $basePath . '/clapping.svg',
+    ],
+    [
+      'key' => SALTO_KNOWLEDGEBASE_REACTION_SUPPORT,
+      'icon' => $basePath . '/support.svg',
+    ],
+    [
+      'key' => SALTO_KNOWLEDGEBASE_REACTION_WONDERFUL,
+      'icon' => $basePath . '/wonderful.svg',
+    ],
+    [
+      'key' => SALTO_KNOWLEDGEBASE_REACTION_INSPIRING,
+      'icon' => $basePath . '/inspiring.svg',
+    ],
+    [
+      'key' => SALTO_KNOWLEDGEBASE_REACTION_THOUGHTFUL,
+      'icon' => $basePath . '/thoughtful.svg',
+    ],
+  ];
+
+  return $allowedReactions;
+}
+
+
 
 /**
  * render file stars
@@ -2306,6 +2684,7 @@ function _salto_knowledgebase_main_menu_placeholder_replace_helper(&$tree, $cate
   }
 
 
+
   foreach ($tree as &$ti) {
 
     $ti['link']['link_path'] = $ti['link']['href'];
@@ -2336,7 +2715,6 @@ function _salto_knowledgebase_main_menu_placeholder_replace_helper(&$tree, $cate
   }
   return;
 }
-
 /**
  * check if user is author of a post
  *
@@ -2889,7 +3267,7 @@ function salto_knowledgebase_get_themenfelder($include_fallback = FALSE) {
 
   if (!empty($tree) && !$include_fallback) {
     $tree = array_filter($tree, function ($item) {
-      return $item->tid != SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID;
+      return $item->tid != salto_knowledgebase_get_fallback_kb_category_tid();
     });
   }
 
@@ -2930,6 +3308,14 @@ function salto_knowledgebase_post_get_themenfelder($entity) {
  * @param $view
  */
 function salto_knowledgebase_views_pre_render(&$view) {
+
+  if($view->current_display == 'files_directory'){
+    $settings = SettingsService::getThemenfelderAsCard();
+    if($settings['enabled']){
+      $view->display_handler->set_option('css_class', 'material-cards');
+    }
+  }
+
   if ($view->name == 'knowledgebase_content_by_category') {
     $title = $view->get_title();
     if ($title == "Kein Name") {
@@ -2941,6 +3327,17 @@ function salto_knowledgebase_views_pre_render(&$view) {
     $title = $view->get_title();
     if ($title == "Kein Name") {
       $view->set_title(t('Materials'));
+    }
+  }
+
+
+
+}
+
+function salto_knowledgebase_views_pre_view($view, $display_id, $args) {
+  if ($view->name == 'knowledgebase_content_by_category') {
+    if( salto_core_get_posts_show_active_category_only()) {
+      $view->display['panel_all']->handler->handlers['argument']['term_node_tid_depth']->options['depth'] = 0;
     }
   }
 }
@@ -3423,8 +3820,7 @@ function salto_knowledgebase_preprocess_salto_363_panel_alter(&$variables) {
   }
 
   salto_knowledgebase_preprocess_salto_363_panel_authors($variables);
-  salto_knowledgebase_preprocess_salto_363_panel_attachment($variables);
-  //dpm($variables);
+
 }
 
 function salto_knowledgebase_preprocess_salto_363_panel_authors(&$variables) {
@@ -3446,28 +3842,15 @@ function salto_knowledgebase_preprocess_salto_363_panel_authors(&$variables) {
   $variables['authors']['content'] = $panel;
 }
 
-function salto_knowledgebase_preprocess_salto_363_panel_attachment(&$variables) {
-  $panelId = $variables['display']->panels['right'][2];
-  if ($panelId == NULL) {
-    return;
-  }
-
-  if (!$variables['display']->content[$panelId]) {
-    return;
-  }
-  if (stripos($variables['display']->content[$panelId]->subtype, 'tmp_files_by_node-panel_file_with_ref') === FALSE) {
-    return;
-  }
-
-  $panel = $variables['display']->renderer_handler->rendered['panes'][$panelId];
-  if ($panel == NULL) {
-    return;
-  }
-
-  $keys = array_keys($variables['display']->context);
-  $attachmentCount = count($variables['display']->context[$keys[0]]->data->field_post_attachment[LANGUAGE_NONE]);
-  $attachments = $variables['node']->field_post_attachment[LANGUAGE_NONE];
+function salto_knowledgebase_render_salto_363_panel_attachment($node) {
+  $attachmentCount = count($node->field_post_attachment[LANGUAGE_NONE]);
+  $attachments = $node->field_post_attachment[LANGUAGE_NONE];
   $html = '';
+
+  if(empty($attachmentCount)) {
+    return $html;
+  }
+
   foreach ($attachments as $attachment) {
     $user = user_load($attachment['uid']);
     $username = $user->realname;
@@ -3498,8 +3881,18 @@ function salto_knowledgebase_preprocess_salto_363_panel_attachment(&$variables) 
     $html .= theme('file_attachment', $data);
   }
 
-  $variables['attachment']['title'] = t('Attachments') . ' (' . $attachmentCount . ') ';
-  $variables['attachment']['content'] = $html;
+  $html = '
+  <div id="attachments" class="accordion-container attachments">
+            <button
+              class="accordion-button">' . t("Attachments") . ' (' . $attachmentCount . ') ' . '</button>
+            <div class="accordion-panel">
+              ' . $html . '
+            </div>
+          </div>
+  ';
+
+  return $html;
+
 }
 
 /**
@@ -3738,5 +4131,73 @@ function salto_knowledgebase_exit() {
   }
 }
 
+/**
+ * Content preview for comments
+ *
+ * @param  [type] $entity [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_knowledgebase_onsite_notification_content_preview($message) {
 
+  $message_types = [
+    MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED,
+  ];
 
+  if (in_array($message->type, $message_types)) {
+    if (!empty($message->field_notification_node_ref)) {
+      $node = comment_load($message->field_notification_node_ref);
+      $output = '';
+      //alter prefix for comment/node mentions
+      //mention in a comment of vs mentioned in
+      // todo for node mention => im Beitrag
+      $message->content['message__message_text__0']['#markup'] = str_replace('[content-prefix]', 'im Beitrag', $message->content['message__message_text__0']['#markup']);
+      return ($output);
+    }
+  }
+}
+
+function salto_knowledgebase_get_default_kb_category_tid(){
+  return variable_get('salto_default_category', SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID);
+}
+
+function salto_knowledgebase_get_fallback_kb_category_tid() {
+  return variable_get('salto_fallback_category', SALTO_KNOWLEDGEBASE_KB_FALLBACK_TID);
+}
+
+function salto_knowledgebase_jojo_menu_enabled(){
+  return variable_get('jojo_menu', FALSE);
+}
+
+function salto_knowledgebase_preprocess_node(&$variables) {
+
+  $node = $variables['node'];
+
+  if ($node->type != 'post') {
+    return;
+  }
+
+  $publishing_option = salto_knowledgebase_get_publishing_option_value($node);
+
+  switch ($publishing_option) {
+    case POST_PUBLISH_DRAFT:
+      $variables['publishing_label'] =  '<span class="icon-hourglass-o" rel="tooltip" title="" data-original-title="Entwurf - Nur Personen mit Änderungszugriff"></span>';
+      break;
+    case POST_PUBLISH_CRON:
+      $variables['publishing_label'] =  '<span class="icon-hourglass-2" rel="tooltip" title="" data-original-title="Entwurf mit geplante Veröffentlichung  - Nur Personen mit Änderungszugriff"></span>';
+      break;
+    case POST_PUBLISH_IMMEDIATE:
+    default:
+      break;
+  }
+}
+
+/**
+ * Returns current post publishing option
+ * @param $node
+ *
+ * @return mixed
+ */
+function salto_knowledgebase_get_publishing_option_value($node){
+  return !empty($node->field_publishing_options[LANGUAGE_NONE][0]['value']) ? $node->field_publishing_options[LANGUAGE_NONE][0]['value'] : POST_PUBLISH_IMMEDIATE;
+}

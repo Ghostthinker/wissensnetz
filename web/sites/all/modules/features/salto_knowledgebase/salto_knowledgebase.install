@@ -97,3 +97,64 @@ function salto_knowledgebase_update_34000() {
 function salto_knowledgebase_update_38000() {
   variable_set('salto_knowledgebase_comment_default_sorting', 1);
 }
+
+/**
+ * delete field_taxonomy_post_tags
+ */
+function salto_knowledgebase_update_42000() {
+  $fields_to_delete = [
+    "field_taxonomy_post_tags",
+  ];
+
+  foreach ($fields_to_delete as $field_name) {
+    field_delete_field($field_name);
+  }
+}
+
+/**
+ * Migrate fivestart for reactions
+ */
+function salto_knowledgebase_update_43000() {
+  $result = db_select('votingapi_vote', 'v')
+      ->fields('v', ['entity_id', 'value','uid'])
+      ->condition('v.entity_type','node')
+      ->execute();
+    $RS = new ReactionService();
+    foreach($result as $res){
+
+      $uid = $res->uid;
+      $nid = $res->entity_id;
+      switch ($res->value){
+        case 100 :
+          $reaction = SALTO_KNOWLEDGEBASE_REACTION_WONDERFUL;
+          break;
+        case 80:
+          $reaction = SALTO_KNOWLEDGEBASE_REACTION_CLAPPING;
+          break;
+        case 60:
+        case 40:
+          $reaction = SALTO_KNOWLEDGEBASE_REACTION_LIKE;
+          break;
+        case 20:
+          $reaction = SALTO_KNOWLEDGEBASE_REACTION_THOUGHTFUL;
+
+      }
+
+      $RS->saveReaction($reaction, $nid, "node", $uid);
+
+    }
+}
+
+/**
+ * migrate comment body field text type
+ */
+function salto_knowledgebase_update_44900() {
+  // Replace 'field_data_comment_body' with your actual table name.
+  $table_name = 'field_data_comment_body';
+
+  // Run the update query to change the format.
+  db_update($table_name)
+    ->fields(array('comment_body_format' => 'editor_comment'))
+    ->condition('comment_body_format', 'plain_text', '=')
+    ->execute();
+}

@@ -256,7 +256,7 @@ $role = _salto_statistics_node_get_view_role();
     echo salto_statistics_global_render_field(\'Gruppen\', $data->field_field_gruppen_pt);
     echo salto_statistics_global_render_field(\'Kommentare\', $data->field_field_kommentare_pt);
     echo salto_statistics_global_render_field(\'Mitglieder pro Gruppe\', $data->field_field_mitglieder_pro_gruppe_pt);
-    echo salto_statistics_global_render_field(\'Registrierte Benutzer\', $data->field_field_registrated_users_pt);
+    echo salto_statistics_global_render_field(\'Aktive Benutzerkonten\', $data->field_field_registrated_users_pt);
     echo salto_statistics_global_render_field(\'Seitenaufrufe\', $data->field_field_seitenaufrufe_pt);
   }else if($role == SALTO_STATISTICS_ROLE_BILDUNGSREFERENTEN) {
     echo salto_statistics_global_render_field(\'Beiträge\', $data->field_field_beitraege_br);
@@ -264,7 +264,7 @@ $role = _salto_statistics_node_get_view_role();
     echo salto_statistics_global_render_field(\'Gruppen\', $data->field_field_gruppen_br);
     echo salto_statistics_global_render_field(\'Kommentare\', $data->field_field_kommentare_br);
     echo salto_statistics_global_render_field(\'Mitglieder pro Gruppe\', $data->field_field_mitglieder_pro_gruppe_br);
-    echo salto_statistics_global_render_field(\'Registrierte Benutzer\', $data->field_field_registrated_users_br);
+    echo salto_statistics_global_render_field(\'Aktive Benutzerkonten\', $data->field_field_registrated_users_br);
     echo salto_statistics_global_render_field(\'Seitenaufrufe\', $data->field_field_seitenaufrufe_br);
   }else{
     echo salto_statistics_global_render_field(\'Beiträge\', $data->field_field_beitraege);
@@ -272,7 +272,7 @@ $role = _salto_statistics_node_get_view_role();
     echo salto_statistics_global_render_field(\'Gruppen\', $data->field_field_gruppen);
     echo salto_statistics_global_render_field(\'Kommentare\', $data->field_field_kommentare);
     echo salto_statistics_global_render_field(\'Mitglieder pro Gruppe\', $data->field_field_mitglieder_pro_gruppe);
-    echo salto_statistics_global_render_field(\'Registrierte Benutzer\', $data->field_field_registrated_users);
+    echo salto_statistics_global_render_field(\'Aktive Benutzerkonten\', $data->field_field_registrated_users);
     echo salto_statistics_global_render_field(\'Seitenaufrufe\', $data->field_field_seitenaufrufe);
   }
 ?>';

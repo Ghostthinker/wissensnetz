@@ -70,6 +70,13 @@ define('FILE_EXISTS_ERROR', 2);
 define('FILE_STATUS_PERMANENT', 1);
 
 /**
+ * A pipe-separated list of insecure extensions.
+ *
+ * @see file_munge_filename(), file_save_upload()
+ */
+define('FILE_INSECURE_EXTENSIONS', 'php|phar|pl|py|cgi|asp|js|phtml');
+
+/**
  * Provides Drupal stream wrapper registry.
  *
  * A stream wrapper is an abstraction of a file system that allows Drupal to
@@ -197,7 +204,7 @@ function file_stream_wrapper_get_class($scheme) {
  * @see file_uri_target()
  */
 function file_uri_scheme($uri) {
-  $position = strpos($uri, '://');
+  $position = strpos((string) $uri, '://');
   return $position ? substr($uri, 0, $position) : FALSE;
 }
 
@@ -437,10 +444,10 @@ function file_prepare_directory(&$directory, $options = FILE_MODIFY_PERMISSIONS)
 
   // Check if directory exists.
   if (!is_dir($directory)) {
-    // Let mkdir() recursively create directories and use the default directory
-    // permissions.
-    if (($options & FILE_CREATE_DIRECTORY) && @drupal_mkdir($directory, NULL, TRUE)) {
-      return drupal_chmod($directory);
+    // Let drupal_mkdir() recursively create directories and use the default
+    // directory permissions.
+    if ($options & FILE_CREATE_DIRECTORY) {
+      return @drupal_mkdir($directory, NULL, TRUE);
     }
     return FALSE;
   }
@@ -449,7 +456,6 @@ function file_prepare_directory(&$directory, $options = FILE_MODIFY_PERMISSIONS)
   if (!$writable && ($options & FILE_MODIFY_PERMISSIONS)) {
     return drupal_chmod($directory);
   }
-
   return $writable;
 }
 
@@ -533,6 +539,10 @@ SetHandler Drupal_Security_Do_Not_Remove_See_SA_2006_006
   php_flag engine off
 </IfModule>
 <IfModule mod_php7.c>
+  php_flag engine off
+</IfModule>
+# From PHP 8 there is no number in the module name.
+<IfModule mod_php.c>
   php_flag engine off
 </IfModule>
 EOF;
@@ -1176,9 +1186,8 @@ function file_munge_filename($filename, $extensions, $alerts = TRUE) {
 
     $whitelist = array_unique(explode(' ', strtolower(trim($extensions))));
 
-    // Remove unsafe extensions from the list of allowed extensions. The list is
-    // copied from file_save_upload().
-    $whitelist = array_diff($whitelist, explode('|', 'php|phar|pl|py|cgi|asp|js'));
+    // Remove unsafe extensions from the list of allowed extensions.
+    $whitelist = array_diff($whitelist, explode('|', FILE_INSECURE_EXTENSIONS));
 
     // Split the filename up by periods. The first part becomes the basename
     // the last part the final extension.
@@ -1558,7 +1567,7 @@ function file_save_upload($form_field_name, $validators = array(), $destination 
     // rename filename.php.foo and filename.php to filename.php_.foo_.txt and
     // filename.php_.txt, respectively). Don't rename if 'allow_insecure_uploads'
     // evaluates to TRUE.
-    if (preg_match('/\.(php|phar|pl|py|cgi|asp|js)(\.|$)/i', $file->filename)) {
+    if (preg_match('/\.(' . FILE_INSECURE_EXTENSIONS . ')(\.|$)/i', $file->filename)) {
       // If the file will be rejected anyway due to a disallowed extension, it
       // should not be renamed; rather, we'll let file_validate_extensions()
       // reject it below.
@@ -1750,7 +1759,7 @@ function file_validate(stdClass &$file, $validators = array()) {
   // malicious extension. Contributed and custom code that calls this method
   // needs to take similar steps if they need to permit files with malicious
   // extensions to be uploaded.
-  if (empty($errors) && !variable_get('allow_insecure_uploads', 0) && preg_match('/\.(php|phar|pl|py|cgi|asp|js)(\.|$)/i', $file->filename)) {
+  if (empty($errors) && !variable_get('allow_insecure_uploads', 0) && preg_match('/\.(' . FILE_INSECURE_EXTENSIONS . ')(\.|$)/i', $file->filename)) {
     $errors[] = t('For security reasons, your upload has been rejected.');
   }
 
@@ -2069,6 +2078,7 @@ function file_download() {
   $scheme = array_shift($args);
   $target = implode('/', $args);
   $uri = $scheme . '://' . $target;
+  $uri = file_uri_normalize_dot_segments($uri);
   if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
     $headers = file_download_headers($uri);
     if (count($headers)) {
@@ -2481,19 +2491,21 @@ function drupal_basename($uri, $suffix = NULL) {
 }
 
 /**
- * Creates a directory using Drupal's default mode.
+ * Creates a directory, optionally creating missing components in the path to
+ * the directory.
  *
- * PHP's mkdir() does not respect Drupal's default permissions mode. If a mode
- * is not provided, this function will make sure that Drupal's is used.
- *
- * Compatibility: normal paths and stream wrappers.
+ * When PHP's mkdir() creates a directory, the requested mode is affected by the
+ * process's umask. This function overrides the umask and sets the mode
+ * explicitly for all directory components created.
  *
  * @param $uri
  *   A URI or pathname.
  * @param $mode
- *   By default the Drupal mode is used.
+ *   Mode given to created directories. Defaults to the directory mode
+ *   configured in the Drupal installation. It must have a leading zero.
  * @param $recursive
- *   Default to FALSE.
+ *   Create directories recursively, defaults to FALSE. Cannot work with a mode
+ *   which denies writing or execution to the owner of the process.
  * @param $context
  *   Refer to http://php.net/manual/ref.stream.php
  *
@@ -2509,7 +2521,71 @@ function drupal_mkdir($uri, $mode = NULL, $recursive = FALSE, $context = NULL) {
     $mode = variable_get('file_chmod_directory', 0775);
   }
 
-  if (!isset($context)) {
+  // If the URI has a scheme, don't override the umask - schemes can handle this
+  // issue in their own implementation.
+  if (file_uri_scheme($uri)) {
+    return _drupal_mkdir_call($uri, $mode, $recursive, $context);
+  }
+
+  // If recursive, create each missing component of the parent directory
+  // individually and set the mode explicitly to override the umask.
+  if ($recursive) {
+    // Ensure the path is using DIRECTORY_SEPARATOR, and trim off any trailing
+    // slashes because they can throw off the loop when creating the parent
+    // directories.
+    $uri = rtrim(str_replace('/', DIRECTORY_SEPARATOR, $uri), DIRECTORY_SEPARATOR);
+    // Determine the components of the path.
+    $components = explode(DIRECTORY_SEPARATOR, $uri);
+    // If the filepath is absolute the first component will be empty as there
+    // will be nothing before the first slash.
+    if ($components[0] == '') {
+      $recursive_path = DIRECTORY_SEPARATOR;
+      // Get rid of the empty first component.
+      array_shift($components);
+    }
+    else {
+      $recursive_path = '';
+    }
+    // Don't handle the top-level directory in this loop.
+    array_pop($components);
+    // Create each component if necessary.
+    foreach ($components as $component) {
+      $recursive_path .= $component;
+
+      if (!file_exists($recursive_path)) {
+        $success = _drupal_mkdir_call($recursive_path, $mode, FALSE, $context);
+        // If the operation failed, check again if the directory was created
+        // by another process/server, only report a failure if not.
+        if (!$success && !file_exists($recursive_path)) {
+          return FALSE;
+        }
+        // Not necessary to use self::chmod() as there is no scheme.
+        if (!chmod($recursive_path, $mode)) {
+          return FALSE;
+        }
+      }
+
+      $recursive_path .= DIRECTORY_SEPARATOR;
+    }
+  }
+
+  // Do not check if the top-level directory already exists, as this condition
+  // must cause this function to fail.
+  if (!_drupal_mkdir_call($uri, $mode, FALSE, $context)) {
+    return FALSE;
+  }
+  // Not necessary to use drupal_chmod() as there is no scheme.
+  return chmod($uri, $mode);
+}
+
+/**
+ * Helper function. Ensures we don't pass a NULL as a context resource to
+ * mkdir().
+ *
+ * @see drupal_mkdir()
+ */
+function _drupal_mkdir_call($uri, $mode, $recursive, $context) {
+  if (is_null($context)) {
     return mkdir($uri, $mode, $recursive);
   }
   else {
@@ -2658,6 +2734,58 @@ function file_get_content_headers($file) {
     'Content-Length' => $file->filesize,
     'Cache-Control' => 'private',
   );
+}
+
+/**
+ * Normalize dot segments in a URI.
+ *
+ * @param $uri
+ *   A stream, referenced as "scheme://target".
+ *
+ * @return string
+ *   The URI with dot segments removed and slashes as directory separator.
+ */
+function file_uri_normalize_dot_segments($uri) {
+  $scheme = file_uri_scheme($uri);
+
+  if (file_stream_wrapper_valid_scheme($scheme)) {
+    $target = file_uri_target($uri);
+
+    if ($target !== FALSE) {
+      if (!in_array($scheme, variable_get('file_sa_core_2023_005_schemes', array()))) {
+        $class = file_stream_wrapper_get_class($scheme);
+        $is_local = is_subclass_of($class, 'DrupalLocalStreamWrapper');
+        if ($is_local) {
+          $target = str_replace(DIRECTORY_SEPARATOR, '/', $target);
+        }
+
+        $parts = explode('/', $target);
+        $normalized_parts = array();
+        while ($parts) {
+          $part = array_shift($parts);
+          if ($part === '' || $part === '.') {
+            continue;
+          }
+          elseif ($part === '..' && $is_local && $normalized_parts === array()) {
+            $normalized_parts[] = $part;
+            break;
+          }
+          elseif ($part === '..') {
+            array_pop($normalized_parts);
+          }
+          else {
+            $normalized_parts[] = $part;
+          }
+        }
+
+        $target = implode('/', array_merge($normalized_parts, $parts));
+      }
+
+      $uri = $scheme . '://' . $target;
+    }
+  }
+
+  return $uri;
 }
 
 /**

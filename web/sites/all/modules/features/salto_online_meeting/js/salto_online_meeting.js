@@ -2,6 +2,8 @@
 
   Drupal.behaviors.salto_online_meetings = {
     attach: function (context, settings) {
+      //hide show end date initially
+      $('.form-item-field-online-meeting-date-und-0-show-todate').hide();
 
       this.set_render_mode_for_meeting_options();
       this.set_render_mode_time_selection();
@@ -41,11 +43,24 @@
       $(".form-item.form-item-field-online-meeting-date-und-0-value2-time").hide();
 
 
-    },
-    syncDateFields: function () {
+      //Share meeting
+      $('.salto-online-meeting-share-button .dropdown-toggle.action_share_meeting').click(function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).next('.salto-online-meeting-share-button .dropdown-menu').toggleClass('keep-open');
+        $('.salto-online-meeting-share-link-text').select();
+      });
 
-      const val = $("#edit-field-online-meeting-date-und-0-value-datepicker-popup-0").val();
-      $("#edit-field-online-meeting-date-und-0-value2-datepicker-popup-0").val(val);
+      $('.salto-online-meeting-share-button .dropdown-menu').click(function(e){
+        e.stopPropagation();
+      });
+
+      $(document).click(function(){
+        $('.salto-online-meeting-share-button .dropdown-menu.keep-open').removeClass('keep-open');
+      });
+
+
+
     },
     set_render_mode_for_meeting_options: function () {
       const meeting_options = $("#edit-field-meeting-options-und").val();
@@ -67,6 +82,11 @@
       } else {
         $('#edit-field-online-meeting-date').show();
       }
+    },
+    syncDateFields: function () {
+
+      const val = $("#edit-field-online-meeting-date-und-0-value-datepicker-popup-0").val();
+      $("#edit-field-online-meeting-date-und-0-value2-datepicker-popup-0").val(val);
     }
 
   }

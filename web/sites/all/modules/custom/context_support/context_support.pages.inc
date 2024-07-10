@@ -61,7 +61,7 @@ function context_support_contact_form($form, &$form_state) {
 
   $form['#attributes']['class'][] = 'contact-form';
 
-  $form['#prefix'] = '<div class="help_body form prefix">' . salto_help_tabs(TRUE, 'contact') . t('Via this form you can get in touch with the support team any time; Further information and faqs are also available in the help section. Please be sure to check the help before requesting the support.');
+  $form['#prefix'] = '<div class="help_body form prefix" id="community-help-form">' . salto_help_tabs(TRUE, 'contact') . t('Via this form you can get in touch with the support team any time; Further information and faqs are also available in the help section. Please be sure to check the help before requesting the support.');
 
   $form['#suffix'] = '</div>';
 

@@ -242,7 +242,7 @@ function salto_user_password_ajax_check() {
   $msg = '';
 
   if (!empty($errors)) {
-    $msg .= t('Password does not match the following requirements:');
+    $msg .= t('Password must have the following requirements:');
     $msg .= theme('item_list', ['items' => $errors]);
   }
 

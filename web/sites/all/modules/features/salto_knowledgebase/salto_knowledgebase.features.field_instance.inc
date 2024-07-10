@@ -37,9 +37,10 @@ function salto_knowledgebase_field_default_field_instances() {
           'comment_with_link' => 0,
           'ds_code' => 0,
           'editor' => 0,
+          'editor_comment' => 'editor_comment',
           'machine' => 0,
           'php_code' => 0,
-          'plain_text' => 'plain_text',
+          'plain_text' => 0,
         ),
         'allowed_formats_toggle' => 1,
         'default_order_toggle' => 0,
@@ -53,6 +54,9 @@ function salto_knowledgebase_field_default_field_instances() {
             ),
             'editor' => array(
               'weight' => -10,
+            ),
+            'editor_comment' => array(
+              'weight' => -9,
             ),
             'machine' => array(
               'weight' => -8,
@@ -73,7 +77,7 @@ function salto_knowledgebase_field_default_field_instances() {
       'active' => 1,
       'module' => 'text',
       'settings' => array(
-        'rows' => 5,
+        'rows' => 7,
       ),
       'type' => 'text_textarea',
       'weight' => 0,
@@ -216,7 +220,7 @@ function salto_knowledgebase_field_default_field_instances() {
         'summary_rows' => 5,
       ),
       'type' => 'text_textarea_with_summary',
-      'weight' => 4,
+      'weight' => 6,
     ),
   );
 
@@ -272,7 +276,7 @@ function salto_knowledgebase_field_default_field_instances() {
       'module' => 'fivestar',
       'settings' => array(),
       'type' => 'exposed',
-      'weight' => 11,
+      'weight' => 13,
     ),
   );
 
@@ -392,7 +396,7 @@ function salto_knowledgebase_field_default_field_instances() {
       'module' => 'og',
       'settings' => array(),
       'type' => 'og_complex',
-      'weight' => 10,
+      'weight' => 12,
     ),
   );
 
@@ -462,7 +466,7 @@ function salto_knowledgebase_field_default_field_instances() {
         ),
       ),
       'type' => 'media_generic',
-      'weight' => 5,
+      'weight' => 8,
     ),
   );
 
@@ -516,7 +520,7 @@ function salto_knowledgebase_field_default_field_instances() {
         'user_autocomplete' => 1,
       ),
       'type' => 'entityreference_autocomplete_tags',
-      'weight' => 9,
+      'weight' => 11,
     ),
   );
 
@@ -564,7 +568,7 @@ function salto_knowledgebase_field_default_field_instances() {
       'module' => 'salto_knowledgebase',
       'settings' => array(),
       'type' => 'salto_collaboration_select',
-      'weight' => 8,
+      'weight' => 10,
     ),
   );
 
@@ -600,7 +604,7 @@ function salto_knowledgebase_field_default_field_instances() {
     'entity_type' => 'node',
     'field_name' => 'field_post_tags',
     'label' => 'Schlagworte',
-    'required' => 1,
+    'required' => 0,
     'settings' => array(
       'user_register_form' => FALSE,
     ),
@@ -612,6 +616,95 @@ function salto_knowledgebase_field_default_field_instances() {
         'size' => 60,
       ),
       'type' => 'taxonomy_autocomplete',
+      'weight' => 5,
+    ),
+  );
+
+  // Exported field_instance: 'node-post-field_publishing_date'.
+  $field_instances['node-post-field_publishing_date'] = array(
+    'bundle' => 'post',
+    'deleted' => 0,
+    'description' => 'Während Dein Beitrag als Entwurf gespeichert oder die automatische Veröffentlichung geplant ist, können ihn nur Personen mit <strong>Änderungszugriff</strong> sehen und bearbeiten. Sobald der Veröffentlichungszeitpunkt erreicht ist, verfällt der Entwurfsmodus und alle Personen unter “Lesezugriff” können Deinen Beitrag sehen. Zu diesem Zeitpunkt werden sie auch abhängig von den personalisierten Benachrichtigungseinstellungen dazu benachrichtigt.',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 14,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'node',
+    'field_name' => 'field_publishing_date',
+    'label' => 'Publishing date',
+    'required' => 0,
+    'settings' => array(
+      'default_value' => 'now',
+      'default_value2' => 'same',
+      'default_value_code' => '',
+      'default_value_code2' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'date',
+      'settings' => array(
+        'increment' => 60,
+        'input_format' => 'site-wide',
+        'input_format_custom' => '',
+        'label_position' => 'above',
+        'no_fieldset' => 0,
+        'text_parts' => array(),
+        'year_range' => '-0:+10',
+      ),
+      'type' => 'date_popup',
+      'weight' => 4,
+    ),
+  );
+
+  // Exported field_instance: 'node-post-field_publishing_options'.
+  $field_instances['node-post-field_publishing_options'] = array(
+    'bundle' => 'post',
+    'default_value' => array(
+      0 => array(
+        'value' => 'immediate',
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 13,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'node',
+    'field_name' => 'field_publishing_options',
+    'label' => 'Veröffentlichung planen',
+    'required' => 0,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'options',
+      'settings' => array(),
+      'type' => 'options_buttons',
       'weight' => 3,
     ),
   );
@@ -674,52 +767,49 @@ function salto_knowledgebase_field_default_field_instances() {
         'user_autocomplete' => 0,
       ),
       'type' => 'entityreference_autocomplete_tags',
-      'weight' => 7,
+      'weight' => 9,
     ),
   );
 
-  // Exported field_instance: 'node-post-field_taxonomy_post_tags'.
-  $field_instances['node-post-field_taxonomy_post_tags'] = array(
+  // Exported field_instance: 'node-post-field_teaser_image'.
+  $field_instances['node-post-field_teaser_image'] = array(
     'bundle' => 'post',
-    'default_value' => NULL,
     'deleted' => 0,
-    'description' => 'Warum schreibe ich den Beitrag?',
+    'description' => 'You can optionally set a preview image here. This is then used for a more visually appealing preview of this post on the homepage and overviews. <b>Please no lettering</b>',
     'display' => array(
       'default' => array(
-        'label' => 'inline',
-        'module' => 'salto_knowledgebase',
+        'label' => 'above',
         'settings' => array(),
-        'type' => 'salto_taxonomy_term_reference_link',
-        'weight' => 1,
-      ),
-      'salto_diff' => array(
-        'label' => 'hidden',
-        'module' => 'taxonomy',
-        'settings' => array(),
-        'type' => 'taxonomy_term_reference_link',
+        'type' => 'hidden',
         'weight' => 1,
       ),
       'teaser' => array(
         'label' => 'above',
         'settings' => array(),
         'type' => 'hidden',
-        'weight' => 5,
+        'weight' => 0,
       ),
     ),
     'ds_extras_field_template' => '',
     'entity_type' => 'node',
-    'field_name' => 'field_taxonomy_post_tags',
-    'label' => 'Beitragstags',
+    'field_name' => 'field_teaser_image',
+    'label' => 'Vorschaubild',
     'required' => 0,
     'settings' => array(
+      'description_field' => 0,
+      'file_directory' => '',
+      'file_extensions' => 'jpeg jpg png gif bmp tiff tif svg',
+      'max_filesize' => '',
       'user_register_form' => FALSE,
     ),
     'widget' => array(
       'active' => 1,
-      'module' => 'options',
-      'settings' => array(),
-      'type' => 'options_buttons',
-      'weight' => 6,
+      'module' => 'file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'file_generic',
+      'weight' => 7,
     ),
   );
 
@@ -906,7 +996,6 @@ function salto_knowledgebase_field_default_field_instances() {
   t('Anhang');
   t('Autor');
   t('Autoren');
-  t('Beitragstags');
   t('Beiträge');
   t('Bitte ordnen Sie hier diesen Beitrag zu einer der Beitragskategorien zu. Dies erleichtert Ihnen die thematische Ausrichtung und verbessert die Auffindbarkeit Ihres Beitrags für andere Bildungsnetz-Mitglieder.');
   t('Bitte ordnen Sie hier diesen Beitrag zu einer der Themenfelder zu. Dies erleichtert Ihnen die thematische Ausrichtung und verbessert die Auffindbarkeit Ihres Beitrags für andere Bildungsnetz-Mitglieder.');
@@ -917,12 +1006,16 @@ function salto_knowledgebase_field_default_field_instances() {
   t('Kommentar');
   t('Mit Hilfe von Schlagworten können Sie beim schnellen Finden und Einordnung dieses Beitrag helfen. Geben Sie einfach kurze Begriffe durch Kommata getrennt, wie zum Beispiel Lernen, Digitale Medien, Konzept an.');
   t('OG vocabulary');
+  t('Publishing date');
   t('Referenz auf Beiträge TF');
   t('Referenz auf Material TF');
   t('Referenzen');
   t('Schlagworte');
   t('Themenfeld(er)');
-  t('Warum schreibe ich den Beitrag?');
+  t('Veröffentlichung planen');
+  t('Vorschaubild');
+  t('Während Dein Beitrag als Entwurf gespeichert oder die automatische Veröffentlichung geplant ist, können ihn nur Personen mit <strong>Änderungszugriff</strong> sehen und bearbeiten. Sobald der Veröffentlichungszeitpunkt erreicht ist, verfällt der Entwurfsmodus und alle Personen unter “Lesezugriff” können Deinen Beitrag sehen. Zu diesem Zeitpunkt werden sie auch abhängig von den personalisierten Benachrichtigungseinstellungen dazu benachrichtigt.');
+  t('You can optionally set a preview image here. This is then used for a more visually appealing preview of this post on the homepage and overviews. <b>Please no lettering</b>');
   t('collaboration');
 
   return $field_instances;

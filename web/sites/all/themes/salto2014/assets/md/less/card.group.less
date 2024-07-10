@@ -12,8 +12,6 @@
       .members.more {
         overflow: hidden;
         text-align: center;
-        width: @group-profile-img-size !important;
-        height: @group-profile-img-size !important;
       }
 
     }
@@ -22,7 +20,7 @@
 
 }
 
-@media screen and (max-width: 360px) {
+@media screen and (max-width: 425px) {
 
   // Push button to full width on very small devices
 
@@ -64,7 +62,6 @@
     }
 
     img, .members.more {
-      border-radius: 8em;
       min-width: auto;
       min-height: auto;
 
@@ -127,7 +124,8 @@
 
   .group-view-row {
 
-    display: block;
+    display: flex;
+    flex-direction: column;
 
     .group-num-nodes {
       text-align: unset;

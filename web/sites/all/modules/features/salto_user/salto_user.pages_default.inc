@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_user.pages_default.inc
@@ -567,7 +568,7 @@ if(is_numeric(arg(1))) {
   $pane->panel = 'right';
   $pane->type = 'block';
   $pane->subtype = 'heartbeat-useractivity';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'override_title' => 0,
@@ -1138,94 +1139,6 @@ function salto_user_default_page_manager_pages() {
   $page = new stdClass();
   $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
   $page->api_version = 1;
-  $page->name = 'admin_login';
-  $page->task = 'page';
-  $page->admin_title = 'Admin Login';
-  $page->admin_description = '';
-  $page->path = 'minda/secure';
-  $page->access = array();
-  $page->menu = array();
-  $page->arguments = array();
-  $page->conf = array(
-    'admin_paths' => FALSE,
-  );
-  $page->default_handlers = array();
-  $handler = new stdClass();
-  $handler->disabled = FALSE; /* Edit this to true to make a default handler disabled initially */
-  $handler->api_version = 1;
-  $handler->name = 'page_admin_login__panel';
-  $handler->task = 'page';
-  $handler->subtask = 'admin_login';
-  $handler->handler = 'panel_context';
-  $handler->weight = 0;
-  $handler->conf = array(
-    'title' => 'Panel',
-    'no_blocks' => 0,
-    'pipeline' => 'standard',
-    'body_classes_to_remove' => '',
-    'body_classes_to_add' => '',
-    'css_id' => '',
-    'css' => '',
-    'contexts' => array(),
-    'relationships' => array(),
-    'name' => 'panel',
-  );
-  $display = new panels_display();
-  $display->layout = 'salto_363';
-  $display->layout_settings = array();
-  $display->panel_settings = array(
-    'style_settings' => array(
-      'default' => NULL,
-      'left' => NULL,
-      'right' => NULL,
-      'license_left' => NULL,
-      'license_middle' => NULL,
-      'license_right' => NULL,
-      'tags' => NULL,
-      'meta_left' => NULL,
-      'meta_right' => NULL,
-      'middle' => NULL,
-    ),
-  );
-  $display->cache = array();
-  $display->title = '';
-  $display->uuid = '2b350b36-ca57-41b4-8928-de887a5b371d';
-  $display->storage_type = 'page_manager';
-  $display->storage_id = 'page_admin_login__panel';
-  $display->content = array();
-  $display->panels = array();
-  $pane = new stdClass();
-  $pane->pid = 'new-f2fbb65d-5b7c-42dc-a897-84893cd7d8e9';
-  $pane->panel = 'middle';
-  $pane->type = 'block';
-  $pane->subtype = 'user-login';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array(
-    'override_title' => 0,
-    'override_title_text' => '',
-    'override_title_heading' => 'h2',
-  );
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-  );
-  $pane->css = array();
-  $pane->extras = array();
-  $pane->position = 0;
-  $pane->locks = array();
-  $pane->uuid = 'f2fbb65d-5b7c-42dc-a897-84893cd7d8e9';
-  $display->content['new-f2fbb65d-5b7c-42dc-a897-84893cd7d8e9'] = $pane;
-  $display->panels['middle'][0] = 'new-f2fbb65d-5b7c-42dc-a897-84893cd7d8e9';
-  $display->hide_title = PANELS_TITLE_FIXED;
-  $display->title_pane = '0';
-  $handler->conf['display'] = $display;
-  $page->default_handlers[$handler->name] = $handler;
-  $pages['admin_login'] = $page;
-
-  $page = new stdClass();
-  $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
-  $page->api_version = 1;
   $page->name = 'people';
   $page->task = 'page';
   $page->admin_title = 'People';
@@ -1344,30 +1257,6 @@ function salto_user_default_page_manager_pages() {
   $display->content['new-ad34dd5d-96b9-4c04-8bd0-05324c16a0be'] = $pane;
   $display->panels['left'][0] = 'new-ad34dd5d-96b9-4c04-8bd0-05324c16a0be';
   $pane = new stdClass();
-  $pane->pid = 'new-d69cbc86-3862-417e-b432-fc1a00c6db72';
-  $pane->panel = 'middle';
-  $pane->type = 'block';
-  $pane->subtype = 'salto_search-salto_block_search';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array(
-    'override_title' => 0,
-    'override_title_text' => '',
-    'override_title_heading' => 'h2',
-  );
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-    'style' => 'default',
-  );
-  $pane->css = array();
-  $pane->extras = array();
-  $pane->position = 0;
-  $pane->locks = array();
-  $pane->uuid = 'd69cbc86-3862-417e-b432-fc1a00c6db72';
-  $display->content['new-d69cbc86-3862-417e-b432-fc1a00c6db72'] = $pane;
-  $display->panels['middle'][0] = 'new-d69cbc86-3862-417e-b432-fc1a00c6db72';
-  $pane = new stdClass();
   $pane->pid = 'new-f9d49fed-0ea7-4605-bc25-932aeb852b66';
   $pane->panel = 'middle';
   $pane->type = 'page_title';
@@ -1387,11 +1276,11 @@ function salto_user_default_page_manager_pages() {
   );
   $pane->css = array();
   $pane->extras = array();
-  $pane->position = 1;
+  $pane->position = 0;
   $pane->locks = array();
   $pane->uuid = 'f9d49fed-0ea7-4605-bc25-932aeb852b66';
   $display->content['new-f9d49fed-0ea7-4605-bc25-932aeb852b66'] = $pane;
-  $display->panels['middle'][1] = 'new-f9d49fed-0ea7-4605-bc25-932aeb852b66';
+  $display->panels['middle'][0] = 'new-f9d49fed-0ea7-4605-bc25-932aeb852b66';
   $pane = new stdClass();
   $pane->pid = 'new-c9586096-3697-4e6f-8170-6cfc11b172d0';
   $pane->panel = 'middle';
@@ -1406,11 +1295,11 @@ function salto_user_default_page_manager_pages() {
   );
   $pane->css = array();
   $pane->extras = array();
-  $pane->position = 2;
+  $pane->position = 1;
   $pane->locks = array();
   $pane->uuid = 'c9586096-3697-4e6f-8170-6cfc11b172d0';
   $display->content['new-c9586096-3697-4e6f-8170-6cfc11b172d0'] = $pane;
-  $display->panels['middle'][2] = 'new-c9586096-3697-4e6f-8170-6cfc11b172d0';
+  $display->panels['middle'][1] = 'new-c9586096-3697-4e6f-8170-6cfc11b172d0';
   $pane = new stdClass();
   $pane->pid = 'new-4282dcc8-8d29-4d28-976a-4b1903f26727';
   $pane->panel = 'right';
@@ -1439,34 +1328,68 @@ function salto_user_default_page_manager_pages() {
   $display->content['new-4282dcc8-8d29-4d28-976a-4b1903f26727'] = $pane;
   $display->panels['right'][0] = 'new-4282dcc8-8d29-4d28-976a-4b1903f26727';
   $pane = new stdClass();
-  $pane->pid = 'new-99ec4b5e-c16d-4c1d-8661-3268e4b92299';
+  $pane->pid = 'new-731ef170-2912-41eb-b05d-75c7521adb64';
   $pane->panel = 'right';
-  $pane->type = 'custom';
-  $pane->subtype = 'custom';
-  $pane->shown = TRUE;
+  $pane->type = 'views_panes';
+  $pane->subtype = 'organisations-panel_pane_1';
+  $pane->shown = FALSE;
   $pane->access = array();
-  $pane->configuration = array(
-    'admin_title' => 'Organisationsverzeichnis',
-    'title' => '<a href="/organisations" target="_self">Organisationsverzeichnis</a>',
-    'title_heading' => 'h3',
-    'body' => '<h3><a class="hidden" href="/organisations" target="_self">Organisationsverzeichnis</a></h3>',
-    'format' => 'comment_with_link',
-    'substitute' => TRUE,
-  );
+  $pane->configuration = array();
   $pane->cache = array();
   $pane->style = array(
     'settings' => NULL,
+    'style' => 'default',
   );
   $pane->css = array(
-    'css_id' => 'org-link',
-    'css_class' => '',
+    'css_id' => 'people-org-pane-id',
+    'css_class' => 'people-org-pane',
   );
   $pane->extras = array();
   $pane->position = 1;
   $pane->locks = array();
-  $pane->uuid = '99ec4b5e-c16d-4c1d-8661-3268e4b92299';
-  $display->content['new-99ec4b5e-c16d-4c1d-8661-3268e4b92299'] = $pane;
-  $display->panels['right'][1] = 'new-99ec4b5e-c16d-4c1d-8661-3268e4b92299';
+  $pane->uuid = '731ef170-2912-41eb-b05d-75c7521adb64';
+  $display->content['new-731ef170-2912-41eb-b05d-75c7521adb64'] = $pane;
+  $display->panels['right'][1] = 'new-731ef170-2912-41eb-b05d-75c7521adb64';
+  $pane = new stdClass();
+  $pane->pid = 'new-1988d549-dfc7-48c1-9082-980eb73df2d6';
+  $pane->panel = 'right';
+  $pane->type = 'views_panes';
+  $pane->subtype = 'people-online';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array();
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+    'style' => 'blockpanel',
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 2;
+  $pane->locks = array();
+  $pane->uuid = '1988d549-dfc7-48c1-9082-980eb73df2d6';
+  $display->content['new-1988d549-dfc7-48c1-9082-980eb73df2d6'] = $pane;
+  $display->panels['right'][2] = 'new-1988d549-dfc7-48c1-9082-980eb73df2d6';
+  $pane = new stdClass();
+  $pane->pid = 'new-24d815fb-9c2c-436e-930a-a8c456f75e03';
+  $pane->panel = 'right';
+  $pane->type = 'views_panes';
+  $pane->subtype = 'people-new';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array();
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+    'style' => 'blockpanel',
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 3;
+  $pane->locks = array();
+  $pane->uuid = '24d815fb-9c2c-436e-930a-a8c456f75e03';
+  $display->content['new-24d815fb-9c2c-436e-930a-a8c456f75e03'] = $pane;
+  $display->panels['right'][3] = 'new-24d815fb-9c2c-436e-930a-a8c456f75e03';
   $pane = new stdClass();
   $pane->pid = 'new-d7470369-0a8f-40ff-a4f8-5104a2036c52';
   $pane->panel = 'right';
@@ -1493,81 +1416,18 @@ function salto_user_default_page_manager_pages() {
   $pane->cache = array();
   $pane->style = array(
     'settings' => NULL,
-    'style' => 'default',
+    'style' => 'blockpanel',
   );
   $pane->css = array(
     'css_id' => '',
     'css_class' => 'people-org-pane',
   );
   $pane->extras = array();
-  $pane->position = 2;
+  $pane->position = 4;
   $pane->locks = array();
   $pane->uuid = 'd7470369-0a8f-40ff-a4f8-5104a2036c52';
   $display->content['new-d7470369-0a8f-40ff-a4f8-5104a2036c52'] = $pane;
-  $display->panels['right'][2] = 'new-d7470369-0a8f-40ff-a4f8-5104a2036c52';
-  $pane = new stdClass();
-  $pane->pid = 'new-731ef170-2912-41eb-b05d-75c7521adb64';
-  $pane->panel = 'right';
-  $pane->type = 'views_panes';
-  $pane->subtype = 'organisations-panel_pane_1';
-  $pane->shown = FALSE;
-  $pane->access = array();
-  $pane->configuration = array();
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-    'style' => 'default',
-  );
-  $pane->css = array(
-    'css_id' => 'people-org-pane-id',
-    'css_class' => 'people-org-pane',
-  );
-  $pane->extras = array();
-  $pane->position = 3;
-  $pane->locks = array();
-  $pane->uuid = '731ef170-2912-41eb-b05d-75c7521adb64';
-  $display->content['new-731ef170-2912-41eb-b05d-75c7521adb64'] = $pane;
-  $display->panels['right'][3] = 'new-731ef170-2912-41eb-b05d-75c7521adb64';
-  $pane = new stdClass();
-  $pane->pid = 'new-1988d549-dfc7-48c1-9082-980eb73df2d6';
-  $pane->panel = 'right';
-  $pane->type = 'views_panes';
-  $pane->subtype = 'people-online';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array();
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-    'style' => 'blockpanel',
-  );
-  $pane->css = array();
-  $pane->extras = array();
-  $pane->position = 4;
-  $pane->locks = array();
-  $pane->uuid = '1988d549-dfc7-48c1-9082-980eb73df2d6';
-  $display->content['new-1988d549-dfc7-48c1-9082-980eb73df2d6'] = $pane;
-  $display->panels['right'][4] = 'new-1988d549-dfc7-48c1-9082-980eb73df2d6';
-  $pane = new stdClass();
-  $pane->pid = 'new-24d815fb-9c2c-436e-930a-a8c456f75e03';
-  $pane->panel = 'right';
-  $pane->type = 'views_panes';
-  $pane->subtype = 'people-new';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array();
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-    'style' => 'blockpanel',
-  );
-  $pane->css = array();
-  $pane->extras = array();
-  $pane->position = 5;
-  $pane->locks = array();
-  $pane->uuid = '24d815fb-9c2c-436e-930a-a8c456f75e03';
-  $display->content['new-24d815fb-9c2c-436e-930a-a8c456f75e03'] = $pane;
-  $display->panels['right'][5] = 'new-24d815fb-9c2c-436e-930a-a8c456f75e03';
+  $display->panels['right'][4] = 'new-d7470369-0a8f-40ff-a4f8-5104a2036c52';
   $display->hide_title = PANELS_TITLE_FIXED;
   $display->title_pane = '0';
   $handler->conf['display'] = $display;

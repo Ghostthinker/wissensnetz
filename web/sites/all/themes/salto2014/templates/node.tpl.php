@@ -79,58 +79,253 @@
  *
  * @ingroup themeable
  */
+
+$basePath = base_path() . drupal_get_path('module', 'salto_knowledgebase') . '/webcomponents/GTReactions/svg';
+
+$previewImageClass = $preview_image ? 'image' : 'no-image';
+
 ?>
-<article id="node-<?php print $node->nid; ?>"
-         class="<?php print $classes; ?> clearfix"<?php print $attributes; ?>>
-  <?php if (stripos($node->type, 'comment') === FALSE): ?>
-    <div class="card">
-      <div class="card-content">
-        <div class="header">
-          <?php print $user_picture; ?>
 
-          <?php if (!$page): ?>
-            <h2<?php print $title_attributes; ?>><a
-                href="<?php print $node_url; ?>"><?php print $title; ?></a></h2>
-          <?php else: ?>
-            <h2<?php print $title_attributes; ?>><?php print $title; ?></h2>
+<?php if ($teaser): ?>
+  <div
+    class="<?php print $previewImageClass . ' ' . $classes; ?> clearfix hearbeat-activity-stream-new nid-<?php print $nid; ?>"
+>
+
+    <div class="icon-top-right">
+      <?php print render($title_prefix); ?>
+      <?php print render($title_suffix); ?>
+    </div>
+
+    <div
+        class="activity-stream-left"
+        style="background-image:linear-gradient(180deg, rgba(84, 86, 95, 0.00) 0.26%, rgba(84, 86, 95, 0.27) 23.54%, rgba(84, 86, 95, 0.61) 42.35%, rgba(84, 86, 95, 0.85) 58.87%, rgba(84, 86, 95, 0.95) 99.74%), url(<?php print $preview_image; ?>)"
+
+    >
+      <div style="position: relative; height: calc(100% - 105px);">
+          <div class="activity-stream-chip">
+            <a
+              href="<?php print url('user/' . $node->uid) ?>"
+              target="_blank"
+              style="position: absolute; top:0; right:0; bottom:0; left:0;"
+            >
+            </a>
+            <?php print $user_picture ?>
+            <div class="content-info">
+              <span><b><?php print $name; ?></b></span>
+              <span class="chip-info-date"><?php print $submit_date; ?></span>
+            </div>
+          </div>
+          <div class="activity-stream-main">
+            <div class="activity-stream-heading">
+
+
+              <h2<?php print $title_attributes; ?>><a
+                  href="<?php print $node_url; ?>"><?php print $title; ?></a>
+              </h2>
+              <?php if (isset($publishing_label)): ?>
+                <span class="publishing">
+                    <?php print $publishing_label; ?>
+                </span>
+              <?php endif; ?>
+            </div>
+            <div class="activity-stream-content">
+              <div class="group-content"<?php print $content_attributes; ?>>
+                <?php
+                hide($content['comments']);
+                hide($content['links']);
+                hide($content['links_right']);
+                print render($content);
+                ?>
+              </div>
+            </div>
+        </div>
+      </div>
+      <!--<div class="statistics">
+        <span><i class="icon-eye"></i><?php print $num_views; ?></span>
+        <div>
+          <img class="comment-button-icon"
+               src="<?php echo $basePath . '/commentButton.svg' ?>">
+          <a target="_blank"
+             href="/node/<?php print $nid; ?>/#comments"><?php print $num_comments; ?></a>
+        </div>
+      </div>-->
+      <div class="footer-container">
+        <div class="statistics">
+          <?php if ($reactions_enabled): ?>
+            <div class="reaction-footer">
+              <div class="reaction-summary"
+                   data-entity-type="node"
+                   data-entity-id="<?php print $nid ?>"
+              ><?php print $reactionsSerialized ?></div>
+            </div>
           <?php endif; ?>
-
-          <?php print render($title_prefix); ?>
-          <?php print render($title_suffix); ?>
+          <span><i
+              class="icon-eye"></i><?php print $num_views; ?></span>
+          <div class="statistics-comment">
+            <a target="_blank"
+               href="/node/<?php print $nid; ?>/#comments">
+              <div class="comment-button-icon-mask"
+                   style="mask-image: url(<?php echo url($basePath . '/commentButton.svg', ['absolute' => TRUE]) ?>);">
+              </div>
+              <?php print $num_comments; ?>
+            </a>
+          </div>
         </div>
+        <div class="action-buttons">
+          <div class="left-side">
+            <gt-reactions-button data-entity-type="node" data-entity-id="<?php print $nid ?>">
+              <div class="footer-icon">
+              <div class="icon-mask like-button"
+                   style="mask-image: url(<?php print $basePath . '/likeButton.svg'; ?>);"></div>
+              </div>
+            </gt-reactions-button>
 
-        <div class="group-content"<?php print $content_attributes; ?>>
-          <?php
-          hide($content['comments']);
-          hide($content['links']);
-          hide($content['links_right']);
-          print render($content);
-          ?>
+            <a target="_blank" href="<?php print url('/node/' . $node->nid, [
+              'absolute' => TRUE,
+              'fragment' => 'comment-anchor',
+            ]) ?>">
+              <div class="footer-icon">
+                <div class="icon-mask comment-button"
+                     style="mask-image: url(<?php print $basePath . '/commentButton.svg'; ?>);">
+                </div>
+              </div>
+            </a>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <div class="group-footer">
-          <div class="foo-left">
-            <?php print render($content['links']); ?>
 
-            <?php if ($submit_date): ?>
+    <div
+      class="activity-stream-right <?php print $preview_image ? 'image' : 'no-image' ?>">
+      <span class="stream-icon heartbeat-activity-type-post"></span>
+      <?php if (!empty($preview_image)): ?>
+        <img class="chip-img"
+             src="<?php print $preview_image; ?>"
+             width="100%">
+      <?php endif; ?>
+    </div>
+
+  </div>
+
+<?php else: ?>
+
+  <article id="node-<?php print $node->nid; ?>"
+           class="<?php print $classes; ?> clearfix"<?php print $attributes; ?>>
+    <?php if (stripos($node->type, 'comment') === FALSE): ?>
+      <div class="card">
+        <div class="card-content">
+          <div class="header">
+            <?php print $user_picture; ?>
+            <div>
+              <div class="post-header">
+                <b><?php print $name; ?></b>
+              </div>
+              <?php if ($submit_date): ?>
               <div class="submit-date">
                 <?php print $submit_date; ?>
               </div>
+            </div>
+          </div>
+          <br>
+          <div class="header">
             <?php endif; ?>
+
+            <?php if (!$page): ?>
+              <h2<?php print $title_attributes; ?>><a
+                  href="<?php print $node_url; ?>"><?php print $title; ?></a>
+              </h2>
+            <?php else: ?>
+              <h2<?php print $title_attributes; ?>><?php print $title; ?></h2>
+            <?php endif; ?>
+            <?php if (isset($publishing_label)): ?>
+              <span class="publishing">
+                <?php print $publishing_label; ?>
+            </span>
+            <?php endif; ?>
+            <?php print render($title_prefix); ?>
+            <?php print render($title_suffix); ?>
           </div>
-          <div class="foo-right">
-            <?php print render($content['links_right']); ?>
+
+          <div class="group-content"<?php print $content_attributes; ?>>
+            <?php
+            hide($content['comments']);
+            hide($content['links']);
+            hide($content['links_right']);
+            print render($content);
+            ?>
           </div>
+
+          <?php if ($reactions_enabled): ?>
+            <?php
+            $content['links']['comment2'] = array_replace([], $content['links']['comment']);
+            unset($content['links']['comment2']['#links']['comment-comments']);
+            unset($content['links']['comment']['#links']['comment-add']);
+
+            $comment_link = drupal_render($content['links']['comment2']);
+            ?>
+
+            <div class="reaction-footer">
+              <div class="footer-meta">
+                <div class="reaction-summary" data-entity-type="node"
+                     data-entity-id="<?php print $node->nid ?>"><?php print $reactionsSerialized ?></div>
+                <div
+                  class="footer-links"><?php print render($content['links']['statistics']); ?> <?php print render($content['links']['attachments']); ?>
+                  <?php if (!empty($content['links']['comment']['#links']['comment-comments'])): ?>
+                    <img
+                      class="comment-button-icon"
+                      src="<?php echo $basePath . '/commentButton.svg' ?>">
+                  <?php endif; ?>
+                  <?php print render($content['links']['comment']); ?></div>
+              </div>
+              <?php if ($user->uid > 0): ?>
+                <div class="reaction-actions">
+                  <gt-reactions-button data-entity-type="node"
+                                       data-entity-id="<?php print $node->nid ?>">
+                    <img
+                      class="like-button"
+                      src="<?php echo $basePath . '/likeButton.svg' ?>"><span
+                      class="like-text"><?php print t("Like"); ?></span>
+                  </gt-reactions-button>
+                  <div class="comment-button"><span
+                      class="comment-text"><?php print l('<img class="comment-button" src="' . $basePath . '/commentButton.svg">' . t("Comment"), "/node/" . $node->nid, [
+                        'fragment' => 'edit-comment-body',
+                        'html' => TRUE,
+                      ]) ?>
+              </span>
+                  </div>
+                </div>
+              <?php endif; ?>
+            </div>
+          <?php else: ?>
+
+            <div class="group-footer">
+              <div class="foo-left">
+
+                <?php print render($content['links']); ?>
+
+                <?php if ($submit_date): ?>
+                  <div class="submit-date">
+                    <?php print $submit_date; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
+              <div class="foo-right">
+                <?php print render($content['links_right']); ?>
+              </div>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
-    </div>
-  <?php endif; ?>
-  <?php if (!empty($content['comments']['comment_form'])): ?>
-    <div class="accordion-container">
-      <button class="accordion-button">Kommentare</button>
-      <div class="accordion-panel">
-        <?php print render($content['comments']); ?>
+    <?php endif; ?>
+    <?php if (!empty($content['comments']['comment_form'])): ?>
+      <div class="accordion-container">
+        <button class="accordion-button">Kommentare</button>
+        <div class="accordion-panel">
+          <?php print render($content['comments']); ?>
+        </div>
       </div>
-    </div>
-  <?php endif; ?>
-</article>
+      <!--script src="/sites/all/themes/salto2014/assets/md/src/accordion.js"></script-->
+    <?php endif; ?>
+  </article>
+<?php endif; ?>

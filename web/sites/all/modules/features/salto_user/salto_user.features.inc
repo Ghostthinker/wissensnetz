@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_user.features.inc
@@ -131,4 +132,25 @@ function salto_user_default_profile2_type() {
     "data" : { "registration" : 0 }
   }');
   return $items;
+}
+
+
+/**
+ * Feature module hook. Invoked on that module after it is reverted.
+ *
+ * @param string $component
+ *   Name of the component that has just been reverted.
+ */
+function salto_user_post_features_revert($component) {
+
+  watchdog('salto_user', 'feature revert override of %component', ["%component" => $component], WATCHDOG_NOTICE);
+  // Check if the reverted component is the one you're interested in.
+  if ($component == 'field_instance') {
+    $setting_string = variable_get('field_instance_label_overrides', '');
+    // Split the input string by newlines to get individual lines
+    _wn_blanko_update_field_instances($setting_string);
+
+    watchdog('salto_user', 'Applied salto_user overrides for field_instance.', [], WATCHDOG_NOTICE);
+
+  }
 }

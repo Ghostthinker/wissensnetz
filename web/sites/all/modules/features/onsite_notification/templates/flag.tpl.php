@@ -44,6 +44,8 @@
  * some advanced theming you may have to remove all the whitespace.
  */
 
+global $user;
+
 $tooltip_flagged_state = t('You are subscribed for this content. Click the icon on the right, to unsubscribe.');
 
 
@@ -113,6 +115,13 @@ else {
       $link_text = t('Ignored');
     }
     else {
+      if($flag->name == "notification_ignore_material") {
+        $file = file_load($entity_id);
+        if(!salto_user_interested_in_entity($file, $user)) {
+          // do not render the widget, if user has no auto abo
+          die();
+        }
+      }
       $show_state_action_pane = TRUE;
       $link_text = t('Auto-Subscribed');
       $link_title = t('Click here to ignore this post.');
@@ -139,9 +148,9 @@ else {
       <?php else: ?>
         <div class="action-link col-md-12">
           <div class="row">
-            <div class="col-md-8 status flagged" rel="tooltip"
+            <div class="col-md-7 status flagged" rel="tooltip"
                  title="<?php echo $tooltip_flagged_state; ?>"><?php print $link_text; ?></div>
-            <div class="col-md-4 action-unflag">
+            <div class="col-md-2 action-unflag">
               <a href="<?php print $link_href; ?>"
                  title="<?php print $link_title; ?>" rel="tooltip"
                  class="<?php print $flag_classes ?>" rel="nofollow"> </a>

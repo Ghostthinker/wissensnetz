@@ -22,8 +22,8 @@ class OnlyIntegrationCleanupCest {
     $keepNids = [];
     $keepTypes = ['help','page','feed'];
 
-    $blanco = \Helper\Bildungsnetz::getBlankCleanup();
-    $repo = \Helper\Bildungsnetz::getNodeRepository();
+    $blanco = \Helper\Wissensnetz::getBlankCleanup();
+    $repo = \Helper\Wissensnetz::getNodeRepository();
 
     $ugs = [];
     foreach ($keepOgs as $ogNid) {

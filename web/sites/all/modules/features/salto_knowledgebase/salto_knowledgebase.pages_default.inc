@@ -56,7 +56,7 @@ function salto_knowledgebase_default_page_manager_handlers() {
     ),
   );
   $display = new panels_display();
-  $display->layout = 'salto_363';
+  $display->layout = 'salto_372';
   $display->layout_settings = array();
   $display->panel_settings = array(
     'style_settings' => array(
@@ -136,6 +136,36 @@ function salto_knowledgebase_default_page_manager_handlers() {
   $display->content['new-bed47fb4-4c54-45a9-b603-b5dbe1481a0f'] = $pane;
   $display->panels['middle'][0] = 'new-bed47fb4-4c54-45a9-b603-b5dbe1481a0f';
   $pane = new stdClass();
+  $pane->pid = 'new-be2b8b31-aac8-420a-bac3-a66e127660a4';
+  $pane->panel = 'middle';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'admin_title' => 'Attachments',
+    'title' => '',
+    'title_heading' => 'h2',
+    'body' => '<?php
+$node = node_load(%node:nid);
+return salto_knowledgebase_render_salto_363_panel_attachment($node);
+
+?>',
+    'format' => 'php_code',
+    'substitute' => 1,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 1;
+  $pane->locks = array();
+  $pane->uuid = 'be2b8b31-aac8-420a-bac3-a66e127660a4';
+  $display->content['new-be2b8b31-aac8-420a-bac3-a66e127660a4'] = $pane;
+  $display->panels['middle'][1] = 'new-be2b8b31-aac8-420a-bac3-a66e127660a4';
+  $pane = new stdClass();
   $pane->pid = 'new-34002b6a-fef6-473a-a6cc-266597f08f86';
   $pane->panel = 'right';
   $pane->type = 'action_links';
@@ -167,7 +197,7 @@ function salto_knowledgebase_default_page_manager_handlers() {
   $pane->panel = 'right';
   $pane->type = 'node_attachments';
   $pane->subtype = 'node_attachments';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'context' => 'argument_entity_id:node_1',
@@ -190,7 +220,7 @@ function salto_knowledgebase_default_page_manager_handlers() {
   $pane->panel = 'right';
   $pane->type = 'views_panes';
   $pane->subtype = 'tmp_files_by_node-panel_file_with_ref';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'arguments' => array(
@@ -447,7 +477,7 @@ function salto_knowledgebase_default_page_manager_handlers() {
     ),
   );
   $display = new panels_display();
-  $display->layout = 'salto_363';
+  $display->layout = 'salto_372';
   $display->layout_settings = array();
   $display->panel_settings = array(
     'style_settings' => array(
@@ -474,9 +504,7 @@ function salto_knowledgebase_default_page_manager_handlers() {
   $pane->configuration = array(
     'admin_title' => 'salto_knowledgebase_book_menus_render',
     'title' => '',
-    'body' => '<?php
-print salto_knowledgebase_book_menus_render();
-?>',
+    'body' => '',
     'format' => 'php_code',
     'substitute' => 1,
   );
@@ -552,6 +580,36 @@ print salto_knowledgebase_book_menus_render();
   $pane->uuid = 'bed47fb4-4c54-45a9-b603-b5dbe1481a0f';
   $display->content['new-bed47fb4-4c54-45a9-b603-b5dbe1481a0f'] = $pane;
   $display->panels['middle'][0] = 'new-bed47fb4-4c54-45a9-b603-b5dbe1481a0f';
+  $pane = new stdClass();
+  $pane->pid = 'new-205a426c-99a1-45a5-a349-7bac97a0e0e2';
+  $pane->panel = 'middle';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'admin_title' => 'Attachments',
+    'title' => '',
+    'title_heading' => 'h2',
+    'body' => '<?php
+$node = node_load(%node:nid);
+return salto_knowledgebase_render_salto_363_panel_attachment($node);
+
+?>',
+    'format' => 'php_code',
+    'substitute' => 1,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 1;
+  $pane->locks = array();
+  $pane->uuid = '205a426c-99a1-45a5-a349-7bac97a0e0e2';
+  $display->content['new-205a426c-99a1-45a5-a349-7bac97a0e0e2'] = $pane;
+  $display->panels['middle'][1] = 'new-205a426c-99a1-45a5-a349-7bac97a0e0e2';
   $pane = new stdClass();
   $pane->pid = 'new-34002b6a-fef6-473a-a6cc-266597f08f86';
   $pane->panel = 'right';
@@ -668,7 +726,7 @@ print salto_knowledgebase_book_menus_render();
   $pane->panel = 'right';
   $pane->type = 'node_attachments';
   $pane->subtype = 'node_attachments';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'context' => 'argument_entity_id:node_1',
@@ -692,7 +750,7 @@ print salto_knowledgebase_book_menus_render();
   $pane->panel = 'right';
   $pane->type = 'views_panes';
   $pane->subtype = 'tmp_files_by_node-panel_file_with_ref';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'arguments' => array(
@@ -827,30 +885,6 @@ function salto_knowledgebase_default_page_manager_pages() {
   $display->content['new-6e998d1e-5a13-4636-8033-6774450aebed'] = $pane;
   $display->panels['left'][0] = 'new-6e998d1e-5a13-4636-8033-6774450aebed';
   $pane = new stdClass();
-  $pane->pid = 'new-bd8fd77d-5236-470c-95ef-e643d6a368d6';
-  $pane->panel = 'left';
-  $pane->type = 'block';
-  $pane->subtype = 'views-8139f0852af4be824932022cb260afde';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array(
-    'inherit_path' => 1,
-    'override_title' => 0,
-    'override_title_text' => '',
-  );
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-    'style' => 'blockpanel',
-  );
-  $pane->css = array();
-  $pane->extras = array();
-  $pane->position = 1;
-  $pane->locks = array();
-  $pane->uuid = 'bd8fd77d-5236-470c-95ef-e643d6a368d6';
-  $display->content['new-bd8fd77d-5236-470c-95ef-e643d6a368d6'] = $pane;
-  $display->panels['left'][1] = 'new-bd8fd77d-5236-470c-95ef-e643d6a368d6';
-  $pane = new stdClass();
   $pane->pid = 'new-5de0a99f-79a0-4882-b9a4-ef2eb3546bec';
   $pane->panel = 'middle';
   $pane->type = 'block';
@@ -953,7 +987,7 @@ function salto_knowledgebase_default_page_manager_pages() {
   $pane->panel = 'right';
   $pane->type = 'block';
   $pane->subtype = 'user-login';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'override_title' => 0,
@@ -975,7 +1009,7 @@ function salto_knowledgebase_default_page_manager_pages() {
   $pane->panel = 'right';
   $pane->type = 'block';
   $pane->subtype = 'heartbeat-kbactivity';
-  $pane->shown = TRUE;
+  $pane->shown = FALSE;
   $pane->access = array();
   $pane->configuration = array(
     'override_title' => 1,

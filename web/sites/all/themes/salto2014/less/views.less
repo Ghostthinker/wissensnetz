@@ -1,0 +1,47 @@
+.view.view-kb-files.view-id-kb_files.view-display-id-panel_pane_1,
+.view.view-groups-files.view-id-groups_files.view-display-id-panel_pane_1,
+.view.view-kb-files.view-id-kb_files.view-display-id-panel_pane_2,
+.view.view-groups-files.view-id-groups_files.view-display-id-panel_pane_2
+{
+  form {
+    .panel-heading {
+      display: none;
+    }
+
+    fieldset {
+      padding: 0;
+    }
+
+    .panel-body {
+      padding: 0;
+    }
+
+    .form-actions {
+      display: flex;
+      flex-direction: row-reverse;
+      gap: 2em;
+
+      button {
+        max-width: 15em;
+      }
+
+      a {
+        align-self: center;
+      }
+    }
+
+    .form-submit {
+      color: @btn-primary-color;
+      background-color: @btn-primary-bg;
+      border-color: @btn-primary-border;
+      margin: 0.5em;
+    }
+  }
+}
+
+#views-form-groups-files-panel-pane-2,
+#views-form-kb-files-panel-pane-2 {
+  fieldset {
+    background: unset;
+  }
+}

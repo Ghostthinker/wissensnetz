@@ -121,6 +121,12 @@ a.btn.btn-primary.online-meeting-button-form {
   margin-left: unset !important;
 }
 
+.online-meeting-start-page{
+  padding-bottom: 0.5rem;
+  display: flex;
+  flex-direction: row;
+}
+
 .online-meeting-border-form {
   border-bottom: 1px dotted #fff;
   padding-bottom: 5%;
@@ -188,11 +194,41 @@ a.btn.btn-primary.online-meeting-button-form {
 
 .dialog-status-pane .pane-content {
   padding: unset !important;
-  text-align-last: center;
 }
 
 .dialog-status-pane-wrapper .panel-body {
   padding: 0 12px 0 !important;
+}
+
+.dialog-share-pane .pane-content {
+  padding: unset !important;
+}
+.salto-online-meeting-share-button .dropdown-toggle .caret {
+  margin-left: 5px;
+}
+.action_share_meeting:before{
+  content: '\E80F' !important;
+}
+.salto-online-meeting-share-button ul.dropdown-menu{
+  padding: 15px;
+  width: 25rem;
+  right: auto;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    span {
+      margin-top: 5px;
+    }
+  }
+}
+
+.salto-online-meeting-share-button-info{
+  margin-top: 15px;
+}
+
+.salto-online-meeting-share-button .dropdown-menu.keep-open {
+  display: block !important;
 }
 
 a.action_start_meeting:before,

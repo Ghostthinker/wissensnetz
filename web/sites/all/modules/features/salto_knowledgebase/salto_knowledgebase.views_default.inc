@@ -57,7 +57,7 @@ function salto_knowledgebase_views_default_views() {
   $handler->display->display_options['fields']['nothing']['table'] = 'views';
   $handler->display->display_options['fields']['nothing']['field'] = 'nothing';
   $handler->display->display_options['fields']['nothing']['label'] = '';
-  $handler->display->display_options['fields']['nothing']['alter']['text'] = '<div class="icon-feed-burger"></div> 
+  $handler->display->display_options['fields']['nothing']['alter']['text'] = '<div class="icon-feed-burger"></div>
 <div class="icon-feed-burger odd"></div>
 <div class="icon-feed-burger"></div>
 <div class="icon-feed-burger odd"></div>';
@@ -130,7 +130,7 @@ function salto_knowledgebase_views_default_views() {
   $handler->display->display_options['fields']['nothing']['table'] = 'views';
   $handler->display->display_options['fields']['nothing']['field'] = 'nothing';
   $handler->display->display_options['fields']['nothing']['label'] = '';
-  $handler->display->display_options['fields']['nothing']['alter']['text'] = '<div class="icon-feed-burger"></div> 
+  $handler->display->display_options['fields']['nothing']['alter']['text'] = '<div class="icon-feed-burger"></div>
 <div class="icon-feed-burger odd"></div>
 <div class="icon-feed-burger"></div>
 <div class="icon-feed-burger odd"></div>';
@@ -206,7 +206,7 @@ function salto_knowledgebase_views_default_views() {
     t('Absteigend'),
     t('There are no items for this feed at the moment.'),
     t('Owner feed'),
-    t('<div class="icon-feed-burger"></div> 
+    t('<div class="icon-feed-burger"></div>
 <div class="icon-feed-burger odd"></div>
 <div class="icon-feed-burger"></div>
 <div class="icon-feed-burger odd"></div>'),
@@ -264,8 +264,7 @@ function salto_knowledgebase_views_default_views() {
   $handler->display->display_options['header']['area']['table'] = 'views';
   $handler->display->display_options['header']['area']['field'] = 'area';
   $handler->display->display_options['header']['area']['empty'] = TRUE;
-  $handler->display->display_options['header']['area']['content'] = '<?php 
-
+  $handler->display->display_options['header']['area']['content'] = '<?php
 $arg = arg(1);
 if(is_numeric($arg )) {
    $term = taxonomy_term_load($arg );
@@ -273,6 +272,7 @@ if($term) {
   echo check_markup(render($term->description), \'editor\');
 }
 }
+
 
 ?>';
   $handler->display->display_options['header']['area']['format'] = 'php_code';
@@ -309,6 +309,9 @@ if($term) {
   $handler->display->display_options['arguments']['term_node_tid_depth']['breadcrumb'] = '%1';
   $handler->display->display_options['arguments']['term_node_tid_depth']['default_argument_type'] = 'php';
   $handler->display->display_options['arguments']['term_node_tid_depth']['default_argument_options']['code'] = '$u_tf  = salto_user_get_themenfelder();
+if (empty($u_tf)) {
+ return null;
+}
 $tids = array();
 foreach($u_tf  as $term) {
  $tids[] = $term->tid;
@@ -378,26 +381,6 @@ return  implode("+", $tids);';
     6 => 0,
   );
   $handler->display->display_options['filters']['type']['expose']['reduce'] = TRUE;
-  /* Filter criterion: Content: Beitragstags (field_taxonomy_post_tags) */
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['id'] = 'field_taxonomy_post_tags_tid';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['table'] = 'field_data_field_taxonomy_post_tags';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['field'] = 'field_taxonomy_post_tags_tid';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['group'] = 1;
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['exposed'] = TRUE;
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['expose']['operator_id'] = 'field_taxonomy_post_tags_tid_op';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['expose']['label'] = 'Beitragstags';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['expose']['operator'] = 'field_taxonomy_post_tags_tid_op';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['expose']['identifier'] = 'field_taxonomy_post_tags_tid';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['expose']['remember_roles'] = array(
-    2 => '2',
-    1 => 0,
-    3 => 0,
-    4 => 0,
-    5 => 0,
-    6 => 0,
-  );
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['type'] = 'select';
-  $handler->display->display_options['filters']['field_taxonomy_post_tags_tid']['vocabulary'] = 'post_tags';
   $handler->display->display_options['pane_category']['name'] = 'Wissensbasis';
   $handler->display->display_options['pane_category']['weight'] = '0';
   $handler->display->display_options['argument_input'] = array(
@@ -426,8 +409,7 @@ return  implode("+", $tids);';
     t('‹ vorherige Seite'),
     t('nächste Seite ›'),
     t('letzte Seite »'),
-    t('<?php 
-
+    t('<?php
 $arg = arg(1);
 if(is_numeric($arg )) {
    $term = taxonomy_term_load($arg );
@@ -436,6 +418,7 @@ if($term) {
 }
 }
 
+
 ?>'),
     t('Keine Inhalte verfügbar.'),
     t('Beiträge'),
@@ -443,7 +426,6 @@ if($term) {
     t('All'),
     t('more'),
     t('Beitragstyp'),
-    t('Beitragstags'),
     t('Wissensbasis'),
   );
   $export['knowledgebase_content_by_category'] = $view;

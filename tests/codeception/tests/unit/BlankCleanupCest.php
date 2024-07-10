@@ -28,22 +28,22 @@ class BlankCleanupCest {
     }
 
     $I->expectTo('User ids are equal, count!');
-    $blank = \Helper\Bildungsnetz::getBlankCleanup();
+    $blank = \Helper\Wissensnetz::getBlankCleanup();
     $ids = $blank->getUserIdsForOrganisation($og->nid);
     $I->assertEquals(count($ids), count($users));
 
     $I->expectTo('No Group is found by users!');
-    $repo = \Helper\Bildungsnetz::getNodeRepository();
+    $repo = \Helper\Wissensnetz::getNodeRepository();
     $groups = $repo->getGroupIdsByUsers($userIds);
     $I->assertEquals(0, count($groups));
 
-    $group1 = \Helper\Bildungsnetz::createGroup($users[0]);
+    $group1 = \Helper\Wissensnetz::createGroup($users[0]);
     for($k = 0; $k < count($users)/2; $k++) {
-      \Helper\Bildungsnetz::addMemberToGroup($users[$k], $group1->nid);
+      \Helper\Wissensnetz::addMemberToGroup($users[$k], $group1->nid);
     }
 
     $I->expectTo('A Group is found by users!');
-    $repo = \Helper\Bildungsnetz::getNodeRepository();
+    $repo = \Helper\Wissensnetz::getNodeRepository();
     $groups = $repo->getGroupIdsByUsers($userIds);
     $I->assertEquals(1, count($groups));
     $I->assertEquals($group1->nid, $groups[$group1->nid]);
@@ -54,9 +54,9 @@ class BlankCleanupCest {
     $I->assertEquals(1, count($groups));
     $I->assertEquals($group1->nid, $groups[$group1->nid]);
 
-    $group2 = \Helper\Bildungsnetz::createGroup($users[0]);
+    $group2 = \Helper\Wissensnetz::createGroup($users[0]);
     for($k = count($users)/2; $k < count($users); $k++) {
-      \Helper\Bildungsnetz::addMemberToGroup($users[$k], $group2->nid);
+      \Helper\Wissensnetz::addMemberToGroup($users[$k], $group2->nid);
     }
     $I->expectTo('Two groups are found by users!');
     $groups = $repo->getGroupIdsByUsers($userIds);

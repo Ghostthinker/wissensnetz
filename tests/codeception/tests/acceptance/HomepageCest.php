@@ -1,6 +1,6 @@
 <?php
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * Class StartseiteCest
@@ -94,8 +94,9 @@ class HomepageCest {
     $I->createBeitrag([
       'Titel' => $titel,
       'Inhalt' => "Test Inhalt S2_00",
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'user' => $user1
     ]);
 
     $I->amOnPage("/");
@@ -124,10 +125,11 @@ class HomepageCest {
     $titel = "Test Titel S2_01 " . time();
 
     $I->createBeitrag([
-        'Titel' => $titel,
-        'Inhalt' => "Test Inhalt S2_01",
-        'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS,
-        'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'Titel' => $titel,
+      'Inhalt' => "Test Inhalt S2_01",
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS,
+      'category' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'user' => $user1
     ]);
 
     $I->amOnPage("/");
@@ -175,8 +177,10 @@ class HomepageCest {
     $I->createBeitrag([
       'Titel' => $titel,
       'Inhalt' => "Test S230_14_1",
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'user' => $user1
     ]);
 
     $I->checkAK('230.14', 'AK 1: Geänderter Titel eines Beitrags erscheint auch in Aktivitätenstrom');
@@ -184,26 +188,13 @@ class HomepageCest {
     $I->amOnPage("/");
     $I->see($user1->realname . " hat den Beitrag $titel erstellt.");
     $newTitle1 = $titel;
-    /*
-    $I->click($titel);
-    $I->see('Beitrag bearbeiten');
-    $I->click('Beitrag bearbeiten');
-
-    $newTitle1 = "Beitrag 1 new " . $timestamp;
-    $I->submitForm("#post-node-form",[ 'title' => $newTitle1]);
-
-    $I->amOnPage("/");
-    $I->see($user1->realname . " hat den Beitrag $newTitle1 erstellt.");
-    $I->see($user1->realname . " hat den Beitrag $newTitle1 bearbeitet.");
-    $I->dontSee($user1->realname . " hat den Beitrag $titel erstellt.");
-    $I->dontSee($user1->realname . " hat den Beitrag $titel bearbeitet.");
-    */
 
     $I->loginAsUser($user2);
 
     $I->amOnPage("/");
     $I->see($user1->realname . " hat den Beitrag $newTitle1 erstellt.");
     $I->click($newTitle1);
+
     $I->see('Beitrag bearbeiten');
     $I->click('Beitrag bearbeiten');
 
@@ -266,53 +257,17 @@ class HomepageCest {
     $title = "Beitrag 2 Text" . $timestamp;
     $content = "Test content S230_14_2 create " . $timestamp;
 
-    $I->createBeitrag([
+    $POST = $I->havePost([
       'Titel' => $title,
       'Inhalt' => $content,
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID,
+      'user' => $user1
     ]);
 
-    $I->amOnPage("/");
-    $I->see($user1->realname . " hat den Beitrag $title erstellt.");
+    $I->amOnPage("node/" . $POST->nid);
     $I->see($content);
-    /*
-    $I->click($title);
-    $I->see('Beitrag bearbeiten');
-    $I->click('Beitrag bearbeiten');
 
-    $content1 = "Test content S230_14_2 change " . $timestamp;
-    $I->fillCkEditorById('1_contents', $content1);
-    $I->submitForm("#post-node-form", []);
-
-    $I->amOnPage("/");
-    $I->see($user1->realname . " hat den Beitrag $title erstellt.");
-    $I->see($user1->realname . " hat den Beitrag $title aktualisiert.");
-    $I->see($content1);
-    $I->dontSee($content);
-    */
-
-    $I->checkAK('230.14', 'AK 2: Geänderter Text eines Beitrags erscheint auch in Aktivitätenstrom');
-
-    $I->loginAsUser($user2);
-
-    $I->amOnPage("/");
-    $I->see($user1->realname . " hat den Beitrag $title erstellt.");
-    $I->click($title);
-    $I->see('Beitrag bearbeiten');
-    $I->click('Beitrag bearbeiten');
-
-    $content2 = "Test content S230_14_2 change 2 " . $timestamp;
-    $I->fillCkEditorById('1_contents', $content2);
-    $I->submitForm("#post-node-form", []);
-
-    $I->amOnPage("/");
-    $I->see($user1->realname . " hat den Beitrag $title erstellt.");
-    $I->see($user2->realname . " hat den Beitrag $title aktualisiert.");
-    $I->dontSee($content);
-    $I->see($content2);
-    $I->dontSee($user1->realname . " hat den Beitrag $title aktualisiert.");
-    $I->dontSee($user2->realname . " hat den Beitrag $title erstellt.");
   }
 
   /**
@@ -347,36 +302,36 @@ class HomepageCest {
     $I->amOnPage("/");
     $I->dontSeeLink("Statistiken");
     $I->dontSeeLink("E-Mail-Verteiler");
-    $I->dontSee("Bildungsnetz Team", "h2");
+    $I->dontSee("Wissensnetz Team", "h2");
   }
 
-    /**
-     * @skip Dieser test macht eigentlich das selbe wie HP_01_0
-     *
-     * S0.00 Login Block Anmeldung mit Email und Passwort
-     *
-     * @see
-     * @param \AcceptanceTester $I #
-     */
-    public function HP_05_0(AcceptanceTester $I) {
+  /**
+   * @skip Dieser test macht eigentlich das selbe wie HP_01_0
+   *
+   * S0.00 Login Block Anmeldung mit Email und Passwort
+   *
+   * @see
+   * @param \AcceptanceTester $I #
+   */
+  public function HP_05_0(AcceptanceTester $I) {
 
-        $I->wantTo('S5.00 - Login Block - Anmeldung mit Email und Passwort');
+    $I->wantTo('S5.00 - Login Block - Anmeldung mit Email und Passwort');
 
-        $user1 = $I->haveUser([
-            'firstname' => 'max',
-            'lastname' => 'muster',
-        ]);
+    $user1 = $I->haveUser([
+      'firstname' => 'max',
+      'lastname' => 'muster',
+    ]);
 
-        $I->completedSetup();
+    $I->completedSetup();
 
-        $I->amOnPage("/licenses");
-        $I->dontSee("Lizenzen");
-        $I->submitForm('#user-login', [
-            'name' => $user1->mail,
-            'pass' => $user1->password
-        ]);
+    $I->amOnPage("/licenses");
+    $I->dontSee("Lizenzen");
+    $I->submitForm('#user-login', [
+      'name' => $user1->mail,
+      'pass' => $user1->password
+    ]);
 
-        $I->see("Lizenzen");
-    }
+    $I->see("Lizenzen");
+  }
 
 }

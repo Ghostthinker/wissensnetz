@@ -150,16 +150,16 @@ function salto_search_default_search_api_index() {
           "weight" : "-10",
           "settings" : { "default" : "1", "bundles" : [] }
         },
+        "search_api_alter_add_url" : { "status" : 0, "weight" : "0", "settings" : [] },
+        "search_api_alter_add_aggregation" : { "status" : 0, "weight" : "0", "settings" : [] },
+        "search_api_alter_add_viewed_entity" : { "status" : 0, "weight" : "0", "settings" : { "mode" : "full" } },
+        "search_api_alter_add_hierarchy" : { "status" : 0, "weight" : "0", "settings" : { "fields" : [] } },
         "search_api_alter_language_control" : {
           "status" : 0,
           "weight" : "0",
           "settings" : { "lang_field" : "", "languages" : [] }
         },
-        "search_api_alter_comment_access" : { "status" : 1, "weight" : "0", "settings" : [] },
-        "search_api_alter_add_hierarchy" : { "status" : 0, "weight" : "0", "settings" : { "fields" : [] } },
-        "search_api_alter_add_viewed_entity" : { "status" : 0, "weight" : "0", "settings" : { "mode" : "full" } },
-        "search_api_alter_add_url" : { "status" : 0, "weight" : "0", "settings" : [] },
-        "search_api_alter_add_aggregation" : { "status" : 0, "weight" : "0", "settings" : [] }
+        "search_api_alter_comment_access" : { "status" : 1, "weight" : "0", "settings" : [] }
       },
       "processors" : {
         "search_api_case_ignore" : {
@@ -168,7 +168,7 @@ function salto_search_default_search_api_index() {
           "settings" : { "fields" : { "author" : true, "comment_body:value" : true } }
         },
         "search_api_html_filter" : {
-          "status" : 0,
+          "status" : 1,
           "weight" : "10",
           "settings" : {
             "fields" : { "comment_body:value" : true },
@@ -200,25 +200,25 @@ function salto_search_default_search_api_index() {
             "stopwords" : "but\\r\\ndid\\r\\nthe this that those\\r\\netc"
           }
         },
-        "search_api_highlighting" : {
-          "status" : 0,
-          "weight" : "35",
-          "settings" : {
-            "prefix" : "\\u003Cstrong class=\\u0022salto-search-needle\\u0022\\u003E",
-            "suffix" : "\\u003C\\/strong\\u003E",
-            "excerpt" : 1,
-            "excerpt_length" : "256",
-            "exclude_fields" : [],
-            "highlight" : "always",
-            "highlight_partial" : 0
-          }
-        },
         "search_api_porter_stemmer" : {
           "status" : 0,
           "weight" : "35",
           "settings" : {
             "fields" : { "comment_body:value" : true },
             "exceptions" : "texan=texa"
+          }
+        },
+        "search_api_highlighting" : {
+          "status" : 1,
+          "weight" : "35",
+          "settings" : {
+            "prefix" : "\\u003Cstrong class=\\u0022salto-search-needle\\u0022\\u003E",
+            "suffix" : "\\u003C\\/strong\\u003E",
+            "excerpt" : 1,
+            "excerpt_length" : "64",
+            "exclude_fields" : [],
+            "highlight" : "always",
+            "highlight_partial" : 1
           }
         }
       }
@@ -262,15 +262,15 @@ function salto_search_default_search_api_index() {
           "weight" : "-10",
           "settings" : { "default" : "1", "bundles" : [] }
         },
+        "search_api_alter_add_url" : { "status" : 0, "weight" : "0", "settings" : [] },
+        "search_api_alter_add_aggregation" : { "status" : 0, "weight" : "0", "settings" : [] },
+        "search_api_alter_add_viewed_entity" : { "status" : 0, "weight" : "0", "settings" : { "mode" : "teaser" } },
+        "search_api_alter_add_hierarchy" : { "status" : 0, "weight" : "0", "settings" : { "fields" : [] } },
         "search_api_alter_language_control" : {
           "status" : 0,
           "weight" : "0",
           "settings" : { "lang_field" : "", "languages" : [] }
-        },
-        "search_api_alter_add_hierarchy" : { "status" : 0, "weight" : "0", "settings" : { "fields" : [] } },
-        "search_api_alter_add_aggregation" : { "status" : 0, "weight" : "0", "settings" : [] },
-        "search_api_alter_add_url" : { "status" : 0, "weight" : "0", "settings" : [] },
-        "search_api_alter_add_viewed_entity" : { "status" : 0, "weight" : "0", "settings" : { "mode" : "teaser" } }
+        }
       },
       "processors" : {
         "search_api_case_ignore" : {
@@ -303,6 +303,21 @@ function salto_search_default_search_api_index() {
             "tags" : "h1 = 5\\r\\nh2 = 3\\r\\nh3 = 2\\r\\nstrong = 2\\r\\nb = 2\\r\\nem = 1.5\\r\\nu = 1.5"
           }
         },
+        "search_api_transliteration" : {
+          "status" : 0,
+          "weight" : "15",
+          "settings" : { "fields" : {
+              "name" : true,
+              "mime" : true,
+              "field_file_description" : true,
+              "field_file_originator" : true,
+              "field_file_image_alt_text" : true,
+              "field_file_image_title_text" : true,
+              "field_post_tags:name" : true,
+              "field_kb_kategorie:name" : true
+            }
+          }
+        },
         "search_api_tokenizer" : {
           "status" : 1,
           "weight" : "20",
@@ -333,16 +348,34 @@ function salto_search_default_search_api_index() {
             "stopwords" : "but\\r\\ndid\\r\\nthe this that those\\r\\netc"
           }
         },
-        "search_api_highlighting" : {
+        "search_api_porter_stemmer" : {
           "status" : 0,
+          "weight" : "35",
+          "settings" : {
+            "fields" : {
+              "name" : true,
+              "mime" : true,
+              "field_file_description" : true,
+              "field_file_originator" : true,
+              "field_file_image_alt_text" : true,
+              "field_file_image_title_text" : true,
+              "field_post_tags:name" : true,
+              "field_kb_kategorie:name" : true
+            },
+            "exceptions" : "texan=texa"
+          }
+        },
+        "search_api_highlighting" : {
+          "status" : 1,
           "weight" : "35",
           "settings" : {
             "prefix" : "\\u003Cstrong class=\\u0022salto-search-needle\\u0022\\u003E",
             "suffix" : "\\u003C\\/strong\\u003E",
             "excerpt" : 1,
-            "excerpt_length" : "256",
-            "exclude_fields" : [],
-            "highlight" : "always"
+            "excerpt_length" : "64",
+            "exclude_fields" : { "mime" : "mime" },
+            "highlight" : "always",
+            "highlight_partial" : 1
           }
         }
       }
@@ -404,15 +437,16 @@ function salto_search_default_search_api_index() {
           }
         },
         "search_api_highlighting" : {
-          "status" : 0,
+          "status" : 1,
           "weight" : "-47",
           "settings" : {
             "prefix" : "\\u003Cstrong class=\\u0022salto-search-needle\\u0022\\u003E",
             "suffix" : "\\u003C\\/strong\\u003E",
             "excerpt" : 1,
-            "excerpt_length" : "256",
+            "excerpt_length" : "64",
             "exclude_fields" : [],
-            "highlight" : "always"
+            "highlight" : "always",
+            "highlight_partial" : 1
           }
         },
         "search_api_stopwords" : {
@@ -422,6 +456,30 @@ function salto_search_default_search_api_index() {
             "fields" : { "title" : true, "body:value" : true },
             "file" : "",
             "stopwords" : "but\\r\\ndid\\r\\nthe this that those\\r\\netc"
+          }
+          },
+        "search_api_transliteration" : {
+          "status" : 0,
+          "weight" : "15",
+          "settings" : { "fields" : {
+              "title" : true,
+              "body:value" : true,
+              "body:summary" : true,
+              "field_post_tags:name" : true
+            }
+          }
+        },
+        "search_api_porter_stemmer" : {
+          "status" : 0,
+          "weight" : "35",
+          "settings" : {
+            "fields" : {
+              "title" : true,
+              "body:value" : true,
+              "body:summary" : true,
+              "field_post_tags:name" : true
+            },
+            "exceptions" : "texan=texa"
           }
         }
       },
@@ -440,7 +498,6 @@ function salto_search_default_search_api_index() {
         },
         "field_post_tags" : { "type" : "list\\u003Cinteger\\u003E", "entity_type" : "taxonomy_term" },
         "field_post_tags:name" : { "type" : "list\\u003Ctext\\u003E", "boost" : "2.0" },
-        "field_taxonomy_post_tags" : { "type" : "list\\u003Cinteger\\u003E", "entity_type" : "taxonomy_term" },
         "nid" : { "type" : "integer" },
         "promote" : { "type" : "boolean" },
         "search_api_access_node" : { "type" : "list\\u003Cstring\\u003E" },

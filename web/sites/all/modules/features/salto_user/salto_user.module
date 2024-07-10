@@ -1,5 +1,8 @@
 <?php
 
+use Wissensnetz\Group\GroupDrupalNode;
+use Wissensnetz\Organisation\OrganisationDrupalNode;
+
 define('SALTO_USER_ACTION_LINK_TYPE_PEOPLE', 'people');
 define('SALTO_USER_ACTION_LINK_TYPE_PROFILE', 'profile');
 define('SALTO_USER_PASSWORD_MIN_LENGTH', 12);
@@ -35,6 +38,20 @@ module_load_include('inc', 'salto_user', 'inc/salto_user_privatemsg');
 //include crop profile image adaptions
 module_load_include('inc', 'salto_user', 'inc/salto_user_profile_image');
 
+
+function salto_user_autoload($class_name) {
+
+  $parts = explode("\\", $class_name);
+  if ($parts[0] == 'salto_user') {
+    array_shift($parts);
+    $path = drupal_get_path('module', 'salto_user') . '/inc/' . implode("/", $parts) . '.php';
+
+    include $path;
+  }
+}
+
+spl_autoload_register('salto_user_autoload');
+
 /**
  * Implements hook_ctools_plugin_directory()
  */
@@ -51,6 +68,10 @@ function salto_user_permission() {
       'title' => t('Import users'),
       'description' => t('Import users via excel or csv'),
     ],
+    'change user status' => [
+      'title' => t('Change user status'),
+      'description' => t('Change user status to active or inactive'),
+    ]
   ];
 }
 
@@ -90,6 +111,16 @@ function salto_user_menu() {
     'page arguments' => [SALTO_USER_ACTION_LINK_TYPE_PROFILE],
     'access callback' => 'salto_user_edit_access',
     'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'user-menu',
+  ];
+
+  $items['user/%user/organisations'] = [
+    'title' => 'Edit profile',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['salto_user_edit_organisations_form', 1],
+    'access callback' => 'salto_user_edit_organisations_access',
+    'access arguments' => [1],
+    'type' => MENU_CALLBACK,
     'menu_name' => 'user-menu',
   ];
 
@@ -139,8 +170,43 @@ function salto_user_menu() {
     'file' => 'inc/salto_user.pages.inc',
   ];
 
+  $items ['admin/salto/user'] = array(
+    'title' => 'User settings',
+    'description' => 'Configure admin user module.',
+    'access arguments' => array(
+      'administer site configuration'
+    ),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('salto_user_admin_form'),
+    'file' => 'salto_user.admin.inc',
+  );
+
+  $items['community-manager/people/%/%'] = [
+    'page callback' => 'salto_user_process_user_status_action_callback',
+    'page arguments' => [2,3],
+    'access callback' => TRUE,//Access via salto_user_activate_action
+    'type' => MENU_CALLBACK,
+    'file' => 'inc/salto_user.pages.inc',
+  ];
+
+
   return $items;
 }
+
+
+
+/**
+ * Implements hook_user_operations().
+ */
+function salto_user_user_operations() {
+  $operations['salto_user_select_all_themenfelder'] = array(
+    'label' => t('Select all Themenfelder'),
+    'callback' => 'salto_user_select_all_themenfelder_action',
+  );
+  return $operations;
+}
+
+
 
 /**
  * (persmission)
@@ -179,6 +245,8 @@ function salto_user_access_own_subpages() {
 
 function salto_user_init() {
 
+  salto_user_handle_admin_login();
+
   if (user_is_logged_in()) {
     drupal_add_css(drupal_get_path('module', 'salto_user') . "/css/menu-user-authenticated.css");
   }
@@ -205,7 +273,6 @@ function salto_user_menu_alter(&$items) {
  * @param type $form_id
  */
 function salto_user_form_alter(&$form, &$form_state, $form_id) {
-
   if ($form_id == 'user_profile_form') {
     //add css for adaptions
 
@@ -273,11 +340,7 @@ function salto_user_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'user_profile_form') {
     $account = $form['#user'];
 
-
-    if (salto_user_is_in_fallback_organisation($account)) {
-
-    }
-    else {
+    if (!salto_user_is_in_fallback_organisation($account)) {
 
       if (!empty($account->field_user_organisations[LANGUAGE_NONE])) {
 
@@ -328,7 +391,7 @@ function salto_user_form_alter(&$form, &$form_state, $form_id) {
     case 'user_register_form':
     case 'password_policy_password_tab':
 
-      // Set a custom form validate handler.
+
       $form['#validate'][] = 'salto_user_password_validate';
 
       // Attach password evaluation logic and ensure it's added after user.js.
@@ -341,12 +404,43 @@ function salto_user_form_alter(&$form, &$form_state, $form_id) {
 
   //Alter the login block to only use valid mail and not username
   if ($form_id == 'user_login_block' || $form_id == 'user_login') {
-    $form['#validate'][] = 'user_login_salto_validate';
-    $element = '<div style="float:right">';
-    $element .= '<div><a href="/user/password" title="Ein neues Passwort per E-Mail anfordern.">Neues Passwort anfordern</a></div>';
-    $element .= '<div><a href="/guest/request">' . t('Membership request') . '</a></div>';
-    $element .= '</div>';
-    $form['links']['#markup'] = $element;
+
+
+      if (salto_user_show_sso_login_block()) {
+
+        unset($form['name']);
+        unset($form['pass']);
+        unset($form['actions']);
+
+        $element = '<div class="salto-sso-login-container">
+                      <div class="salto-sso-login-top">
+                              <div class="salto-sso-login-right form-actions form-wrapper form-group">
+                                  <a type="submit" class="btn btn-primary form-submit" href="/sso/tum/redirect">' . t('Login with my edubreak®-Account') . '</a>
+                              </div>
+                              <div class="salto-sso-login-links">
+                                 <div>
+                                      <a href="/guest/request">' . t('Membership request') . '</a>
+                                 </div>
+                                 <!--div>
+                                      <a href="/user/password" title="Ein neues Passwort per E-Mail anfordern.">Neues Passwort anfordern</a>
+                                 </div-->
+                              </div>
+                          </div>
+                      <div class="salto-sso-login-bottom">
+                          <div class="alert alert-block alert-info">' . t('Switching between campus and community is now even easier. Here you can log in directly with your edubreak access data.') . '</div>
+                      </div>
+                  </div>';
+
+        $form['links']['#markup'] = $element;
+
+      }else{
+        $form['#validate'][] = 'user_login_salto_validate';
+        $element = '<div style="float:right">';
+        $element .= '<div><a href="/user/password" title="Ein neues Passwort per E-Mail anfordern.">Neues Passwort anfordern</a></div>';
+        $element .= '<div><a href="/guest/request">' . t('Membership request') . '</a></div>';
+        $element .= '</div>';
+        $form['links']['#markup'] = $element;
+      }
   }
 
   //alter exposed form for people view to avoid error
@@ -391,6 +485,16 @@ function salto_user_form_alter(&$form, &$form_state, $form_id) {
     unset($form['#info']['filter-field_profile_sports_tid']);
     unset($form['#info']['filter-field_profile_interests_tid']);
 
+    if (!salto_core_get_users_filter_by_organisation()) {
+      //remove organisation filter
+      unset($form['#info']['filter-title_1']);
+      unset($form['title_1']);
+    } else {
+      // remove first dummy filter entry "Ghostthinker"
+      unset($form['title_1']['#options'][1]);
+      $form['#submit'] = array_merge(['_salto_user_views_exposed_form_people_directory_submit'], $form['#submit']);
+      $form['title_1']['#options'] = [array_pop($form['title_1']['#options'])] + _salto_og_get_invite_organisation_options(user_load(1));
+    }
 
     //bring roles in correct order
     if (isset($form['role_in_organisation'])) {
@@ -416,6 +520,104 @@ function salto_user_form_alter(&$form, &$form_state, $form_id) {
       $form['realname']['#autocomplete_path'] = 'people/autocomplete';
     }
   }
+
+  if ($form_id == 'views_form_commnity_manager_people_page' && $form_state['step'] == 'views_bulk_operations_confirm_form'){
+    drupal_set_message(t('Are you sure you want to activate/deactivate this user account(s)? When you deactivate, the user no longer has access to your community. You can reactivate the user account if necessary.'), 'alert-info info invite-group', FALSE);
+  }
+}
+
+/**
+ * set
+ * @param $form
+ * @param $form_state
+ *
+ * @return void
+ */
+function _salto_user_views_exposed_form_people_directory_submit($form, &$form_state) {
+  if(!empty($form_state['values']['title_1']) && $form_state['values']['title_1'] != "All") {
+    $form_state['values']['nid'] = $form_state['values']['title_1'];
+  }
+}
+
+function salto_user_render_locked_field($options){
+  $fieldLabel = $options['field_label'] ?? '';
+  $tooltipTitle = $options['tooltip_title'] ?? t('This field is locked. Please use the settings on <strong>mein.edubreak®</strong>');
+  $description = $options['description'] ?? '';
+  $inputValue = $options['input_value'] ?? '';
+  $inputType = $options['input_type'] ?? 'text';
+  $checkboxDescription = $options['checkbox_description'] ?? '';
+
+  return '
+ <div class="form-item form-group form-type-textfield">
+            <label for="form-mail"  >' . $fieldLabel . '</label>
+            <span data-placement="top" data-trigger="hover" data-html="true" title="' . $tooltipTitle .'" rel="tooltip">
+               <input class="form-control form-text" id="form-mail" type="' . $inputType . '" value="' . $inputValue .'" disabled="disabled"/> </span>'. $checkboxDescription .'
+            <div class="help-block">' . $description .'</div>
+          </div>';
+
+}
+
+function salto_user_render_locked_field_password(){
+  $tooltipTitle = t('This field is locked. Please use the settings on <strong>mein.edubreak®</strong>');
+  return '<div class="form-item form-group">
+        <div class="row">
+            <div class="form-item form-group col-sm-6 col-md-4">
+                <label>Passwort</label>
+                <span style="width:100%;" data-placement="top" data-trigger="hover" data-html="true" title="' . $tooltipTitle .'" rel="tooltip">
+                    <input type="password" class="form-control form-text" value="xxxxxxxxxx" disabled="disabled" />
+                </span>
+            </div>
+            <div class="form-item form-group col-sm-6 col-md-4">
+                <label>Passwort bestätigen</label>
+                <span style="width:100%;" data-placement="top" data-trigger="hover" data-html="true" title="' . $tooltipTitle .'" rel="tooltip">
+                    <input type="password" class="form-control form-text" value="xxxxxxxxxx" disabled="disabled" />
+                </span>
+            </div>
+</div>
+</div>';
+}
+
+function salto_user_render_locked_field_locale(){
+  $tooltipTitle = t('This field is locked. Please use the settings on <strong>mein.edubreak®</strong>');
+  return '<div class="form-item form-group">
+            <label>Sprache</label>
+            <div class="form-radios">
+                <div class="form-item radio">
+                    <label>
+                    <input type="radio" disabled="disabled" style="cursor: not-allowed">
+                        <span style="width:100%; cursor: not-allowed" data-placement="top" data-trigger="hover" data-html="true" title="' . $tooltipTitle .'" rel="tooltip">
+                            Englisch
+                        </span>
+                    </label>
+                    </span>
+                </div>
+                <div class="form-item radio">
+                    <label>
+                    <input type="radio" disabled="disabled" style="cursor: not-allowed">
+                        <span style="width:100%; cursor: not-allowed" data-placement="top" data-trigger="hover" data-html="true" title="' . $tooltipTitle .'" rel="tooltip">
+                            Deutsch
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <div class="help-block">Benutzerspezifische Standardsprache für E-Mails und bevorzugte Sprache für die Website-Darstellung.</div>
+        </div>';
+}
+
+function salto_user_show_sso_login_block() {
+  if (!module_exists('salto_keycloak')) {
+    return FALSE;
+  }
+
+  return !salto_sso_disabled();
+}
+
+function salto_user_global_header_enabled(){
+    if (!module_exists('salto_keycloak')) {
+    return FALSE;
+  }
+  $mein_edubreak_settings = salto_keycloak_get_userportal_settings();
+  return salto_user_show_sso_login_block() && $mein_edubreak_settings['global_header_enabled'];
 }
 
 /**
@@ -486,9 +688,40 @@ function salto_user_form_user_register_form_alter(&$form, &$form_state) {
       '#weight' => -10,
     ];
 
+    $fallbackNid = \salto_core\service\SettingsService::getFallbackOrganisationNid();
+    $selectOrgansationOptions = \salto_core\service\SettingsService::getSelectOrganisationOptions();
+    if($invite->field_salto_invite_organisations[LANGUAGE_NONE][0]['target_id'] == $fallbackNid && $selectOrgansationOptions[\salto_core\service\SettingsService::SUB_SETTING_ORGANISATION_SELECT_ENABLED]){
+      $organisations = salto_user_get_suborganisations(NULL, TRUE, 'ASC');
+      $options = [];
+      _salto_og_get_organisation_options_recursion_without_access($options, $organisations);
 
-    $from['#invite'] = $invite;
-    $form['invite'] = ['#type' => 'value', '#value' => $invite];
+      $description = '';
+      if($selectOrgansationOptions[\salto_core\service\SettingsService::SUB_SETTING_ORGANISATION_SELECT_FALLBACK_ORGANISATION_DISABLED]){
+        unset($options[$fallbackNid]);
+        $targetMail = $selectOrgansationOptions[\salto_core\service\SettingsService::SUB_SETTING_ORGANISATION_SELECT_INFO_TEXT_MAIL_TARGET];
+        $description = !empty($targetMail) ? t('If your organisation is not yet registered in the community, please contact the community managers via !mail and only complete the registration once your organisation is available.', ['!mail' => l($targetMail, 'mailto:'. $targetMail), ['absolute' => TRUE]]) : '';
+      }
+
+      $form['select_organisation'] = [
+        '#type' => 'select',
+        '#options' => $options,
+        '#attributes' => ['id' => 'organisation-select', 'data-placeholder' => ' '],
+        '#suffix' => '<div class="form-group"></div>',
+        '#prefix' => '<label>' . t('Organisation *') . '</label>',
+        '#weight' => 5,
+        '#required' => TRUE,
+        '#description' => $description
+      ];
+      $lib_path = libraries_get_path('chosen');
+      drupal_add_js($lib_path . '/chosen.jquery.min.js');
+      drupal_add_css($lib_path . '/chosen.min.css');
+      drupal_add_js(drupal_get_path('module', 'salto_og') . '/js/og_selector_chosen.js', ['scope' => 'footer']);
+
+
+    }
+
+
+    $form['#invite'] = $invite;
 
     $form['account']['mail']['#value'] = $invite->field_profile_contact_email[LANGUAGE_NONE][0]['value'];
     $form['account']['mail']['#description'] = NULL;
@@ -497,9 +730,11 @@ function salto_user_form_user_register_form_alter(&$form, &$form_state) {
 
   }
   else {
+    if(!user_access('administer users')){
     drupal_set_message(t('You need an invite mail in order to register!'), 'error');
     drupal_access_denied();
     drupal_exit();
+    }
   }
   $form['questions']['#access'] = FALSE;
 }
@@ -515,14 +750,14 @@ function salto_user_form_user_register_form_alter(&$form, &$form_state) {
 function salto_user_register_form_submit($form, &$form_state) {
   global $user;
 
-  $invite = $form['invite']['#value'];
+  $invite = $form['#invite'];
 
   if ($invite) {
 
     $profile = profile_create(['type' => 'main', 'uid' => $user->uid]);
     // Add in the necessary custom fields and values.
-    $profile->field_profile_name_first = salto_core_strip_input($invite->field_profile_name_first);
-    $profile->field_profile_name_last = salto_core_strip_input($invite->field_profile_name_last);
+    $profile->field_profile_name_first[LANGUAGE_NONE][0]['value'] = salto_core_strip_input($invite->field_profile_name_first[LANGUAGE_NONE][0]['value']);
+    $profile->field_profile_name_last[LANGUAGE_NONE][0]['value'] = salto_core_strip_input($invite->field_profile_name_last[LANGUAGE_NONE][0]['value']);
     // Save the profile2 to the user account.
     profile2_save($profile);
 
@@ -531,12 +766,19 @@ function salto_user_register_form_submit($form, &$form_state) {
     realname_update($account);
 
     //set groups
-    $og_membership = og_membership_create('node', $invite->field_salto_invite_organisations[LANGUAGE_NONE][0]['target_id'], 'user', $account->uid, 'field_user_organisations', ['state' => 1]);
+
+    $organisationId = $invite->field_salto_invite_organisations[LANGUAGE_NONE][0]['target_id'];
+
+    if($form_state['input']['select_organisation']){
+      $organisationId = $form_state['input']['select_organisation'];
+    }
+
+    $og_membership = og_membership_create('node', $organisationId, 'user', $account->uid, 'field_user_organisations', ['state' => 1]);
     $og_membership->save();
 
     //set roles
     if (!empty($invite->field_salto_invite_og_role[LANGUAGE_NONE])) {
-      $gid = $invite->field_salto_invite_organisations[LANGUAGE_NONE][0]['target_id'];
+      $gid = $organisationId;
       foreach ($invite->field_salto_invite_og_role[LANGUAGE_NONE] as $rid) {
         //grant role and invalidate og cache
         og_role_grant('node', $gid, $account->uid, $rid['value']);
@@ -643,17 +885,21 @@ function salto_user_guest_register_form(&$form, &$form_state) {
   drupal_add_js($lib_path . '/chosen.jquery.min.js');
   drupal_add_css($lib_path . '/chosen.min.css');
 
-  $organisations = salto_user_get_suborganisations(NULL, TRUE);
-  $options = _salto_og_get_organisation_options_recursion_without_access($organisations);
+  $organisations = salto_user_get_suborganisations(NULL, TRUE, 'ASC');
+  $options = [];
+  _salto_og_get_organisation_options_recursion_without_access($options, $organisations);
+
 
   $form['account']['organisation'] = [
     '#type' => 'select',
     '#options' => $options,
-    '#default_value' => 2943, // default no organisation
+    '#empty_option' => '',
     '#attributes' => ['id' => 'organisation-select', 'data-placeholder' => ' '],
     '#suffix' => '<div class="form-group"></div>',
-    '#prefix' => '<label>' . t('Organisation') . '</label>',
+    '#prefix' => '<label>' . t('Organisation *') . '</label>',
+    '#required' => TRUE,
   ];
+
 
   drupal_add_js(drupal_get_path('module', 'salto_og') . '/js/og_selector_chosen.js', ['scope' => 'footer']);
 
@@ -691,10 +937,22 @@ function salto_user_guest_register_form(&$form, &$form_state) {
 
   $form['#validate'][] = 'user_register_validate';
   $form['#validate'][] = 'user_account_form_validate';
-
+  $form['#validate'][] = 'salto_user_guest_register_form_validate';
   $form['#submit'][] = 'salto_user_guest_register_form_submit';
 
   return $form;
+}
+
+function salto_user_guest_register_form_validate($form, &$form_state) {
+
+  if (empty($form_state['values']['organisation'])) {
+    form_set_error('org', t('Bitte wähle eine Organisation aus'));
+  }
+
+  if (!valid_email_address($form_state['values']['mail'])) {
+    form_set_error('mail', t('You must enter a valid e-mail address.'));
+  }
+
 }
 
 /**
@@ -1164,7 +1422,6 @@ function salto_user_field_attach_view_alter(&$output, $context) {
   }
 }
 
-
 /**
  * Implementation of hook_user_update()
  */
@@ -1289,7 +1546,7 @@ function salto_user_action_links_info() {
  */
 function salto_user_salto_action_links($category, $context) {
   $links = [];
-
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
   switch ($category) {
     case SALTO_USER_ACTION_LINK_TYPE_PEOPLE:
       //import users link
@@ -1326,7 +1583,7 @@ function salto_user_salto_action_links($category, $context) {
             'query' => $query,
             'attributes' => [
               'title' => t('Invite people'),
-              'class' => 'action_link user_invite',
+              'class' => 'action_link membership membership_invite',
             ],
             'html' => TRUE,
           ],
@@ -1377,6 +1634,26 @@ function salto_user_salto_action_links($category, $context) {
         ];
         $links["write_message"] = $link;
       }
+
+      if ($drupalUser->isCommunityManager() && \salto_core\service\SettingsService::manageUserOrganisationsEnabled()) {
+        $dest = drupal_get_destination();
+        $path = 'user/' . $account->uid . '/organisations';
+        $link = [
+          '#theme' => 'link',
+          '#text' => t('Maintaining organisations'),
+          '#path' => $path,
+          '#options' => [
+            'query' => $dest,
+            'attributes' => [
+              'title' => t('Maintain the organisations for a user'),
+              'class' => 'action_link action_edit_file ',
+            ],
+            'html' => TRUE,
+          ],
+        ];
+        $links["maintain_organisations"] = $link;
+      }
+
       if (salto_user_user_is_dosb() && $user->uid != $account->uid) {
         $path = 'user/' . $account->uid . '/delete';
         $link = [
@@ -1394,8 +1671,8 @@ function salto_user_salto_action_links($category, $context) {
         ];
         $links["delete_user"] = $link;
       }
-      //edit profile && account
-      if (user_edit_access($account)) {
+      //edit profile
+      if (user_edit_access($account) || user_access('administer profiles', $user)) {
         $dest = drupal_get_destination();
         $path = 'user/' . $account->uid . '/edit/main';
         $link = [
@@ -1412,7 +1689,9 @@ function salto_user_salto_action_links($category, $context) {
           ],
         ];
         $links["edit_profile"] = $link;
-
+      }
+      //edit account
+      if (user_edit_access($account)) {
         $dest = drupal_get_destination();
         $path = 'user/' . $account->uid . '/edit';
         $link = [
@@ -1431,22 +1710,6 @@ function salto_user_salto_action_links($category, $context) {
         $links["edit_account"] = $link;
       }
 
-      if (!empty($user->roles[ROLE_ADMIN_RID]) && !empty($account->roles[ROLE_API_USER_RID])) {
-        $path = 'lims/user/' . $account->uid . '/apilog';
-        $link = [
-          '#theme' => 'link',
-          '#text' => t('API Log'),
-          '#path' => $path,
-          '#options' => [
-            'attributes' => [
-              'title' => t('Show API log details.'),
-              'class' => 'action_link edit_user edit_user_account',
-            ],
-            'html' => TRUE,
-          ],
-        ];
-        $links["user_apilog"] = $link;
-      }
       break;
   }
   return $links;
@@ -1540,7 +1803,7 @@ function salto_user_get_organisations_and_suborganisations($account = NULL) {
   return $organisations;
 }
 
-function salto_user_get_suborganisations($nid, $all_organisation = FALSE) {
+function salto_user_get_suborganisations($nid, $all_organisation = FALSE, $sorting = NULL) {
   $query = new EntityFieldQuery();
   $query->entityCondition('entity_type', 'node');
   $query->entityCondition('bundle', 'organisation');
@@ -1549,6 +1812,9 @@ function salto_user_get_suborganisations($nid, $all_organisation = FALSE) {
     $query->fieldCondition('field_organisation_parent ', 'target_id', $nid);
   }
   $query->propertyCondition('status', 0, '>');
+  if ($sorting){
+    $query->propertyOrderBy('title', $sorting);
+  }
   $results = $query->execute();
 
   if (empty($results['node'])) {
@@ -1609,7 +1875,7 @@ function salto_user_autocomplete($string) {
  */
 function salto_user_is_in_fallback_organisation($account) {
 
-  $fallback_og = variable_get("salto_organisation_fallback_nid", NULL);
+  $fallback_og = salto_organisation_get_fallback_nid();
 
 
   try {
@@ -1635,6 +1901,14 @@ function salto_user_profile2_presave($profile) {
     $term_bildung = current(taxonomy_get_term_by_name("Bildung", $kb_vocabulary->machine_name));
     if ($term_bildung) {
       $profile->field_profile_categories[LANGUAGE_NONE][] = ['tid' => $term_bildung->tid];
+    }
+
+
+    if (salto_user_check_themenfelder_selection_all()) {
+      $themenfelder = salto_knowledgebase_get_themenfelder();
+      foreach ($themenfelder as $themenfeld) {
+        $profile->field_profile_categories[LANGUAGE_NONE][] = ['tid' => $themenfeld->tid];
+      }
     }
 
 
@@ -1669,9 +1943,12 @@ function salto_user_get_themenfelder($account = NULL) {
   $themenfelder = [];
 
   //GAST User
-  if (!user_is_logged_in($account)) {
+  if ($account->uid == 0) {
     //provide default themenfeld
-    $term = taxonomy_term_load(SALTO_KNOWLEDGEBASE_KB_EDUCATION_TID);
+
+    $term = taxonomy_term_load(salto_knowledgebase_get_default_kb_category_tid());
+
+    if ($term == null) { return $themenfelder; }
     $term_llm_tid = salto_knowledgebase_taxonomy_get_refereced_tid($term);
     $term_llm = taxonomy_term_load($term_llm_tid);
     $themenfelder[] = $term;
@@ -1736,35 +2013,6 @@ function salto_user_interested_in_entity($node, $account = NULL) {
   return FALSE;
 }
 
-function salto_user_user_login() {
-  if (!user_has_role(ROLE_ADMIN_RID)) {
-    return;
-  }
-
-  if (variable_get('minda_secure_disabled', FALSE)) {
-    return;
-  }
-
-  if ($_GET['destination'] === 'minda/secure') {
-    return;
-  }
-
-  global $user;
-  watchdog('salto_user_security_admin', 'User "@username" attempted to login from IP @ip and was blocked.', [
-    '@ip' => ip_address(),
-    '@username' => $user->name,
-  ]);
-
-  module_invoke_all('user_logout', $user);
-
-  // Destroy the current session, and reset $user to the anonymous user.
-  session_destroy();
-
-  drupal_access_denied();
-  drupal_exit();
-}
-
-
 /**
  * @param string $ip
  *
@@ -1813,7 +2061,7 @@ function salto_user_convert_ip_to_bits($ip) {
 function salto_user_check_whitelist_ipv6_subnet($ip, $cidrnet) {
   $binaryip = salto_user_convert_ip_to_bits($ip);
 
-  list($net, $maskbits) = explode('/', $cidrnet);
+  [$net, $maskbits] = explode('/', $cidrnet);
   $binarynet = salto_user_convert_ip_to_bits($net);
 
   $ip_bits = substr($binaryip, 0, $maskbits);
@@ -2077,4 +2325,459 @@ function salto_user_membership_request_build_mail_body($account, $accepted = FAL
   //convert new lines to br for html mail
   $body = nl2br($body);
   return $body;
+}
+
+
+/**
+ * Check if a current ip is excluded for admin login
+ * @return bool
+ */
+function salto_user_check_admin_ip_access() {
+
+  $enabled = variable_get('salto_admin_ip_enabled', FALSE);
+
+  if(!$enabled) {
+    return TRUE;
+  }
+
+  $salto_admin_ips = variable_get('salto_admin_ip_allowed', array());
+  return in_array(salto_get_client_IP(), $salto_admin_ips);
+}
+
+function salto_get_client_IP(){
+  if (isset($_SERVER['HTTP_X_REAL_IP'])){
+    return $_SERVER['HTTP_X_REAL_IP'];
+  }
+  return ip_address();
+}
+
+
+
+function salto_user_handle_admin_login(){
+  global $user;
+
+  if(!user_access('administer site configuration', $user)){
+    return;
+  }
+
+  if(!salto_user_check_admin_ip_access()) {
+    drupal_set_message(t("You are not allowed to login from your IP!"), 'warning' );
+    watchdog('salto_user_security_admin', 'User "@username" attempted to login from IP @ip and was blocked.', array('@ip' => salto_get_client_IP(), '@username' => $user->name));
+
+    module_invoke_all('user_logout', $user);
+    $user = drupal_anonymous_user();
+    drupal_goto();
+
+  }
+}
+
+/**
+ * Check if a admin setting themenfelder selection is enabled
+ *
+ * @return bool
+ */
+function salto_user_check_themenfelder_selection_all() {
+  return variable_get('salto_admin_themenfelder_selection_all', FALSE);
+}
+function salto_user_get_user_picture($account){
+
+  global $user;
+
+  if (empty($user)){
+    $account = $user;
+  }
+
+  $profile = profile2_load_by_user($account);
+  if (empty($style)){
+    $style = variable_get('user_picture_style', 'user_100x100');
+  }
+  $field_view = field_view_field('profile2', $profile['main'], 'field_user_picture', ['settings' => ['image_style' => $style]]);
+  $image_uri = $field_view['#items'][0]['uri'];
+
+  return image_style_url($style, $image_uri);
+
+}
+
+function salto_user_action_info() {
+  return array(
+    'salto_user_activate_action' => array(
+      'type' => 'user',
+      'label' => t('Activate account'),
+      'behavior' => array('changes_property'),
+      'configurable' => FALSE,
+      'triggers' => array('user_operations_block'),
+      'behavior' => array(
+        'access callback' => 'user_access',
+        'access arguments' => array('change user status'),
+      ),
+    ),
+    'salto_user_deactivate_action' => array(
+      'type' => 'user',
+      'label' => t('Deactivate account'),
+      'behavior' => array('changes_property'),
+      'configurable' => FALSE,
+      'triggers' => array('user_operations_block'),
+      'behavior' => array(
+        'access callback' => 'user_access',
+        'access arguments' => array('change user status'),
+      ),
+    ),
+    'salto_user_select_all_themenfelder_action' => array(
+      'type' => 'user',
+      'label' => t('Select all Themenfelder'),
+      'configurable' => FALSE,
+    ),
+  );
+}
+
+function salto_user_activate_action($account) {
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
+  $account->status = 1;
+  $account = user_save($account);
+  watchdog('action', 'Activated user %name by %currentUsername', array('%name' => $account->name, '%currentUsername' => $drupalUser->getRealname()));
+}
+
+
+function salto_user_deactivate_action($account) {
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
+  $account->status = 0;
+  $account = user_save($account);
+  watchdog('action', 'Deactivated user %name by %currentUsername', array('%name' => $account->name, '%currentUsername' => $drupalUser->getRealname()));
+}
+
+/**
+ * Callback function for admin mass assigning all themenfelder.
+ *
+ * @param array $uids
+ *   An array of user IDs.
+ */
+function salto_user_select_all_themenfelder_action(array $uids) {
+  $accounts = user_load_multiple($uids);
+  foreach ($accounts as $account) {
+    $profile2 = profile2_load_by_user($account, 'main');
+    $themenfelder = salto_knowledgebase_get_themenfelder();
+    foreach ($themenfelder as $themenfeld) {
+      $profile2->field_profile_categories[LANGUAGE_NONE][] = ['tid' => $themenfeld->tid];
+    }
+    profile2_save($profile2);
+    watchdog('action', 'Selected all Themenfelder for %name', ['%name' => $account->name]);
+  }
+
+
+}
+
+function salto_user_get_status_link($uid){
+
+  $drupalUser = \Wissensnetz\User\DrupalUser::make($uid);
+  if ($drupalUser->isActive()){
+    return print l(t('Deactivate account'), 'community-manager/people/' . $uid . '/deactivate');
+  }
+  return print l(t('Activate account'), 'community-manager/people/' . $uid . '/activate');
+}
+
+function salto_user_edit_organisations_access($user){
+
+
+  if(!\salto_core\service\SettingsService::manageUserOrganisationsEnabled()){
+    return FALSE;
+  }
+
+  $currentUser = \Wissensnetz\User\DrupalUser::current();
+  $targetUser = \Wissensnetz\User\DrupalUser::make($user);
+
+  if($currentUser->isCommunityManager()){
+    return TRUE;
+  }
+
+  return FALSE;
+
+}
+
+function salto_user_edit_organisations_form($form, &$form_state, $account) {
+  $form['#attributes']['class'][] = 'form-actions';
+  $organisations = salto_user_get_suborganisations(NULL, TRUE, 'ASC');
+  $options = [];
+  _salto_og_get_organisation_options_recursion_without_access($options, $organisations);
+
+  $form_state['account'] = $account;
+  $form['organisation'] = [
+    '#prefix' => '<div id="organisation-form">',
+    '#suffix' => '</div>',
+  ];
+
+  $gid = $form_state['triggering_element']['#remove_gid'];
+  if(!empty($gid)){
+    $form_state['values']['removed'][$gid] = $gid;
+  }
+
+  $form['organisation']['removed'] = [
+    '#type' => 'hidden',
+    '#value' => $form_state['values']['removed'] ?? []
+  ];
+
+  if (!empty($account->field_user_organisations[LANGUAGE_NONE])) {
+
+    $form['organisation']['profile_main']['organsation_memberships'] = [
+      '#type' => 'fieldset',
+      '#prefix' => '<div id="og-ui-field-name-heading">',
+      '#suffix' => '</div>',
+      '#title' => t('My organisations and responsibilities'),
+      '#weight' => 3,
+    ];
+
+
+    $count = count($account->field_user_organisations[LANGUAGE_NONE]);
+    foreach ($account->field_user_organisations[LANGUAGE_NONE] as $key => $value) {
+
+      $gid = $value['target_id'];
+
+      if(!empty( $form_state['values']['removed'][$gid])){
+        --$count;
+        continue;
+      }
+
+      unset($options[$gid]);
+      $field_name = "membership_fields_$gid";
+
+      $org = node_load($gid);
+      //base fieldset
+      $form['organisation']['profile_main']['organsation_memberships'][$gid] = [
+        '#prefix' => '<div id="og-ui-field-name"><h3>' . salto_core_check_plain($org->title) . '</h3>',
+        '#suffix' => '</div>',
+        '#tree' => TRUE,
+        '#parents' => [$field_name],
+      ];
+
+      //load the membership and attach it to the field
+      $og_membership = og_get_membership('node', $gid, 'user', $account->uid);
+
+      $form_state['og_membership'][$gid] = $og_membership;
+      field_attach_form('og_membership', $og_membership, $form['organisation']['profile_main']['organsation_memberships'][$gid], $form_state);
+
+      $form['organisation']['profile_main']['organsation_memberships'][$gid]['remove_button'] = [
+        '#type' => 'submit',
+        '#value' => t('Remove'),
+        '#name' => "remove_button_$gid",
+        '#submit' => array('salto_user_element_remove_button_submit'),
+        '#weight' => 5,
+        '#remove_gid' => $gid,
+        '#ajax' => array(
+          'callback' => 'salto_user_organisation_form_ajax_callback',
+          'wrapper' => 'organisation-form', // Container ID des gesamten Formulars
+          'method' => 'replace',
+        ),
+        '#attributes' => array(
+          'class' => array('btn', 'btn-primary'),
+        ),
+      ];
+      if (--$count > 0 || !empty($form_state['values']['added'])) {
+        $form['organisation']['profile_main']['organsation_memberships'][$gid]['separator'] = array(
+          '#markup' => '<hr style="border-top: 1px solid #000000;"/>',
+          '#weight' => 6
+        );
+      }
+    }
+  }
+  else{
+    $form['organisation']['no_org'] = array(
+      '#type' => 'markup',
+      '#markup' =>  '<pre>' . t('The user is not currently in any organisation') . '</pre>',
+    );
+  }
+
+  $count = count($form_state['values']['added']);
+    foreach($form_state['values']['added'] as $gid){
+      unset($options[$gid]);
+      salto_user_edit_organisations_form_render_added_organisations($form, $form_state, $account, $gid);
+      if (--$count > 0) {
+        $form['organisation']['profile_main']['organsation_memberships']['added'][$field_name]['separator'] = [
+          '#markup' => '<hr style="border-top: 1px solid #000000;"/>',
+          '#weight' => 6
+        ];
+      }
+    }
+
+  $form['organisation']['added'] = [
+    '#type' => 'hidden',
+    '#value' => $form_state['values']['added']
+  ];
+
+   salto_user_edit_organisations_form_render_new_organisations($form, $form_state, $options, $account);
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+    '#weight' => 5
+  );
+
+  $form['actions']['cancel'] = array(
+    '#type' => 'markup',
+    '#markup' => l(t('Cancel'), '/user/' . $account->uid, array('attributes' => array('class' => array(''), 'style' => ['margin-right:1rem']))),
+  );
+
+  return $form;
+}
+
+function salto_user_edit_organisations_form_render_added_organisations(&$form, &$form_state, $account, $gid) {
+  $org = node_load($gid);
+  $field_name = "membership_fields_" . $gid;
+
+  $form['organisation']['profile_main']['organsation_memberships']['added'][$field_name]['body'] = [
+    '#prefix' => '<div id="og-ui-field-name" class="field-widget-taxonomy-autocomplete"><h3>' . salto_core_check_plain($org->title) . '</h3>',
+    '#suffix' => '</div>',
+    '#tree' => TRUE,
+    '#parents' => [$field_name],
+  ];
+
+  $og_membership = og_membership_create('node', $gid, 'user', $account->uid, 'field_user_organisations', ['state' => 1]);
+
+  $og_membership->field_organisation_position = $form_state['values']['added_positions']['field_organisation_position'];
+  $form_state['og_membership'][$gid] = $og_membership;
+  field_attach_form('og_membership', $og_membership, $form['organisation']['profile_main']['organsation_memberships']['added'][$field_name]['body'], $form_state);
+
+
+  $form['organisation']['profile_main']['organsation_memberships']['added'][$field_name]['body']['remove_button'] = [
+    '#type' => 'submit',
+    '#value' => t('Remove'),
+    '#name' => "remove_button_$gid",
+    '#submit' => array('salto_user_element_remove_button_submit'),
+    '#weight' => 5,
+    '#remove_gid' => $gid,
+    '#ajax' => array(
+      'callback' => 'salto_user_organisation_form_ajax_callback',
+      'wrapper' => 'organisation-form',
+      'method' => 'replace',
+    ),
+    '#attributes' => array(
+      'class' => array('btn', 'btn-primary'),
+    ),
+  ];
+
+}
+
+function salto_user_edit_organisations_form_render_new_organisations(&$form, &$form_state, $options, $account) {
+
+  $form['organisation']['new_organisation'] = [
+    '#type' => 'fieldset',
+    '#prefix' => '<div id="og-ui-field-name" class="field-widget-taxonomy-autocomplete">',
+    '#suffix' => '</div>',
+    '#title' => t('New organisation affiliation'),
+    '#weight' => 3,
+  ];
+
+  if(empty($options)) {
+    $form['organisation']['new_organisation']['empty'] = [
+      '#type' => 'markup',
+      '#markup' => '<pre>' . t('The user is already in all organisations') . '</pre>',
+    ];
+    return;
+  }
+
+  $lib_path = libraries_get_path('chosen');
+  drupal_add_js($lib_path . '/chosen.jquery.min.js');
+  drupal_add_css($lib_path . '/chosen.min.css');
+  drupal_add_js(drupal_get_path('module', 'salto_og') . '/js/og_selector_chosen.js', ['scope' => 'footer']);
+
+  $form['organisation']['new_organisation']['select_organisation'] = [
+    '#type' => 'select',
+    '#options' => $options,
+    '#attributes' => ['id' => 'organisation-select', 'data-placeholder' => ' '],
+    '#suffix' => '<div class="form-group"></div>',
+    '#prefix' => '<label>' . t('Organisation') . '</label>',
+  ];
+
+
+  $gid = 0;
+  $field_name = 'added_positions'; #"membership_fields_" . $gid;
+  $form['organisation']['new_organisation']['position'] = [
+    '#prefix' => '<div id="og-ui-field-name" class="field-widget-taxonomy-autocomplete">',
+    '#suffix' => '</div>',
+    '#tree' => TRUE,
+    '#parents' => [$field_name],
+  ];
+
+  $og_membership = og_membership_create('node', $gid, 'user', $account->uid, 'field_user_organisations', ['state' => 1]);
+  $form_state['og_membership'][$gid] = $og_membership;
+  field_attach_form('og_membership', $og_membership, $form['organisation']['new_organisation']['position'], $form_state);
+
+
+  $form['organisation']['new_organisation']['add_button'] = [
+    '#type' => 'submit',
+    '#value' => t('Add new organisation affiliation'),
+    '#submit' => array('salto_user_element_add_button_submit'),
+    '#ajax' => array(
+      'callback' => 'salto_user_organisation_form_ajax_callback',
+      'wrapper' => 'organisation-form',
+      'method' => 'replace',
+    ),
+    '#attributes' => array(
+      'class' => array('btn', 'btn-primary'),
+    ),
+  ];
+
+
+}
+
+function salto_user_edit_organisations_form_submit($form, &$form_state) {
+
+  $drupalUser = \Wissensnetz\User\DrupalUser::make($form_state['account']);
+  foreach($form_state['values']['removed'] as $nid){
+    $ogDrupalNode = OrganisationDrupalNode::make($nid);
+    $ogDrupalNode->removeUserFromOrganisation($drupalUser);
+  }
+
+  foreach($form_state['values']['added'] as $nid){
+    $ogDrupalNode = OrganisationDrupalNode::make($nid);
+    $ogDrupalNode->addUserToOrganisation($drupalUser);
+  }
+
+  $membership_fields = [];
+  foreach ($form_state['values'] as $key => $value) {
+    $isMembershipField = explode('membership_fields_', $key );
+    if (is_numeric($isMembershipField[1])) {
+      $membership_fields[$isMembershipField[1]] = $value;
+    }
+  }
+
+  foreach($membership_fields as $nid => $membership_field){
+    $ogDrupalNode = OrganisationDrupalNode::make($nid);
+    $ogDrupalNode->updateUserPosition($drupalUser, $membership_field['field_organisation_position']);
+
+  }
+
+  drupal_set_message(t('The users organisations have been successfully processed'));
+
+}
+
+
+function salto_user_organisation_form_ajax_callback($form, &$form_state) {
+  return $form['organisation'];
+}
+
+function salto_user_element_add_button_submit($form, &$form_state) {
+  $addedGid = $form_state['input']['select_organisation'];
+  $form_state['values']['added'][$addedGid] = $addedGid;
+  $form_state['input']['option_organisation'] = '';
+  $sendedTerms = $form_state['values']['added_positions']['field_organisation_position'][LANGUAGE_NONE];
+  $terms = [];
+  foreach($sendedTerms as $position){
+    if($position['tid'] == 'autocreate'){
+      $term = new stdClass();
+      $term->vid = $position['vid'];
+      $term->name = $position['name'];
+      $term->vocabulary_machine_name = $position['vocabulary_machine_name'];
+      $savedTerm = taxonomy_term_save($term);
+    }
+    $terms[] = !empty($term) ? (array) $term : $position;
+  }
+  unset($form_state['input']['added_positions']['field_organisation_position'][LANGUAGE_NONE]);
+  $form_state['values']['added_positions']['field_organisation_position'][LANGUAGE_NONE] = $terms;
+
+  $form_state['rebuild'] = TRUE;
+}
+
+function salto_user_element_remove_button_submit($form, &$form_state) {
+  $removedGid = $form_state['triggering_element']['#remove_gid'];
+  unset($form_state['values']['added'][$removedGid]);
+  $form_state['rebuild'] = TRUE;
 }

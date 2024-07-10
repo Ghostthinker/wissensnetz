@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_search.views_default.inc
@@ -72,7 +73,7 @@ function salto_search_views_default_views() {
   $handler->display->display_options['relationships']['profile_main']['table'] = 'entity_user';
   $handler->display->display_options['relationships']['profile_main']['field'] = 'profile_main';
   $handler->display->display_options['relationships']['profile_main']['relationship'] = 'author';
-  /* Field: Global: Card Header */
+  /* Field: Global: Card header */
   $handler->display->display_options['fields']['card_header']['id'] = 'card_header';
   $handler->display->display_options['fields']['card_header']['table'] = 'views';
   $handler->display->display_options['fields']['card_header']['field'] = 'nothing';
@@ -114,30 +115,15 @@ function salto_search_views_default_views() {
   $handler->display->display_options['fields']['created']['exclude'] = TRUE;
   $handler->display->display_options['fields']['created']['date_format'] = 'medium';
   $handler->display->display_options['fields']['created']['link_to_entity'] = 0;
-  /* Field: Indexed Comment: Name */
-  $handler->display->display_options['fields']['name']['id'] = 'name';
-  $handler->display->display_options['fields']['name']['table'] = 'search_api_index_comments';
-  $handler->display->display_options['fields']['name']['field'] = 'name';
-  $handler->display->display_options['fields']['name']['label'] = '';
-  $handler->display->display_options['fields']['name']['exclude'] = TRUE;
-  $handler->display->display_options['fields']['name']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['name']['link_to_entity'] = 0;
   /* Field: Indexed Comment: Author */
   $handler->display->display_options['fields']['author']['id'] = 'author';
   $handler->display->display_options['fields']['author']['table'] = 'search_api_index_comments';
   $handler->display->display_options['fields']['author']['field'] = 'author';
+  $handler->display->display_options['fields']['author']['label'] = 'Autor';
   $handler->display->display_options['fields']['author']['exclude'] = TRUE;
   $handler->display->display_options['fields']['author']['link_to_entity'] = 1;
   $handler->display->display_options['fields']['author']['view_mode'] = 'full';
   $handler->display->display_options['fields']['author']['bypass_access'] = 0;
-  /* Field: Global: Custom text */
-  $handler->display->display_options['fields']['nothing']['id'] = 'nothing';
-  $handler->display->display_options['fields']['nothing']['table'] = 'views';
-  $handler->display->display_options['fields']['nothing']['field'] = 'nothing';
-  $handler->display->display_options['fields']['nothing']['label'] = '';
-  $handler->display->display_options['fields']['nothing']['alter']['text'] = 'Gespeichert von [author] am [created] ([search_api_relevance])';
-  $handler->display->display_options['fields']['nothing']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['nothing']['element_wrapper_class'] = 'submitted searchsub';
   /* Field: Indexed Comment: The main body text */
   $handler->display->display_options['fields']['comment_body']['id'] = 'comment_body';
   $handler->display->display_options['fields']['comment_body']['table'] = 'search_api_index_comments';
@@ -184,10 +170,29 @@ function salto_search_views_default_views() {
   $handler->display->display_options['fields']['url']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['url']['element_wrapper_class'] = 'node-readmore';
   $handler->display->display_options['fields']['url']['link_to_entity'] = 0;
+  /* Field: Indexed Comment: Author */
+  $handler->display->display_options['fields']['author_1']['id'] = 'author_1';
+  $handler->display->display_options['fields']['author_1']['table'] = 'search_api_index_comments';
+  $handler->display->display_options['fields']['author_1']['field'] = 'author';
+  $handler->display->display_options['fields']['author_1']['label'] = '';
+  $handler->display->display_options['fields']['author_1']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['author_1']['link_to_entity'] = 1;
+  $handler->display->display_options['fields']['author_1']['view_mode'] = 'full';
+  $handler->display->display_options['fields']['author_1']['bypass_access'] = 0;
+  /* Field: Indexed Comment: Date created */
+  $handler->display->display_options['fields']['created_1']['id'] = 'created_1';
+  $handler->display->display_options['fields']['created_1']['table'] = 'search_api_index_comments';
+  $handler->display->display_options['fields']['created_1']['field'] = 'created';
+  $handler->display->display_options['fields']['created_1']['label'] = '';
+  $handler->display->display_options['fields']['created_1']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['created_1']['date_format'] = 'short';
+  $handler->display->display_options['fields']['created_1']['second_date_format'] = 'privatemsg_current_day';
+  $handler->display->display_options['fields']['created_1']['link_to_entity'] = 0;
   /* Sort criterion: Search: Relevance */
   $handler->display->display_options['sorts']['search_api_relevance']['id'] = 'search_api_relevance';
   $handler->display->display_options['sorts']['search_api_relevance']['table'] = 'search_api_index_comments';
   $handler->display->display_options['sorts']['search_api_relevance']['field'] = 'search_api_relevance';
+  $handler->display->display_options['sorts']['search_api_relevance']['expose']['label'] = 'Relevanz';
   /* Filter criterion: Search: Fulltext search */
   $handler->display->display_options['filters']['search_api_views_fulltext']['id'] = 'search_api_views_fulltext';
   $handler->display->display_options['filters']['search_api_views_fulltext']['table'] = 'search_api_index_comments';
@@ -230,12 +235,14 @@ function salto_search_views_default_views() {
     t('Leider gibt es auf Ihre Suche keine Ergebnis. Versuchen Sie doch noch einmal einen anderen Suchbegriff oder schauen Sie in einem anderen Bereich. Sicherlich kann Ihnen die Community weiterhelfen: Erstellen Sie doch einfach eine Frage zu Ihrer Suchanfrage.'),
     t('Author'),
     t('Profile profile'),
+    t('<div class="header"></div>'),
     t('Relevance'),
     t('.'),
     t(','),
     t('Date created'),
-    t('Gespeichert von [author] am [created] ([search_api_relevance])'),
+    t('Autor'),
     t('Weiterlesen'),
+    t('Relevanz'),
     t('Suche'),
     t('Panel Inhalt'),
     t('more'),
@@ -326,6 +333,24 @@ function salto_search_views_default_views() {
     'image_style' => 'user_60x60',
     'image_link' => 'content',
   );
+  /* Field: Indexed File: Owner */
+  $handler->display->display_options['fields']['owner']['id'] = 'owner';
+  $handler->display->display_options['fields']['owner']['table'] = 'search_api_index_default_file_index';
+  $handler->display->display_options['fields']['owner']['field'] = 'owner';
+  $handler->display->display_options['fields']['owner']['label'] = '';
+  $handler->display->display_options['fields']['owner']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['owner']['link_to_entity'] = 1;
+  $handler->display->display_options['fields']['owner']['view_mode'] = 'full';
+  $handler->display->display_options['fields']['owner']['bypass_access'] = 0;
+  /* Field: Indexed File: Timestamp */
+  $handler->display->display_options['fields']['timestamp']['id'] = 'timestamp';
+  $handler->display->display_options['fields']['timestamp']['table'] = 'search_api_index_default_file_index';
+  $handler->display->display_options['fields']['timestamp']['field'] = 'timestamp';
+  $handler->display->display_options['fields']['timestamp']['label'] = '';
+  $handler->display->display_options['fields']['timestamp']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['timestamp']['date_format'] = 'short';
+  $handler->display->display_options['fields']['timestamp']['second_date_format'] = 'privatemsg_current_day';
+  $handler->display->display_options['fields']['timestamp']['link_to_entity'] = 0;
   /* Field: Indexed File: File name */
   $handler->display->display_options['fields']['name']['id'] = 'name';
   $handler->display->display_options['fields']['name']['table'] = 'search_api_index_default_file_index';
@@ -344,23 +369,6 @@ function salto_search_views_default_views() {
   $handler->display->display_options['fields']['type']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['type']['link_to_entity'] = 0;
   $handler->display->display_options['fields']['type']['format_name'] = 1;
-  /* Field: Indexed File: Timestamp */
-  $handler->display->display_options['fields']['timestamp']['id'] = 'timestamp';
-  $handler->display->display_options['fields']['timestamp']['table'] = 'search_api_index_default_file_index';
-  $handler->display->display_options['fields']['timestamp']['field'] = 'timestamp';
-  $handler->display->display_options['fields']['timestamp']['exclude'] = TRUE;
-  $handler->display->display_options['fields']['timestamp']['date_format'] = 'medium';
-  $handler->display->display_options['fields']['timestamp']['link_to_entity'] = 0;
-  /* Field: Indexed File: Owner */
-  $handler->display->display_options['fields']['owner']['id'] = 'owner';
-  $handler->display->display_options['fields']['owner']['table'] = 'search_api_index_default_file_index';
-  $handler->display->display_options['fields']['owner']['field'] = 'owner';
-  $handler->display->display_options['fields']['owner']['label'] = '';
-  $handler->display->display_options['fields']['owner']['exclude'] = TRUE;
-  $handler->display->display_options['fields']['owner']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['owner']['link_to_entity'] = 1;
-  $handler->display->display_options['fields']['owner']['view_mode'] = 'full';
-  $handler->display->display_options['fields']['owner']['bypass_access'] = 0;
   /* Field: PHP: Feld File Title */
   $handler->display->display_options['fields']['php_title']['id'] = 'php_title';
   $handler->display->display_options['fields']['php_title']['table'] = 'views';
@@ -372,20 +380,12 @@ function salto_search_views_default_views() {
   $handler->display->display_options['fields']['php_title']['use_php_setup'] = 0;
   $handler->display->display_options['fields']['php_title']['php_output'] = '<?php
 //dpm($data);
-print \'<a href=/file/\' . $data->entity . \'>\';
-print $data->_entity_properties[\'entity object\']->field_file_title[LANGUAGE_NONE][0][\'value\'];
+print \'<a href=/file/\' . $data->entity->fid . \'>\';
+print $data->entity->filename;
 print \'</a>\';
 ?>';
   $handler->display->display_options['fields']['php_title']['use_php_click_sortable'] = '0';
   $handler->display->display_options['fields']['php_title']['php_click_sortable'] = '';
-  /* Field: Global: Custom text */
-  $handler->display->display_options['fields']['nothing']['id'] = 'nothing';
-  $handler->display->display_options['fields']['nothing']['table'] = 'views';
-  $handler->display->display_options['fields']['nothing']['field'] = 'nothing';
-  $handler->display->display_options['fields']['nothing']['label'] = '';
-  $handler->display->display_options['fields']['nothing']['alter']['text'] = '[type] gespeichert von [owner] am [timestamp]';
-  $handler->display->display_options['fields']['nothing']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['nothing']['element_wrapper_class'] = 'submitted searchsub';
   /* Field: File: Rendered File */
   $handler->display->display_options['fields']['rendered_entity']['id'] = 'rendered_entity';
   $handler->display->display_options['fields']['rendered_entity']['table'] = 'views_entity_file';
@@ -446,8 +446,7 @@ print \'</a>\';
     t('Leider gibt es auf Ihre Suche keine Ergebnis. Versuchen Sie doch noch einmal einen anderen Suchbegriff oder schauen Sie in einem anderen Bereich. Sicherlich kann Ihnen die Community weiterhelfen: Erstellen Sie doch einfach eine Frage zu Ihrer Suchanfrage.'),
     t('Owner'),
     t('Profile profile'),
-    t('Timestamp'),
-    t('[type] gespeichert von [owner] am [timestamp]'),
+    t('<div class="header"></div>'),
     t('Suche'),
     t('Suche Files'),
     t('more'),
@@ -477,12 +476,45 @@ print \'</a>\';
   $handler->display->display_options['query']['options']['search_api_bypass_access'] = 0;
   $handler->display->display_options['query']['options']['entity_access'] = 1;
   $handler->display->display_options['query']['options']['parse_mode'] = 'direct';
-  $handler->display->display_options['exposed_form']['type'] = 'basic';
+  $handler->display->display_options['exposed_form']['type'] = 'better_exposed_filters';
   $handler->display->display_options['exposed_form']['options']['submit_button'] = 'Anwenden';
   $handler->display->display_options['exposed_form']['options']['reset_button_label'] = 'Zurücksetzen';
-  $handler->display->display_options['exposed_form']['options']['exposed_sorts_label'] = 'Sortieren nach';
+  $handler->display->display_options['exposed_form']['options']['exposed_sorts_label'] = 'Sortierung';
+  $handler->display->display_options['exposed_form']['options']['expose_sort_order'] = FALSE;
   $handler->display->display_options['exposed_form']['options']['sort_asc_label'] = 'Aufsteigend';
   $handler->display->display_options['exposed_form']['options']['sort_desc_label'] = 'Absteigend';
+  $handler->display->display_options['exposed_form']['options']['autosubmit'] = TRUE;
+  $handler->display->display_options['exposed_form']['options']['bef'] = array(
+    'general' => array(
+      'input_required' => 0,
+      'text_input_required' => array(
+        'text_input_required' => array(
+          'value' => 'Select any filter and click on Apply to see results',
+          'format' => 'editor',
+        ),
+      ),
+      'allow_secondary' => 0,
+      'secondary_label' => 'Erweiterte Optionen',
+      'secondary_collapse_override' => '0',
+    ),
+    'search_api_views_fulltext' => array(
+      'bef_format' => 'default',
+      'more_options' => array(
+        'autosubmit' => 0,
+        'is_secondary' => 0,
+        'any_label' => '',
+        'bef_filter_description' => '',
+        'tokens' => array(
+          'available' => array(
+            0 => 'global_types',
+          ),
+        ),
+        'rewrite' => array(
+          'filter_rewrite_values' => '',
+        ),
+      ),
+    ),
+  );
   $handler->display->display_options['pager']['type'] = 'full';
   $handler->display->display_options['pager']['options']['expose']['items_per_page_label'] = 'Elemente pro Seite';
   $handler->display->display_options['pager']['options']['expose']['items_per_page_options_all_label'] = '- Alle -';
@@ -496,7 +528,7 @@ print \'</a>\';
   $handler->display->display_options['header']['result']['id'] = 'result';
   $handler->display->display_options['header']['result']['table'] = 'views';
   $handler->display->display_options['header']['result']['field'] = 'result';
-  $handler->display->display_options['header']['result']['content'] = '<strong>Ergebnisse für <span id="saltoSearchName">@name</span> @end von @total</strong>';
+  $handler->display->display_options['header']['result']['content'] = '<strong>Ergebnisse für <span id="saltoSearchName">@name</span> @end von @total (Neuste Beiträge zuerst) </strong> ';
   /* Header: Search: Spellcheck */
   $handler->display->display_options['header']['search_api_spellcheck']['id'] = 'search_api_spellcheck';
   $handler->display->display_options['header']['search_api_spellcheck']['table'] = 'search_api_index_default_node_index';
@@ -539,15 +571,24 @@ print \'</a>\';
     'image_style' => 'user_60x60',
     'image_link' => 'content',
   );
-  /* Field: Indexed Node: Title */
-  $handler->display->display_options['fields']['title']['id'] = 'title';
-  $handler->display->display_options['fields']['title']['table'] = 'search_api_index_default_node_index';
-  $handler->display->display_options['fields']['title']['field'] = 'title';
-  $handler->display->display_options['fields']['title']['label'] = '';
-  $handler->display->display_options['fields']['title']['exclude'] = TRUE;
-  $handler->display->display_options['fields']['title']['element_type'] = 'h2';
-  $handler->display->display_options['fields']['title']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['title']['link_to_entity'] = 1;
+  /* Field: Indexed Node: Author */
+  $handler->display->display_options['fields']['author_1']['id'] = 'author_1';
+  $handler->display->display_options['fields']['author_1']['table'] = 'search_api_index_default_node_index';
+  $handler->display->display_options['fields']['author_1']['field'] = 'author';
+  $handler->display->display_options['fields']['author_1']['label'] = '';
+  $handler->display->display_options['fields']['author_1']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['author_1']['link_to_entity'] = 1;
+  $handler->display->display_options['fields']['author_1']['view_mode'] = 'full';
+  $handler->display->display_options['fields']['author_1']['bypass_access'] = 0;
+  /* Field: Indexed Node: Date created */
+  $handler->display->display_options['fields']['created_1']['id'] = 'created_1';
+  $handler->display->display_options['fields']['created_1']['table'] = 'search_api_index_default_node_index';
+  $handler->display->display_options['fields']['created_1']['field'] = 'created';
+  $handler->display->display_options['fields']['created_1']['label'] = '';
+  $handler->display->display_options['fields']['created_1']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['created_1']['date_format'] = 'short';
+  $handler->display->display_options['fields']['created_1']['second_date_format'] = 'privatemsg_current_day';
+  $handler->display->display_options['fields']['created_1']['link_to_entity'] = 0;
   /* Field: Indexed Node: Autoren */
   $handler->display->display_options['fields']['field_post_authors']['id'] = 'field_post_authors';
   $handler->display->display_options['fields']['field_post_authors']['table'] = 'search_api_index_default_node_index';
@@ -580,31 +621,6 @@ print \'</a>\';
   $handler->display->display_options['fields']['author']['link_to_entity'] = 1;
   $handler->display->display_options['fields']['author']['view_mode'] = 'full';
   $handler->display->display_options['fields']['author']['bypass_access'] = 0;
-  /* Field: PHP: Original Title */
-  $handler->display->display_options['fields']['php_title']['id'] = 'php_title';
-  $handler->display->display_options['fields']['php_title']['table'] = 'views';
-  $handler->display->display_options['fields']['php_title']['field'] = 'php';
-  $handler->display->display_options['fields']['php_title']['ui_name'] = 'PHP: Original Title';
-  $handler->display->display_options['fields']['php_title']['label'] = '';
-  $handler->display->display_options['fields']['php_title']['element_type'] = 'h2';
-  $handler->display->display_options['fields']['php_title']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['php_title']['use_php_setup'] = 0;
-  $handler->display->display_options['fields']['php_title']['php_output'] = '<?php
-//dpm($data);
-print \'<a href=/node/\' . $data->entity . \'>\';
-print $data->_entity_properties[\'entity object\']->title;
-print \'</a>\';
-?>';
-  $handler->display->display_options['fields']['php_title']['use_php_click_sortable'] = '0';
-  $handler->display->display_options['fields']['php_title']['php_click_sortable'] = '';
-  /* Field: Global: Custom text */
-  $handler->display->display_options['fields']['nothing_1']['id'] = 'nothing_1';
-  $handler->display->display_options['fields']['nothing_1']['table'] = 'views';
-  $handler->display->display_options['fields']['nothing_1']['field'] = 'nothing';
-  $handler->display->display_options['fields']['nothing_1']['label'] = '';
-  $handler->display->display_options['fields']['nothing_1']['alter']['text'] = '<span class="[type]"/>';
-  $handler->display->display_options['fields']['nothing_1']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['nothing_1']['element_wrapper_class'] = 'kb-type';
   /* Field: The main body text: Text (indexed) */
   $handler->display->display_options['fields']['body_value']['id'] = 'body_value';
   $handler->display->display_options['fields']['body_value']['table'] = 'search_api_index_default_node_index';
@@ -621,25 +637,6 @@ print \'</a>\';
   $handler->display->display_options['fields']['search_api_excerpt']['label'] = '';
   $handler->display->display_options['fields']['search_api_excerpt']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['search_api_excerpt']['link_to_entity'] = 0;
-  /* Field: Global: PHP */
-  $handler->display->display_options['fields']['php']['id'] = 'php';
-  $handler->display->display_options['fields']['php']['table'] = 'views';
-  $handler->display->display_options['fields']['php']['field'] = 'php';
-  $handler->display->display_options['fields']['php']['label'] = '';
-  $handler->display->display_options['fields']['php']['element_label_colon'] = FALSE;
-  $handler->display->display_options['fields']['php']['use_php_setup'] = 0;
-  $handler->display->display_options['fields']['php']['php_output'] = '<?php
-  //dpm($data);
-  //dpm($row);
-  //dpm($row->search_api_excerpt);
-  //dpm(empty($data->_entity_properties [\'search_api_excerpt\']));
-  //dpm($data->_entity_properties [\'body:value\']);
-  if(empty($data->_entity_properties [\'search_api_excerpt\'])) {
-    echo truncate_utf8(strip_tags($data->_entity_properties[\'body:value\']), 600, TRUE, TRUE);
-  }
-?>';
-  $handler->display->display_options['fields']['php']['use_php_click_sortable'] = '0';
-  $handler->display->display_options['fields']['php']['php_click_sortable'] = '';
   /* Field: Content: Link */
   $handler->display->display_options['fields']['view_node']['id'] = 'view_node';
   $handler->display->display_options['fields']['view_node']['table'] = 'views_entity_node';
@@ -655,11 +652,56 @@ print \'</a>\';
   $handler->display->display_options['fields']['nid']['label'] = 'Beitrags-ID';
   $handler->display->display_options['fields']['nid']['exclude'] = TRUE;
   $handler->display->display_options['fields']['nid']['link_to_entity'] = 0;
+  /* Field: Indexed Node: Comments */
+  $handler->display->display_options['fields']['comments_1']['id'] = 'comments_1';
+  $handler->display->display_options['fields']['comments_1']['table'] = 'search_api_index_default_node_index';
+  $handler->display->display_options['fields']['comments_1']['field'] = 'comments';
+  $handler->display->display_options['fields']['comments_1']['label'] = '';
+  $handler->display->display_options['fields']['comments_1']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['comments_1']['alter']['text'] = '[comments_1]';
+  $handler->display->display_options['fields']['comments_1']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['comments_1']['list']['mode'] = 'count';
+  $handler->display->display_options['fields']['comments_1']['link_to_entity'] = 1;
+  $handler->display->display_options['fields']['comments_1']['view_mode'] = 'full';
+  $handler->display->display_options['fields']['comments_1']['bypass_access'] = 0;
+  /* Field: PHP: Original Title */
+  $handler->display->display_options['fields']['php']['id'] = 'php';
+  $handler->display->display_options['fields']['php']['table'] = 'views';
+  $handler->display->display_options['fields']['php']['field'] = 'php';
+  $handler->display->display_options['fields']['php']['ui_name'] = 'PHP: Original Title';
+  $handler->display->display_options['fields']['php']['label'] = '';
+  $handler->display->display_options['fields']['php']['element_type'] = 'h2';
+  $handler->display->display_options['fields']['php']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['php']['use_php_setup'] = 0;
+  $handler->display->display_options['fields']['php']['php_output'] = '<?php
+//dpm($data);
+print \'<a href=/node/\' . $data->entity->nid . \'>\';
+print $data->entity->title;
+print \'</a>\';
+?>';
+  $handler->display->display_options['fields']['php']['use_php_click_sortable'] = '0';
+  $handler->display->display_options['fields']['php']['php_click_sortable'] = '';
+  /* Sort criterion: Indexed Node: Date created */
+  $handler->display->display_options['sorts']['created']['id'] = 'created';
+  $handler->display->display_options['sorts']['created']['table'] = 'search_api_index_default_node_index';
+  $handler->display->display_options['sorts']['created']['field'] = 'created';
+  $handler->display->display_options['sorts']['created']['order'] = 'DESC';
+  $handler->display->display_options['sorts']['created']['exposed'] = TRUE;
+  $handler->display->display_options['sorts']['created']['expose']['label'] = 'Neueste Beiträge';
   /* Sort criterion: Search: Relevance */
   $handler->display->display_options['sorts']['search_api_relevance']['id'] = 'search_api_relevance';
   $handler->display->display_options['sorts']['search_api_relevance']['table'] = 'search_api_index_default_node_index';
   $handler->display->display_options['sorts']['search_api_relevance']['field'] = 'search_api_relevance';
   $handler->display->display_options['sorts']['search_api_relevance']['order'] = 'DESC';
+  $handler->display->display_options['sorts']['search_api_relevance']['exposed'] = TRUE;
+  $handler->display->display_options['sorts']['search_api_relevance']['expose']['label'] = 'Relevanz';
+  /* Sort criterion: Indexed Node: Comment count */
+  $handler->display->display_options['sorts']['comment_count']['id'] = 'comment_count';
+  $handler->display->display_options['sorts']['comment_count']['table'] = 'search_api_index_default_node_index';
+  $handler->display->display_options['sorts']['comment_count']['field'] = 'comment_count';
+  $handler->display->display_options['sorts']['comment_count']['order'] = 'DESC';
+  $handler->display->display_options['sorts']['comment_count']['exposed'] = TRUE;
+  $handler->display->display_options['sorts']['comment_count']['expose']['label'] = 'Anzahl an Kommentaren';
   /* Filter criterion: Search: Fulltext search */
   $handler->display->display_options['filters']['search_api_views_fulltext']['id'] = 'search_api_views_fulltext';
   $handler->display->display_options['filters']['search_api_views_fulltext']['table'] = 'search_api_index_default_node_index';
@@ -667,7 +709,7 @@ print \'</a>\';
   $handler->display->display_options['filters']['search_api_views_fulltext']['group'] = 1;
   $handler->display->display_options['filters']['search_api_views_fulltext']['exposed'] = TRUE;
   $handler->display->display_options['filters']['search_api_views_fulltext']['expose']['operator_id'] = 'search_api_views_fulltext_op';
-  $handler->display->display_options['filters']['search_api_views_fulltext']['expose']['label'] = 'Suche';
+  $handler->display->display_options['filters']['search_api_views_fulltext']['expose']['label'] = 'Fulltext search';
   $handler->display->display_options['filters']['search_api_views_fulltext']['expose']['operator'] = 'search_api_views_fulltext_op';
   $handler->display->display_options['filters']['search_api_views_fulltext']['expose']['identifier'] = 'search_api_views_fulltext';
   $handler->display->display_options['filters']['search_api_views_fulltext']['expose']['remember_roles'] = array(
@@ -677,6 +719,9 @@ print \'</a>\';
     4 => 0,
     5 => 0,
     6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
   );
   /* Filter criterion: Indexed Node: Content type */
   $handler->display->display_options['filters']['type_1']['id'] = 'type_1';
@@ -685,10 +730,6 @@ print \'</a>\';
   $handler->display->display_options['filters']['type_1']['value'] = array(
     'post' => 'post',
   );
-  /* Filter criterion: Global: PHP */
-  $handler->display->display_options['filters']['php']['id'] = 'php';
-  $handler->display->display_options['filters']['php']['table'] = 'views';
-  $handler->display->display_options['filters']['php']['field'] = 'php';
 
   /* Display: Suche */
   $handler = $view->new_display('panel_pane', 'Suche', 'panel_salto_search_node');
@@ -700,9 +741,11 @@ print \'</a>\';
     t('mehr'),
     t('Anwenden'),
     t('Zurücksetzen'),
-    t('Sortieren nach'),
+    t('Sortierung'),
     t('Aufsteigend'),
     t('Absteigend'),
+    t('Select any filter and click on Apply to see results'),
+    t('Erweiterte Optionen'),
     t('Elemente pro Seite'),
     t('- Alle -'),
     t('Offset'),
@@ -710,18 +753,23 @@ print \'</a>\';
     t('‹ vorherige Seite'),
     t('nächste Seite ›'),
     t('letzte Seite »'),
-    t('<strong>Ergebnisse für <span id="saltoSearchName">@name</span> @end von @total</strong>'),
+    t('<strong>Ergebnisse für <span id="saltoSearchName">@name</span> @end von @total (Neuste Beiträge zuerst) </strong> '),
     t('Spellcheck'),
     t('Leider gibt es auf Ihre Suche keine Ergebnis. Versuchen Sie doch noch einmal einen anderen Suchbegriff oder schauen Sie in einem anderen Bereich. Sicherlich kann Ihnen die Community weiterhelfen: Erstellen Sie doch einfach eine Frage zu Ihrer Suchanfrage.'),
     t('Author'),
     t('Profile profile'),
+    t('<div class="header"></div>'),
     t('Date created'),
     t('Content type'),
-    t('<span class="[type]"/>'),
     t('Weiterlesen'),
     t('Beitrags-ID'),
     t('.'),
     t(','),
+    t('[comments_1]'),
+    t('Neueste Beiträge'),
+    t('Relevanz'),
+    t('Anzahl an Kommentaren'),
+    t('Fulltext search'),
     t('Suche'),
     t('more'),
   );

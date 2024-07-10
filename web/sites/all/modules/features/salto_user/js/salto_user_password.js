@@ -13,10 +13,11 @@
       }
 
       $('input.password-field', context).once('salto_user_password', function () {
+
         passwordInput = $(this);
         passwordCheck = function (e) {
 
-          e.stopImmediatePropagation();
+          //e.stopImmediatePropagation();
 
           if (passwordInput.val() != passwordInput.data('value')) {
             passwordInput.addClass('salto_user_password_changed');
@@ -38,7 +39,11 @@
               user_passwordCheck();
 
             });
+
+          $('.form-type-password-confirm').append($('.help-block.password-help'));
+          $('.help-block.password-help').addClass('alert alert-block alert-success');
         };
+        $(document).ready(passwordCheck);
         passwordInput.keyup(passwordCheck);//.focusin(passwordCheck);
         passwordInput.focusin(passwordCheck);
       });

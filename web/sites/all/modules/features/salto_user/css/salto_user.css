@@ -5,6 +5,17 @@
   margin: 10px;
 }
 
+.sso-disabled-profile .choose-profile-picture:hover{
+  background-color: #ee334e !important;
+}
+
+.sso-disabled-profile .image-widget-data:hover{
+  opacity: 0.8 !important;
+}
+
+.sso-disabled-profile .change-profile-picture{
+  background-color: #ccc !important;
+}
 
 #user-profile-form .image-widget-data {
   min-height: 200px;

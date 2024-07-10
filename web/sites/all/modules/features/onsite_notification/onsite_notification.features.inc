@@ -559,6 +559,35 @@ function onsite_notification_default_message_type() {
       ]
     }
   }');
+  $items['notification_online_meeting_scheduled'] = entity_import('message_type', '{
+    "name" : "notification_online_meeting_scheduled",
+    "description" : "Notification: Online Meeting scheduled",
+    "argument_keys" : [],
+    "argument" : [],
+    "category" : "message_type",
+    "data" : {
+      "token options" : { "clear" : 0 },
+      "purge" : { "override" : 0, "enabled" : 0, "quota" : "", "days" : "" }
+    },
+    "language" : "de",
+    "arguments" : null,
+    "message_text" : {
+      "de" : [
+        {
+          "value" : "@{message:user:name} hat eine Benachrichtigung zum Online-Treffen [message:field-notification-node-ref:title] in einer Ihrer Gruppe versandt.",
+          "format" : "machine",
+          "safe_value" : "@{message:user:name} hat eine Benachrichtigung zum Online-Treffen [message:field-notification-node-ref:title] in einer Ihrer Gruppe versandt."
+        }
+      ],
+      "en" : [
+        {
+          "value" : "@{message:user:name} hat einen neuen Beitrag [message:field-notification-node-ref:title] im Gemeinschaftsbereich erstellt.",
+          "format" : "machine",
+          "safe_value" : "@{message:user:name} hat einen neuen Beitrag [message:field-notification-node-ref:title] im Gemeinschaftsbereich erstellt."
+        }
+      ]
+    }
+  }');
   $items['notification_post_created'] = entity_import('message_type', '{
     "name" : "notification_post_created",
     "description" : "Notification: Post created",
@@ -640,6 +669,34 @@ function onsite_notification_default_message_type() {
           "value" : "@{message:user:name} hat den Beitrag [message:field-notification-node-ref:title] bearbeitet.",
           "format" : "machine",
           "safe_value" : "@{message:user:name} hat den Beitrag [message:field-notification-node-ref:title] bearbeitet."
+        }
+      ]
+    }
+  }');
+  $items['notification_user_mentioned'] = entity_import('message_type', '{
+    "name" : "notification_user_mentioned",
+    "description" : "Notification: User mentioned",
+    "argument_keys" : [],
+    "argument" : [],
+    "category" : "message_type",
+    "data" : {
+      "token options" : { "clear" : 0 },
+      "purge" : { "override" : 0, "enabled" : 0, "quota" : "", "days" : "" }
+    },
+    "language" : "de",
+    "arguments" : null,
+    "message_text" : {
+      "de" : [
+        {
+          "value" : "@{message:user:name} hat Sie [content-prefix] [message:field-notification-node-ref:title] erw\\u00e4hnt.",
+          "format" : "php_code"
+        }
+      ],
+      "en" : [
+        {
+          "value" : "@{message:user:name}  hat den Inhalt [message:field-notification-node-ref:title] kommentiert.",
+          "format" : "machine",
+          "safe_value" : "@{message:user:name}  hat den Inhalt [message:field-notification-node-ref:title] kommentiert."
         }
       ]
     }

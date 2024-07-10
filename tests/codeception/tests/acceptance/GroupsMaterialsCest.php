@@ -1,6 +1,6 @@
 <?php
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * all tests for start pages
@@ -43,7 +43,7 @@ class GroupsMaterialsCest {
     $I->expect('Founding a new group');
     $I->amOnPage("/groups");
     $I->click('Gruppe gründen');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'Group GM310_08_CR_upload_single-' . microtime(true);
     $I->submitForm('#group-node-form', ['title' => $title,]);
 

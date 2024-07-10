@@ -106,3 +106,26 @@ function salto_user_membership_request_ajax_decline($uuid) {
   }
   drupal_json_output(['status' => 200, 'message' => 'Ok']);
 }
+
+function salto_user_process_user_status_action_callback($uid, $op){
+
+  $drupalUser = \Wissensnetz\User\DrupalUser::make($uid);
+
+  switch ($op){
+    case 'activate':
+      salto_user_activate_action($drupalUser->getUser());
+      break;
+    case 'deactivate':
+      salto_user_deactivate_action($drupalUser->getUser());
+      break;
+  }
+
+  drupal_goto('community-manager/people');
+}
+
+function salto_user_process_user_status_action_access(){
+  if (!user_access("change user status")){
+    return FALSE;
+  }
+  return TRUE;
+}

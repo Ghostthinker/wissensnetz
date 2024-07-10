@@ -32,8 +32,10 @@ function media_bulk_upload_file_page_edit_multiple($files) {
     $fid = $form['multiform'][$key]['fid']['#value'];
     $file = $files[$fid];
 
+    //GTHACK START 19.06.2024 - 15:31 - BH
     // Add the filename to each 'subform'.
-    $title = t('<em>Edit @type</em> @title', array('@type' => $file->type, '@title' => $file->filename));
+    $title = t('<em>Edit @type</em> @title', array('@type' => t($file->type), '@title' => $file->filename));
+    //GTHACK END
     $form['multiform'][$key]['#prefix'] = '<h2>' . $title . '</h2>';
 
     // Remove the 'replace file' functionality.
@@ -42,7 +44,7 @@ function media_bulk_upload_file_page_edit_multiple($files) {
     // Remove any actions.
     $form['multiform'][$key]['actions']['#access'] = FALSE;
 
-    // Hide additional settings under a collapsible fieldset.
+  // Hide additional settings under a collapsible fieldset.
     $form['multiform'][$key]['settings'] = array(
       '#type' => 'fieldset',
       '#title' => t('Additional settings'),
@@ -61,9 +63,21 @@ function media_bulk_upload_file_page_edit_multiple($files) {
       ),
     );
 
-    $form['multiform'][$key]['settings']['additional_settings'] = $form['multiform'][$key]['additional_settings'];
-    unset($form['multiform'][$key]['additional_settings']);
+    unset($form['multiform'][$key]['settings']);
+
+    // Wrap the form in a collapsible fieldset.
+    $subform = $form['multiform'][$key];
+    $form['multiform'][$key] = [
+      '#type' => 'fieldset',
+      //GTHACK START 19.06.2024 - 15:31 - BH
+      //'#title' => $title,
+      //GTHACK END
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      'form' => $subform,
+    ];
   }
+
 
   if (isset($form['buttons']['Delete'])) {
     $form['buttons']['Delete']['#access'] = FALSE;

@@ -1,5 +1,17 @@
 {
     "require": {
-        "guzzlehttp/guzzle": "^7.0"
+        "guzzlehttp/guzzle": "^7.0",
+        "eluceo/ical": "0.16.*",
+        "firebase/php-jwt": "5.5",
+        "graylog2/gelf-php": "^1.7",
+        "thecodingmachine/gotenberg-php-client": "*",
+        "php-http/guzzle7-adapter": "^1.0",
+        "php-http/message": "*",
+        "php-http/message-factory": "*"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
     }
 }

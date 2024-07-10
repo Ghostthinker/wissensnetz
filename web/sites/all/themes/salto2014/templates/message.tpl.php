@@ -29,7 +29,6 @@
  * @see template_process()
  */
 ?>
-
 <div class="<?php print $classes; ?> clearfix card"<?php print $attributes; ?>>
   <div class="row card-content" <?php if (!empty($tooltip)) {
     echo 'title="' . $tooltip . '"';

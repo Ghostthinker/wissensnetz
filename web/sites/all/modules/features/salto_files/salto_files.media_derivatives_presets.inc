@@ -73,9 +73,12 @@ function salto_files_media_derivatives_presets() {
     'type' => 'document',
     'file_type_negate' => 0,
     'mime_types' => array(
-      0 => '',
+      0 => 'application/zip',
+      1 => 'application/x-7z-compressed',
+      2 => 'application/x-tar',
+      3 => 'application/gzip',
     ),
-    'mime_type_negate' => 0,
+    'mime_type_negate' => 1,
   );
   $preset->events = array(
     0 => 'file_insert',
@@ -119,9 +122,9 @@ function salto_files_media_derivatives_presets() {
     'type' => 'video',
     'file_type_negate' => 0,
     'mime_types' => array(
-      0 => '',
+      0 => 'video/extern',
     ),
-    'mime_type_negate' => 0,
+    'mime_type_negate' => 1,
   );
   $preset->events = array(
     0 => 'file_insert',

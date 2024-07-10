@@ -4,6 +4,7 @@ core = 7.x
 package = salto
 version = 7.x-35.2-lk
 project = salto_search
+dependencies[] = better_exposed_filters
 dependencies[] = ctools
 dependencies[] = ctools_custom_content
 dependencies[] = entity

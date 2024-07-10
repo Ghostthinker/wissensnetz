@@ -56,7 +56,7 @@ class FileEntityTestHelper extends DrupalWebTestCase {
   protected function createFileEntity($settings = array()) {
     // Populate defaults array.
     $settings += array(
-      'filepath' => 'Файл для тестирования ' . $this->randomName(), // Prefix with non-latin characters to ensure that all file-related tests work with international filenames.
+      'filepath' => 'Файл для тестирования ' . $this->randomName() . '.txt', // Prefix with non-latin characters to ensure that all file-related tests work with international filenames.
       'filemime' => 'text/plain',
       'uid' => 1,
       'timestamp' => REQUEST_TIME,
@@ -136,7 +136,7 @@ class FileEntityFileTypeClassificationTestCase extends DrupalWebTestCase {
     return array(
       'name' => 'File entity classification',
       'description' => 'Test existing file entity classification functionality.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -206,7 +206,7 @@ class FileEntityUnitTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity unit tests',
       'description' => 'Test basic file entity functionality.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -311,7 +311,7 @@ class FileEntityEditTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity edit',
       'description' => 'Create a file and test file edit functionality.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -421,7 +421,7 @@ class FileEntityUploadWizardTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity upload wizard',
       'description' => 'Upload a file using the multi-step wizard.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
       'dependencies' => array('token'),
     );
   }
@@ -642,11 +642,17 @@ class FileEntityUploadWizardTestCase extends FileEntityTestHelper {
  * Test file administration page functionality.
  */
 class FileEntityAdminTestCase extends FileEntityTestHelper {
+  protected $admin_user = NULL;
+  protected $base_user_1 = NULL;
+  protected $base_user_2 = NULL;
+  protected $base_user_3 = NULL;
+  protected $base_user_4 = NULL;
+
   public static function getInfo() {
     return array(
       'name' => 'File administration',
       'description' => 'Test file administration page functionality.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -809,7 +815,7 @@ class FileEntityUsageTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity usage',
       'description' => 'Create a file and verify its usage.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -875,7 +881,7 @@ class FileEntityUsageTestCase extends FileEntityTestHelper {
 
     // Verify that the module name is used in place of a link to the entity.
     $this->assertNoLink('test_module');
-    $this->assertRaw('test_module', 'Module name used in place of link to the entity.');
+    $this->assertRaw('(entity not loaded)', '"(entity not loaded)" notice used in place of link to the entity.');
 
     // Verify that the entity type and use count information is also present.
     $expected_values = array(
@@ -896,7 +902,7 @@ class FileEntityAltTitleTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity alt and title text',
       'description' => 'Create an image file with alt and title text.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
       'dependencies' => array('token'),
     );
   }
@@ -987,7 +993,7 @@ class FileEntityChangeSchemeTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'Changing file scheme',
       'description' => 'Test changing the scheme of a file.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -1025,7 +1031,7 @@ class FileEntityReplaceTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File replacement',
       'description' => 'Test file replace functionality.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -1081,6 +1087,16 @@ class FileEntityReplaceTestCase extends FileEntityTestHelper {
     $this->drupalPost('file/' . $file->fid . '/edit', $edit, t('Save'));
     $this->assertRaw(t('The specified file %file could not be uploaded. Only files with the following extensions are allowed:', array('%file' => $image->filename)), 'File validation works, upload failed correctly.');
 
+    // Restrict allowed document filetypes to exclude plain text files.
+    variable_set('file_entity_default_allowed_extensions', 'doc docx pdf');
+
+    // Test that the file can't be replaced if there's a problem with the original file's extension.
+    $this->drupalGet('file/' . $file->fid . '/edit');
+    $this->assertRaw(t('This file cannot be replaced.'), 'File extension filter works, upload prevented correctly.');
+
+    // Clean up variable.
+    variable_del('file_entity_default_allowed_extensions');
+
     // Create a non-local file record.
     $file2 = new stdClass();
     $file2->uri = 'oembed://' . $this->randomName();
@@ -1109,7 +1125,7 @@ class FileEntityTokenTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity tokens',
       'description' => 'Test the file entity tokens.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -1167,7 +1183,7 @@ class FileEntityTypeTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity types',
       'description' => 'Test the file entity types.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -1296,7 +1312,7 @@ class FileEntityAccessTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity access',
       'description' => 'Test the access aspects of file entity.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -1639,7 +1655,7 @@ class FileEntityAttributeOverrideTestCase extends FileEntityTestHelper {
     return array(
       'name' => 'File entity attribute override',
       'description' => 'Test overriding file entity attributes.',
-      'group' => 'File entity',
+      'group' => 'file_entity',
     );
   }
 
@@ -1669,134 +1685,6 @@ class FileEntityAttributeOverrideTestCase extends FileEntityTestHelper {
     // Verify that all of the overrides replaced the attributes.
     foreach ($overrides as $attribute => $expected_value) {
       $this->assertEqual($build['#file']->$attribute, $expected_value, format_string('The %attribute was overridden correctly.', array('%attribute' => $attribute)));
-    }
-  }
-
-  /**
-   * @param EntityFieldQuery $query
-   * @param $expected
-   *   An associative array of expected result. Keys are file ids, values are
-   *   booleans to indicate if the result should include the file.
-   */
-  function assertEntityFieldQueryAccess(EntityFieldQuery $query, $expected, $account = NULL, $query_name = 'unnamed') {
-    if ($account) {
-      $query->addMetaData('account', $account);
-    }
-    $query->addTag('entity_field_access');
-    $results = $query->execute();
-    $fids = isset($results['file']) ? array_keys($results['file']) : array();
-    foreach ($expected as $fid => $in_result) {
-      if ($in_result) {
-        $this->assertTrue(in_array($fid, $fids), format_string("For the %name query, the result should contain %fid", array('%name' => $query_name, '%fid' => $fid)));
-      }
-      else {
-        $this->assertFalse(in_array($fid, $fids), format_string("For the %name query, the result should not contain %fid", array('%name' => $query_name, '%fid' => $fid)));
-      }
-    }
-  }
-
-  /**
-   * Test file entity access for entity field queries.
-   */
-  function testEntityFieldQueryAccess() {
-    // Attach a text field to the default image file type.
-    $field = array(
-      'field_name' => drupal_strtolower($this->randomName()),
-      'type' => 'text',
-      'settings' => array(
-        'max_length' => 255,
-      )
-    );
-    field_create_field($field);
-    $instance = array(
-      'field_name' => $field['field_name'],
-      'entity_type' => 'file',
-      'bundle' => 'document',
-      'widget' => array(
-        'type' => 'text_textfield',
-      ),
-      'display' => array(
-        'default' => array(
-          'type' => 'text_default',
-        ),
-      ),
-    );
-    field_create_instance($instance);
-    // Create test files.
-    $file_owner = $this->drupalCreateUser(array('view own files', 'view own private files'));
-    $public_file = $this->createFileEntity(array(
-      'status' => 0,
-    ));
-    $private_file = $this->createFileEntity(array('scheme' => 'private'));
-    $owned_public_file = $this->createFileEntity(array(
-      'uid' => $file_owner->uid,
-      'scheme' => 'public',
-    ));
-    $owned_private_file = $this->createFileEntity(array(
-      'uid' => $file_owner->uid,
-      'scheme' => 'private',
-    ));
-    $fids = array(
-      $public_file->fid,
-      $private_file->fid,
-      $owned_public_file->fid,
-      $owned_private_file->fid,
-    );
-    foreach (file_load_multiple($fids) as $file) {
-      $file->{$field['field_name']}[LANGUAGE_NONE][0] = array('value' => 'find me');
-      file_save($file);
-    }
-
-    $efq_fids = new EntityFieldQuery();
-    $queries['entity type and id conditions'] = $efq_fids
-      ->entityCondition('entity_type', 'file')
-      ->entityCondition('entity_id', $fids);
-    $efq_field_name = new EntityFieldQuery();
-    $queries['single field condition'] = $efq_field_name
-      ->fieldCondition($field['field_name'], 'value', 'find me');
-
-    foreach($queries as $name => $query) {
-      $message = format_string('');
-      // User should not see private files, only his own public files.
-      $this->assertEntityFieldQueryAccess(clone $query, array(
-        $public_file->fid => TRUE,
-        $private_file->fid => FALSE,
-        $owned_public_file->fid => TRUE,
-        $owned_private_file->fid => FALSE,
-      ), $this->drupalCreateUser(array('create files')), $name);
-
-      // A user with the 'view own files' and 'view own private files' permissions should only see owned files and public files.
-      $this->drupalLogin($file_owner);
-      $this->assertEntityFieldQueryAccess(clone $query, array(
-        $public_file->fid => TRUE,
-        $private_file->fid => FALSE,
-        $owned_public_file->fid => TRUE,
-        $owned_private_file->fid => TRUE,
-      ), $file_owner, $name);
-
-      // User with the 'view files' permission should only see public files but cannot create files.
-      $this->assertEntityFieldQueryAccess(clone $query, array(
-        $public_file->fid => TRUE,
-        $private_file->fid => FALSE,
-        $owned_public_file->fid => TRUE,
-        $owned_private_file->fid => FALSE,
-      ), $this->drupalCreateUser(array('view files')), $name);
-
-      // User with the 'view files' and 'view private files' permissions should only see all files.
-      $this->assertEntityFieldQueryAccess(clone $query, array(
-        $public_file->fid => TRUE,
-        $private_file->fid => TRUE,
-        $owned_public_file->fid => TRUE,
-        $owned_private_file->fid => TRUE,
-      ), $this->drupalCreateUser(array('view files', 'view private files')), $name);
-
-      // User with the 'bypass file access' permissions should only see all files.
-      $this->assertEntityFieldQueryAccess(clone $query, array(
-        $public_file->fid => TRUE,
-        $private_file->fid => TRUE,
-        $owned_public_file->fid => TRUE,
-        $owned_private_file->fid => TRUE,
-      ), $this->drupalCreateUser(array('bypass file access')), $name);
     }
   }
 }

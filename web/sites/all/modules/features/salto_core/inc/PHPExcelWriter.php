@@ -10,6 +10,8 @@ class PHPExcelWriter {
   var $title;
 
   public function __construct($filePath, $format, $title = 'export') {
+    $this->loadLibraries();
+
     $this->filePath = $filePath;
     $this->format = $format;
     $this->title = $title;
@@ -27,7 +29,7 @@ class PHPExcelWriter {
    * @throws PHPExcel_Writer_Exception
    */
   public function convertFromCSV($loadFilePath, $writeFilePath) {
-    $this->loadLibraries();
+
     $objReader = PHPExcel_IOFactory::createReader('CSV');
     $objPHPExcel = $objReader->load($loadFilePath);
     $objWriter = self::create($objPHPExcel, $this->format);
@@ -41,7 +43,6 @@ class PHPExcelWriter {
    * @throws PHPExcel_Writer_Exception
    */
   public function mergeFilesInSheets($inputFiles, $outputFilePath) {
-    $this->loadLibraries();
 
     $objReader = PHPExcel_IOFactory::createReader('CSV');
     $inputFileName = array_shift($inputFiles);
@@ -57,6 +58,8 @@ class PHPExcelWriter {
   }
 
   static function create($excel, $format = "xlsx") {
+    libraries_load('PHPExcel');
+    libraries_load('PHPExcel_IOFactory');
 
     $format = strtolower($format);
     switch ($format) {
@@ -94,8 +97,6 @@ class PHPExcelWriter {
     PHPExcel_Settings::setCacheStorageMethod($cacheMethod, $cacheSettings);
 
     // set up excel workbook
-    $this->loadLibraries();
-
     $excel = PHPExcel_IOFactory::load($this->filePath);
     $excel->getProperties()
       ->setCreator($username)
@@ -130,6 +131,9 @@ class PHPExcelWriter {
   }
 
   static function writeNativeCSV($filepath, $data, $mode = 'a') {
+    libraries_load('PHPExcel');
+    libraries_load('PHPExcel_IOFactory');
+
     if(!file_exists($filepath)) { return false; }
     $csvFile = fopen($filepath, $mode);
 
@@ -157,6 +161,8 @@ class PHPExcelWriter {
    * @internal param string $format
    */
   static function writeStyle($data, $headers, $file = [], $title = "export") {
+    libraries_load('PHPExcel');
+    libraries_load('PHPExcel_IOFactory');
 
     global $user;
     $username = format_username($user);
@@ -247,6 +253,8 @@ class PHPExcelWriter {
    * @throws PHPExcel_Writer_Exception
    */
   static function writerOnDemand($excel, $filename, $format = "xlsx") {
+    libraries_load('PHPExcel');
+    libraries_load('PHPExcel_IOFactory');
     $writer = self::create($excel, $format);
 
     $filename = str_replace(array('ä'), array('ae'), $filename);

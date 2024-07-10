@@ -8,6 +8,13 @@
 @margin-left-li: 2em;
 @screen-width: 768px;
 
+.userbar-desktop {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+
 .userbar {
   display: block;
   color: @font-color;
@@ -185,9 +192,9 @@
         /*width: 100%;*/
         display: block;
         padding: 1.5em 1em;
-        height: auto;
+        height: 95px;
         line-height: 1em;
-        font-size: 1.8rem;
+        font-size: 1.12rem;
         &:hover {
           background-color: #fafafa;
         }
@@ -225,7 +232,7 @@
         color: #FFF;
         padding: 1em 2em;
         border-bottom: 1px dotted #FFF;
-        font-size: 1.3rem;
+        font-size: 0.9rem;
         &:hover {
           background-color: lighten(@dosb-grey, 10%);
         }
@@ -355,7 +362,7 @@
   .navbar.container {
     display: flex;
     align-items: baseline;
-    height: 91px;
+    height: 95px;
     padding: 0.8em;
     max-width: unset;
     width: unset;
@@ -401,7 +408,8 @@
 
       .navbar-nav li a {
         padding: 2em 0.5em;
-        font-size: 1.5rem;
+        font-size: 1rem;
+        height: auto;
       }
     }
   }

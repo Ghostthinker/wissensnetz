@@ -50,37 +50,22 @@
 <head profile="<?php print $grddl_profile; ?>">
   <meta charset="utf-8">
   <meta name='viewport'
-        content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0'/>
+        content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, interactive-widget=resizes-content'/>
   <?php print $head; ?>
+
   <title><?php print $head_title; ?></title>
 
-  <!-- Google Fonts -->
-  <link
-    href='https://fonts.googleapis.com/css?family=Open+Sans:400,300,300italic,400italic,700,700italic'
-    rel='stylesheet' type='text/css'>
-
-
-    <link rel="apple-touch-icon" sizes="180×180"
-          href="/sites/all/themes/salto2014/icons/favicon-180.png">
-    <link rel="apple-touch-icon" sizes="152×152"
-          href="/sites/all/themes/salto2014/icons/favicon-152.png">
-    <link rel="apple-touch-icon" sizes="120×120"
-          href="/sites/all/themes/salto2014/icons/favicon-120.png">
-    <link rel="apple-touch-icon" sizes="76x76"
-          href="/sites/all/themes/salto2014/icons/favicon-076.png">
-    <link rel="apple-touch-icon" sizes="60×60"
-          href="/sites/all/themes/salto2014/icons/favicon-060.png">
-    <!-- old sizes -->
-    <link rel="apple-touch-icon" sizes="144x144"
-          href="/sites/all/themes/salto2014/icons/favicon-144.png">
-    <link rel="apple-touch-icon" sizes="114×114"
-          href="/sites/all/themes/salto2014/icons/favicon-114.png">
-
-    <!-- To support Android -->
-    <link rel="icon" type="image/png" sizes="192×192"
-          href="/sites/all/themes/salto2014/icons/favicon-192.png">
-    <link rel="icon" type="image/png" sizes="128×128"
-          href="/sites/all/themes/salto2014/icons/favicon-128.png">
+  <!-- shortcut icon favicon set via header alter -->
+  <?php if (!empty($favicons_png['32x32'])): ?>
+  <!-- To support Android -->
+  <link rel="icon" type="image/png" sizes="32×32" href="<?php print $favicons_png['32x32']; ?>">
+  <?php endif; ?>
+  <?php if (!empty($favicons_png['192x192'])): ?>
+  <link rel="icon" type="image/png" sizes="192×192" href="<?php print $favicons_png['192x192']; ?>">
+  <?php endif; ?>
+  <?php if (!empty($favicons_png['180x180'])): ?>
+  <link rel="apple-touch-icon" sizes="180×180" href="<?php print $favicons_png['180x180']; ?>">
+  <?php endif; ?>
 
   <?php print $styles; ?>
   <!-- HTML5 element support for IE6-8 -->

@@ -18,6 +18,9 @@ function salto_files_ctools_plugin_api($module = NULL, $api = NULL) {
   if ($module == "file_entity" && $api == "file_type") {
     return array("version" => "1");
   }
+  if ($module == "heartbeat" && $api == "heartbeat") {
+    return array("version" => "1");
+  }
   if ($module == "media_derivatives" && $api == "media_derivatives_presets") {
     return array("version" => "1");
   }

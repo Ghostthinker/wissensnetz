@@ -21,7 +21,7 @@
  * regardless of any changes in the aliasing that might happen if
  * the view is modified.
  */
-$fallback_og = variable_get("salto_organisation_fallback_nid", NULL);
+$fallback_og = salto_organisation_get_fallback_nid();
 ?>
 <?php if (!empty($row->field_field_user_organisations) && $row->field_field_user_organisations[0]["raw"]["target_id"] != $fallback_og) : ?>
   <?php print $output; ?>

@@ -12,6 +12,844 @@ function salto_organisation_views_default_views() {
   $export = array();
 
   $view = new view();
+  $view->name = 'commnity_manager_invites';
+  $view->description = 'Show all invities (community-wide)';
+  $view->tag = 'default';
+  $view->base_table = 'salto_invite';
+  $view->human_name = 'community_manager_invites';
+  $view->core = 7;
+  $view->api_version = '3.0';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+
+  /* Display: Master */
+  $handler = $view->new_display('default', 'Master', 'default');
+  $handler->display->display_options['title'] = 'Einladungsübersicht für Community-Manager:innen';
+  $handler->display->display_options['use_more_always'] = FALSE;
+  $handler->display->display_options['use_more_text'] = 'mehr';
+  $handler->display->display_options['access']['type'] = 'role';
+  $handler->display->display_options['access']['role'] = array(
+    3 => '3',
+    6 => '6',
+    4 => '4',
+  );
+  $handler->display->display_options['cache']['type'] = 'none';
+  $handler->display->display_options['query']['type'] = 'views_query';
+  $handler->display->display_options['exposed_form']['type'] = 'basic';
+  $handler->display->display_options['exposed_form']['options']['submit_button'] = 'Anwenden';
+  $handler->display->display_options['exposed_form']['options']['reset_button_label'] = 'Zurücksetzen';
+  $handler->display->display_options['exposed_form']['options']['exposed_sorts_label'] = 'Sortieren nach';
+  $handler->display->display_options['exposed_form']['options']['sort_asc_label'] = 'Aufsteigend';
+  $handler->display->display_options['exposed_form']['options']['sort_desc_label'] = 'Absteigend';
+  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '25';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_label'] = 'Elemente pro Seite';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_options_all_label'] = '- Alle -';
+  $handler->display->display_options['pager']['options']['tags']['first'] = '« erste Seite';
+  $handler->display->display_options['pager']['options']['tags']['previous'] = '‹ vorherige Seite';
+  $handler->display->display_options['pager']['options']['tags']['next'] = 'nächste Seite ›';
+  $handler->display->display_options['pager']['options']['tags']['last'] = 'letzte Seite »';
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'counter' => 'counter',
+    'salto_invite_id' => 'salto_invite_id',
+    'field_profile_contact_email_1' => 'field_profile_contact_email_1',
+    'field_profile_name_first_1' => 'field_profile_name_first_1',
+    'field_profile_name_last_1' => 'field_profile_name_last_1',
+    'field_salto_invite_organisations' => 'field_salto_invite_organisations',
+    'created' => 'created',
+    'used' => 'used',
+    'link_salto_resend_invite' => 'link_salto_resend_invite',
+    'user' => 'user',
+    'name' => 'name',
+  );
+  $handler->display->display_options['style_options']['default'] = 'created';
+  $handler->display->display_options['style_options']['info'] = array(
+    'counter' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'salto_invite_id' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_profile_contact_email_1' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_profile_name_first_1' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_profile_name_last_1' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_salto_invite_organisations' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'created' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'desc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'used' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'link_salto_resend_invite' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'user' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'name' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+  );
+  /* No results behavior: Global: Text area */
+  $handler->display->display_options['empty']['area']['id'] = 'area';
+  $handler->display->display_options['empty']['area']['table'] = 'views';
+  $handler->display->display_options['empty']['area']['field'] = 'area';
+  $handler->display->display_options['empty']['area']['empty'] = TRUE;
+  $handler->display->display_options['empty']['area']['content'] = 'Sie haben noch keine Personen in eine Organisation eingeladen!';
+  $handler->display->display_options['empty']['area']['format'] = 'editor';
+  /* Relationship: Salto Invite: User uid */
+  $handler->display->display_options['relationships']['user']['id'] = 'user';
+  $handler->display->display_options['relationships']['user']['table'] = 'salto_invite';
+  $handler->display->display_options['relationships']['user']['field'] = 'user';
+  /* Relationship: Entity Reference: Referenced Entity */
+  $handler->display->display_options['relationships']['field_salto_invite_account_target_id']['id'] = 'field_salto_invite_account_target_id';
+  $handler->display->display_options['relationships']['field_salto_invite_account_target_id']['table'] = 'field_data_field_salto_invite_account';
+  $handler->display->display_options['relationships']['field_salto_invite_account_target_id']['field'] = 'field_salto_invite_account_target_id';
+  $handler->display->display_options['relationships']['field_salto_invite_account_target_id']['label'] = 'Benutzer entity referenced from field_salto_invite_account';
+  /* Relationship: User: Profile */
+  $handler->display->display_options['relationships']['profile']['id'] = 'profile';
+  $handler->display->display_options['relationships']['profile']['table'] = 'users';
+  $handler->display->display_options['relationships']['profile']['field'] = 'profile';
+  $handler->display->display_options['relationships']['profile']['relationship'] = 'field_salto_invite_account_target_id';
+  $handler->display->display_options['relationships']['profile']['label'] = 'Profil';
+  /* Field: Salto Invite: OG */
+  $handler->display->display_options['fields']['field_salto_invite_og']['id'] = 'field_salto_invite_og';
+  $handler->display->display_options['fields']['field_salto_invite_og']['table'] = 'field_data_field_salto_invite_og';
+  $handler->display->display_options['fields']['field_salto_invite_og']['field'] = 'field_salto_invite_og';
+  $handler->display->display_options['fields']['field_salto_invite_og']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['field_salto_invite_og']['settings'] = array(
+    'bypass_access' => 0,
+    'link' => 1,
+  );
+  /* Field: Global: View result counter */
+  $handler->display->display_options['fields']['counter']['id'] = 'counter';
+  $handler->display->display_options['fields']['counter']['table'] = 'views';
+  $handler->display->display_options['fields']['counter']['field'] = 'counter';
+  $handler->display->display_options['fields']['counter']['label'] = '#';
+  $handler->display->display_options['fields']['counter']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['counter']['counter_start'] = '1';
+  $handler->display->display_options['fields']['counter']['reverse'] = 0;
+  /* Field: Salto Invite: Salto invite ID */
+  $handler->display->display_options['fields']['salto_invite_id']['id'] = 'salto_invite_id';
+  $handler->display->display_options['fields']['salto_invite_id']['table'] = 'salto_invite';
+  $handler->display->display_options['fields']['salto_invite_id']['field'] = 'salto_invite_id';
+  $handler->display->display_options['fields']['salto_invite_id']['exclude'] = TRUE;
+  /* Field: Field: Vorname */
+  $handler->display->display_options['fields']['field_profile_name_first']['id'] = 'field_profile_name_first';
+  $handler->display->display_options['fields']['field_profile_name_first']['table'] = 'field_data_field_profile_name_first';
+  $handler->display->display_options['fields']['field_profile_name_first']['field'] = 'field_profile_name_first';
+  $handler->display->display_options['fields']['field_profile_name_first']['relationship'] = 'profile';
+  $handler->display->display_options['fields']['field_profile_name_first']['exclude'] = TRUE;
+  /* Field: Field: Nachname */
+  $handler->display->display_options['fields']['field_profile_name_last']['id'] = 'field_profile_name_last';
+  $handler->display->display_options['fields']['field_profile_name_last']['table'] = 'field_data_field_profile_name_last';
+  $handler->display->display_options['fields']['field_profile_name_last']['field'] = 'field_profile_name_last';
+  $handler->display->display_options['fields']['field_profile_name_last']['relationship'] = 'profile';
+  $handler->display->display_options['fields']['field_profile_name_last']['exclude'] = TRUE;
+  /* Field: Field: Vorname */
+  $handler->display->display_options['fields']['field_profile_name_first_1']['id'] = 'field_profile_name_first_1';
+  $handler->display->display_options['fields']['field_profile_name_first_1']['table'] = 'field_data_field_profile_name_first';
+  $handler->display->display_options['fields']['field_profile_name_first_1']['field'] = 'field_profile_name_first';
+  $handler->display->display_options['fields']['field_profile_name_first_1']['empty'] = '[field_profile_name_first]';
+  $handler->display->display_options['fields']['field_profile_name_first_1']['hide_empty'] = TRUE;
+  $handler->display->display_options['fields']['field_profile_name_first_1']['hide_alter_empty'] = FALSE;
+  /* Field: Field: Nachname */
+  $handler->display->display_options['fields']['field_profile_name_last_1']['id'] = 'field_profile_name_last_1';
+  $handler->display->display_options['fields']['field_profile_name_last_1']['table'] = 'field_data_field_profile_name_last';
+  $handler->display->display_options['fields']['field_profile_name_last_1']['field'] = 'field_profile_name_last';
+  $handler->display->display_options['fields']['field_profile_name_last_1']['empty'] = '[field_profile_name_last]';
+  $handler->display->display_options['fields']['field_profile_name_last_1']['hide_alter_empty'] = FALSE;
+  /* Field: Field: Email */
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['id'] = 'field_profile_contact_email_1';
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['table'] = 'field_data_field_profile_contact_email';
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['field'] = 'field_profile_contact_email';
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['label'] = 'E-Mail';
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['alter']['text'] = '[field_profile_contact_email_1]..';
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['alter']['max_length'] = '5';
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['alter']['word_boundary'] = FALSE;
+  $handler->display->display_options['fields']['field_profile_contact_email_1']['alter']['trim'] = TRUE;
+  /* Field: Salto Invite: Organisations */
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['id'] = 'field_salto_invite_organisations';
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['table'] = 'og_membership';
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['field'] = 'field_salto_invite_organisations';
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['label'] = 'Organisation';
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['empty'] = '[field_salto_invite_og]';
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['hide_alter_empty'] = FALSE;
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['settings'] = array(
+    'bypass_access' => 0,
+    'link' => 1,
+  );
+  $handler->display->display_options['fields']['field_salto_invite_organisations']['delta_offset'] = '0';
+  /* Field: Salto Invite: Created */
+  $handler->display->display_options['fields']['created']['id'] = 'created';
+  $handler->display->display_options['fields']['created']['table'] = 'salto_invite';
+  $handler->display->display_options['fields']['created']['field'] = 'created';
+  $handler->display->display_options['fields']['created']['label'] = 'Erstellt am';
+  /* Field: Salto Invite: Used */
+  $handler->display->display_options['fields']['used']['id'] = 'used';
+  $handler->display->display_options['fields']['used']['table'] = 'salto_invite';
+  $handler->display->display_options['fields']['used']['field'] = 'used';
+  $handler->display->display_options['fields']['used']['label'] = 'Verwendet';
+  $handler->display->display_options['fields']['used']['type'] = 'unicode-yes-no';
+  $handler->display->display_options['fields']['used']['not'] = 0;
+  /* Field: Salto Invite: Resend invite Link */
+  $handler->display->display_options['fields']['link_salto_resend_invite']['id'] = 'link_salto_resend_invite';
+  $handler->display->display_options['fields']['link_salto_resend_invite']['table'] = 'salto_invite';
+  $handler->display->display_options['fields']['link_salto_resend_invite']['field'] = 'link_salto_resend_invite';
+  $handler->display->display_options['fields']['link_salto_resend_invite']['label'] = 'Aktionen';
+  $handler->display->display_options['fields']['link_salto_resend_invite']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['link_salto_resend_invite']['text'] = 'Erneut versenden';
+  $handler->display->display_options['fields']['link_salto_resend_invite']['css_primary_button'] = 1;
+  /* Field: User: Name */
+  $handler->display->display_options['fields']['name']['id'] = 'name';
+  $handler->display->display_options['fields']['name']['table'] = 'users';
+  $handler->display->display_options['fields']['name']['field'] = 'name';
+  $handler->display->display_options['fields']['name']['relationship'] = 'user';
+  $handler->display->display_options['fields']['name']['label'] = 'Eingeladen von';
+
+  /* Display: Page */
+  $handler = $view->new_display('page', 'Page', 'page');
+  $handler->display->display_options['path'] = 'community-manager/invites';
+  $handler->display->display_options['menu']['title'] = 'Meine Einladungen';
+  $handler->display->display_options['menu']['weight'] = '0';
+  $handler->display->display_options['menu']['name'] = 'user-menu';
+  $handler->display->display_options['menu']['context'] = 0;
+  $handler->display->display_options['menu']['context_only_inline'] = 0;
+  $translatables['commnity_manager_invites'] = array(
+    t('Master'),
+    t('Einladungsübersicht für Community-Manager:innen'),
+    t('mehr'),
+    t('Anwenden'),
+    t('Zurücksetzen'),
+    t('Sortieren nach'),
+    t('Aufsteigend'),
+    t('Absteigend'),
+    t('Elemente pro Seite'),
+    t('- Alle -'),
+    t('Offset'),
+    t('« erste Seite'),
+    t('‹ vorherige Seite'),
+    t('nächste Seite ›'),
+    t('letzte Seite »'),
+    t('Sie haben noch keine Personen in eine Organisation eingeladen!'),
+    t('User'),
+    t('Benutzer entity referenced from field_salto_invite_account'),
+    t('Profil'),
+    t('OG'),
+    t('#'),
+    t('Salto invite ID'),
+    t('.'),
+    t(','),
+    t('Vorname'),
+    t('Nachname'),
+    t('[field_profile_name_first]'),
+    t('[field_profile_name_last]'),
+    t('E-Mail'),
+    t('[field_profile_contact_email_1]..'),
+    t('Organisation'),
+    t('[field_salto_invite_og]'),
+    t('Erstellt am'),
+    t('Verwendet'),
+    t('Aktionen'),
+    t('Erneut versenden'),
+    t('Eingeladen von'),
+    t('Page'),
+    t('more'),
+  );
+  $export['commnity_manager_invites'] = $view;
+
+  $view = new view();
+  $view->name = 'commnity_manager_legal';
+  $view->description = '';
+  $view->tag = '';
+  $view->base_table = 'users';
+  $view->human_name = 'community_manager_legal';
+  $view->core = 0;
+  $view->api_version = '3.0';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+
+  /* Display: Defaults */
+  $handler = $view->new_display('default', 'Defaults', 'default');
+  $handler->display->display_options['title'] = 'Übersicht zugestimmte Nutzungsbedingungen für Community-Manager:innen';
+  $handler->display->display_options['use_more_always'] = FALSE;
+  $handler->display->display_options['access']['type'] = 'role';
+  $handler->display->display_options['access']['role'] = array(
+    3 => '3',
+    6 => '6',
+  );
+  $handler->display->display_options['cache']['type'] = 'none';
+  $handler->display->display_options['query']['type'] = 'views_query';
+  $handler->display->display_options['exposed_form']['type'] = 'basic';
+  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '50';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
+  $handler->display->display_options['pager']['options']['id'] = '0';
+  $handler->display->display_options['pager']['options']['quantity'] = '9';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_label'] = 'Elemente pro Seite';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_options_all_label'] = '- Alle -';
+  $handler->display->display_options['pager']['options']['tags']['first'] = '« erste Seite';
+  $handler->display->display_options['pager']['options']['tags']['previous'] = '‹ vorherige Seite';
+  $handler->display->display_options['pager']['options']['tags']['next'] = 'nächste Seite ›';
+  $handler->display->display_options['pager']['options']['tags']['last'] = 'letzte Seite »';
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['grouping'] = '';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'name' => 'name',
+    'version' => 'version',
+    'language_1' => 'language_1',
+    'revision' => 'revision',
+    'accepted' => 'accepted',
+  );
+  $handler->display->display_options['style_options']['default'] = '-1';
+  $handler->display->display_options['style_options']['info'] = array(
+    'name' => array(
+      'sortable' => 1,
+      'separator' => '',
+    ),
+    'version' => array(
+      'sortable' => 1,
+      'separator' => '',
+    ),
+    'language_1' => array(
+      'sortable' => 1,
+      'separator' => '',
+    ),
+    'revision' => array(
+      'sortable' => 1,
+      'separator' => '',
+    ),
+    'accepted' => array(
+      'sortable' => 1,
+      'separator' => '',
+    ),
+  );
+  $handler->display->display_options['style_options']['sticky'] = TRUE;
+  $handler->display->display_options['style_options']['order'] = 'desc';
+  /* No results behavior: Global: Text area */
+  $handler->display->display_options['empty']['text']['id'] = 'area';
+  $handler->display->display_options['empty']['text']['table'] = 'views';
+  $handler->display->display_options['empty']['text']['field'] = 'area';
+  $handler->display->display_options['empty']['text']['content'] = 'No users have accepted Terms & Conditions yet.';
+  $handler->display->display_options['empty']['text']['format'] = '1';
+  /* Field: Global: View result counter */
+  $handler->display->display_options['fields']['counter']['id'] = 'counter';
+  $handler->display->display_options['fields']['counter']['table'] = 'views';
+  $handler->display->display_options['fields']['counter']['field'] = 'counter';
+  $handler->display->display_options['fields']['counter']['label'] = '#';
+  $handler->display->display_options['fields']['counter']['counter_start'] = '1';
+  $handler->display->display_options['fields']['counter']['reverse'] = 0;
+  /* Field: User: Name */
+  $handler->display->display_options['fields']['name']['id'] = 'name';
+  $handler->display->display_options['fields']['name']['table'] = 'users';
+  $handler->display->display_options['fields']['name']['field'] = 'name';
+  $handler->display->display_options['fields']['name']['label'] = 'User';
+  /* Field: Legal: Version */
+  $handler->display->display_options['fields']['version']['id'] = 'version';
+  $handler->display->display_options['fields']['version']['table'] = 'legal_accepted';
+  $handler->display->display_options['fields']['version']['field'] = 'version';
+  $handler->display->display_options['fields']['version']['exclude'] = TRUE;
+  /* Field: Legal: Language */
+  $handler->display->display_options['fields']['language_1']['id'] = 'language_1';
+  $handler->display->display_options['fields']['language_1']['table'] = 'legal_accepted';
+  $handler->display->display_options['fields']['language_1']['field'] = 'language';
+  $handler->display->display_options['fields']['language_1']['exclude'] = TRUE;
+  /* Field: Legal: Revision */
+  $handler->display->display_options['fields']['revision']['id'] = 'revision';
+  $handler->display->display_options['fields']['revision']['table'] = 'legal_accepted';
+  $handler->display->display_options['fields']['revision']['field'] = 'revision';
+  $handler->display->display_options['fields']['revision']['exclude'] = TRUE;
+  /* Field: Legal: Time Accepted */
+  $handler->display->display_options['fields']['accepted']['id'] = 'accepted';
+  $handler->display->display_options['fields']['accepted']['table'] = 'legal_accepted';
+  $handler->display->display_options['fields']['accepted']['field'] = 'accepted';
+  /* Sort criterion: User: Uid */
+  $handler->display->display_options['sorts']['uid']['id'] = 'uid';
+  $handler->display->display_options['sorts']['uid']['table'] = 'users';
+  $handler->display->display_options['sorts']['uid']['field'] = 'uid';
+  $handler->display->display_options['sorts']['uid']['order'] = 'DESC';
+  /* Sort criterion: Legal: Version */
+  $handler->display->display_options['sorts']['version']['id'] = 'version';
+  $handler->display->display_options['sorts']['version']['table'] = 'legal_accepted';
+  $handler->display->display_options['sorts']['version']['field'] = 'version';
+  $handler->display->display_options['sorts']['version']['order'] = 'DESC';
+  /* Sort criterion: Legal: Language */
+  $handler->display->display_options['sorts']['language']['id'] = 'language';
+  $handler->display->display_options['sorts']['language']['table'] = 'legal_accepted';
+  $handler->display->display_options['sorts']['language']['field'] = 'language';
+  /* Sort criterion: Legal: Revision */
+  $handler->display->display_options['sorts']['revision']['id'] = 'revision';
+  $handler->display->display_options['sorts']['revision']['table'] = 'legal_accepted';
+  $handler->display->display_options['sorts']['revision']['field'] = 'revision';
+  /* Filter criterion: Legal: Version */
+  $handler->display->display_options['filters']['version']['id'] = 'version';
+  $handler->display->display_options['filters']['version']['table'] = 'legal_accepted';
+  $handler->display->display_options['filters']['version']['field'] = 'version';
+  $handler->display->display_options['filters']['version']['group'] = '0';
+  $handler->display->display_options['filters']['version']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['version']['expose']['operator_id'] = 'version_op';
+  $handler->display->display_options['filters']['version']['expose']['label'] = 'Version';
+  $handler->display->display_options['filters']['version']['expose']['operator'] = 'version_op';
+  $handler->display->display_options['filters']['version']['expose']['identifier'] = 'version';
+  $handler->display->display_options['filters']['version']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  $handler->display->display_options['filters']['version']['is_grouped'] = TRUE;
+  $handler->display->display_options['filters']['version']['group_info']['label'] = 'Version';
+  $handler->display->display_options['filters']['version']['group_info']['identifier'] = 'version';
+  $handler->display->display_options['filters']['version']['group_info']['optional'] = FALSE;
+  $handler->display->display_options['filters']['version']['group_info']['default_group'] = '1';
+  $handler->display->display_options['filters']['version']['group_info']['group_items'] = array(
+    1 => array(
+      'title' => 'Aktuelle Version',
+      'operator' => '=',
+      'value' => array(
+        'value' => '16',
+        'min' => '',
+        'max' => '',
+      ),
+    ),
+    2 => array(
+      'title' => 'Erste Version',
+      'operator' => '=',
+      'value' => array(
+        'value' => '14',
+        'min' => '',
+        'max' => '',
+      ),
+    ),
+    3 => array(
+      'title' => '',
+      'operator' => '=',
+      'value' => array(
+        'value' => '',
+        'min' => '',
+        'max' => '',
+      ),
+    ),
+  );
+  /* Filter criterion: Realname: Name */
+  $handler->display->display_options['filters']['realname']['id'] = 'realname';
+  $handler->display->display_options['filters']['realname']['table'] = 'realname';
+  $handler->display->display_options['filters']['realname']['field'] = 'realname';
+  $handler->display->display_options['filters']['realname']['operator'] = 'contains';
+  $handler->display->display_options['filters']['realname']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['realname']['expose']['operator_id'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['label'] = 'Name';
+  $handler->display->display_options['filters']['realname']['expose']['operator'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['identifier'] = 'realname';
+  $handler->display->display_options['filters']['realname']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_dependent'] = 0;
+
+  /* Display: Users */
+  $handler = $view->new_display('page', 'Users', 'page_1');
+  $handler->display->display_options['path'] = 'community-manager/legal';
+  $handler->display->display_options['menu']['title'] = 'Accepted';
+  $handler->display->display_options['menu']['description'] = 'Accepted';
+  $handler->display->display_options['menu']['weight'] = '5';
+  $handler->display->display_options['menu']['context'] = 0;
+  $handler->display->display_options['menu']['context_only_inline'] = 0;
+  $translatables['commnity_manager_legal'] = array(
+    t('Defaults'),
+    t('Übersicht zugestimmte Nutzungsbedingungen für Community-Manager:innen'),
+    t('more'),
+    t('Apply'),
+    t('Reset'),
+    t('Sort by'),
+    t('Asc'),
+    t('Desc'),
+    t('Elemente pro Seite'),
+    t('- Alle -'),
+    t('Offset'),
+    t('« erste Seite'),
+    t('‹ vorherige Seite'),
+    t('nächste Seite ›'),
+    t('letzte Seite »'),
+    t('No users have accepted Terms & Conditions yet.'),
+    t('#'),
+    t('User'),
+    t('Version'),
+    t('Language'),
+    t('Revision'),
+    t('Time Accepted'),
+    t('Name'),
+    t('Users'),
+  );
+  $export['commnity_manager_legal'] = $view;
+
+  $view = new view();
+  $view->name = 'commnity_manager_people';
+  $view->description = '';
+  $view->tag = 'default';
+  $view->base_table = 'users';
+  $view->human_name = 'community_manager_people';
+  $view->core = 7;
+  $view->api_version = '3.0';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+
+  /* Display: Master */
+  $handler = $view->new_display('default', 'Master', 'default');
+  $handler->display->display_options['title'] = 'Mitglieder Übersicht für Community-Manager:innen';
+  $handler->display->display_options['use_more_always'] = FALSE;
+  $handler->display->display_options['access']['type'] = 'role';
+  $handler->display->display_options['access']['role'] = array(
+    3 => '3',
+    6 => '6',
+    4 => '4',
+  );
+  $handler->display->display_options['cache']['type'] = 'none';
+  $handler->display->display_options['query']['type'] = 'views_query';
+  $handler->display->display_options['exposed_form']['type'] = 'basic';
+  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '50';
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'views_bulk_operations' => 'views_bulk_operations',
+    'counter' => 'counter',
+    'name' => 'name',
+    'status' => 'status',
+    'login' => 'login',
+    'access' => 'access',
+    'mail' => 'mail',
+    'uid' => 'uid',
+    'php' => 'php',
+  );
+  $handler->display->display_options['style_options']['default'] = 'name';
+  $handler->display->display_options['style_options']['info'] = array(
+    'views_bulk_operations' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'counter' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'name' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'status' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'login' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'access' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'desc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'mail' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'uid' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'php' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+  );
+  /* Field: Bulk operations: User */
+  $handler->display->display_options['fields']['views_bulk_operations']['id'] = 'views_bulk_operations';
+  $handler->display->display_options['fields']['views_bulk_operations']['table'] = 'views_entity_user';
+  $handler->display->display_options['fields']['views_bulk_operations']['field'] = 'views_bulk_operations';
+  $handler->display->display_options['fields']['views_bulk_operations']['label'] = 'Benutzer';
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['display_type'] = '0';
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['enable_select_all_pages'] = 1;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['row_clickable'] = 1;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['force_single'] = 0;
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_settings']['entity_load_capacity'] = '10';
+  $handler->display->display_options['fields']['views_bulk_operations']['vbo_operations'] = array(
+    'action::salto_user_activate_action' => array(
+      'selected' => 1,
+      'postpone_processing' => 0,
+      'skip_confirmation' => 0,
+      'skip_permission_check' => 0,
+      'override_label' => 0,
+      'label' => '',
+    ),
+    'action::salto_user_deactivate_action' => array(
+      'selected' => 1,
+      'postpone_processing' => 0,
+      'skip_confirmation' => 0,
+      'skip_permission_check' => 0,
+      'override_label' => 0,
+      'label' => '',
+    ),
+  );
+  /* Field: Global: View result counter */
+  $handler->display->display_options['fields']['counter']['id'] = 'counter';
+  $handler->display->display_options['fields']['counter']['table'] = 'views';
+  $handler->display->display_options['fields']['counter']['field'] = 'counter';
+  $handler->display->display_options['fields']['counter']['label'] = '#';
+  $handler->display->display_options['fields']['counter']['counter_start'] = '1';
+  $handler->display->display_options['fields']['counter']['reverse'] = 0;
+  /* Field: User: Name */
+  $handler->display->display_options['fields']['name']['id'] = 'name';
+  $handler->display->display_options['fields']['name']['table'] = 'users';
+  $handler->display->display_options['fields']['name']['field'] = 'name';
+  $handler->display->display_options['fields']['name']['alter']['word_boundary'] = FALSE;
+  $handler->display->display_options['fields']['name']['alter']['ellipsis'] = FALSE;
+  /* Field: User: Active */
+  $handler->display->display_options['fields']['status']['id'] = 'status';
+  $handler->display->display_options['fields']['status']['table'] = 'users';
+  $handler->display->display_options['fields']['status']['field'] = 'status';
+  $handler->display->display_options['fields']['status']['label'] = 'Aktiv';
+  $handler->display->display_options['fields']['status']['not'] = 0;
+  /* Field: User: Last login */
+  $handler->display->display_options['fields']['login']['id'] = 'login';
+  $handler->display->display_options['fields']['login']['table'] = 'users';
+  $handler->display->display_options['fields']['login']['field'] = 'login';
+  $handler->display->display_options['fields']['login']['label'] = 'Letzte Anmeldung';
+  $handler->display->display_options['fields']['login']['date_format'] = 'short';
+  $handler->display->display_options['fields']['login']['second_date_format'] = 'privatemsg_current_day';
+  /* Field: User: Last access */
+  $handler->display->display_options['fields']['access']['id'] = 'access';
+  $handler->display->display_options['fields']['access']['table'] = 'users';
+  $handler->display->display_options['fields']['access']['field'] = 'access';
+  $handler->display->display_options['fields']['access']['label'] = 'Letzter Zugriff';
+  $handler->display->display_options['fields']['access']['date_format'] = 'short';
+  $handler->display->display_options['fields']['access']['second_date_format'] = 'privatemsg_current_day';
+  /* Field: User: E-mail */
+  $handler->display->display_options['fields']['mail']['id'] = 'mail';
+  $handler->display->display_options['fields']['mail']['table'] = 'users';
+  $handler->display->display_options['fields']['mail']['field'] = 'mail';
+  $handler->display->display_options['fields']['mail']['label'] = 'E-Mail';
+  $handler->display->display_options['fields']['mail']['exclude'] = TRUE;
+  /* Field: User: Uid */
+  $handler->display->display_options['fields']['uid']['id'] = 'uid';
+  $handler->display->display_options['fields']['uid']['table'] = 'users';
+  $handler->display->display_options['fields']['uid']['field'] = 'uid';
+  $handler->display->display_options['fields']['uid']['exclude'] = TRUE;
+  /* Field: Global: PHP */
+  $handler->display->display_options['fields']['php']['id'] = 'php';
+  $handler->display->display_options['fields']['php']['table'] = 'views';
+  $handler->display->display_options['fields']['php']['field'] = 'php';
+  $handler->display->display_options['fields']['php']['label'] = 'Aktion';
+  $handler->display->display_options['fields']['php']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['php']['use_php_setup'] = 0;
+  $handler->display->display_options['fields']['php']['php_output'] = '<?php
+ salto_user_get_status_link($row->uid)
+?>';
+  $handler->display->display_options['fields']['php']['use_php_click_sortable'] = '2';
+  $handler->display->display_options['fields']['php']['php_click_sortable'] = '';
+  /* Sort criterion: User: Created date */
+  $handler->display->display_options['sorts']['created']['id'] = 'created';
+  $handler->display->display_options['sorts']['created']['table'] = 'users';
+  $handler->display->display_options['sorts']['created']['field'] = 'created';
+  $handler->display->display_options['sorts']['created']['order'] = 'DESC';
+  /* Filter criterion: User: Active */
+  $handler->display->display_options['filters']['status']['id'] = 'status';
+  $handler->display->display_options['filters']['status']['table'] = 'users';
+  $handler->display->display_options['filters']['status']['field'] = 'status';
+  $handler->display->display_options['filters']['status']['value'] = 'All';
+  $handler->display->display_options['filters']['status']['group'] = 1;
+  $handler->display->display_options['filters']['status']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['status']['expose']['operator_id'] = '';
+  $handler->display->display_options['filters']['status']['expose']['label'] = 'Aktiv';
+  $handler->display->display_options['filters']['status']['expose']['operator'] = 'status_op';
+  $handler->display->display_options['filters']['status']['expose']['identifier'] = 'status';
+  $handler->display->display_options['filters']['status']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  /* Filter criterion: User: E-mail */
+  $handler->display->display_options['filters']['mail']['id'] = 'mail';
+  $handler->display->display_options['filters']['mail']['table'] = 'users';
+  $handler->display->display_options['filters']['mail']['field'] = 'mail';
+  $handler->display->display_options['filters']['mail']['operator'] = 'contains';
+  $handler->display->display_options['filters']['mail']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['mail']['expose']['operator_id'] = 'mail_op';
+  $handler->display->display_options['filters']['mail']['expose']['label'] = 'E-Mail';
+  $handler->display->display_options['filters']['mail']['expose']['operator'] = 'mail_op';
+  $handler->display->display_options['filters']['mail']['expose']['identifier'] = 'mail';
+  $handler->display->display_options['filters']['mail']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  $handler->display->display_options['filters']['mail']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['mail']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['mail']['expose']['autocomplete_field'] = 'mail';
+  $handler->display->display_options['filters']['mail']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['mail']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['mail']['expose']['autocomplete_dependent'] = 0;
+  /* Filter criterion: Realname: Name */
+  $handler->display->display_options['filters']['realname']['id'] = 'realname';
+  $handler->display->display_options['filters']['realname']['table'] = 'realname';
+  $handler->display->display_options['filters']['realname']['field'] = 'realname';
+  $handler->display->display_options['filters']['realname']['operator'] = 'contains';
+  $handler->display->display_options['filters']['realname']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['realname']['expose']['operator_id'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['label'] = 'Name';
+  $handler->display->display_options['filters']['realname']['expose']['operator'] = 'realname_op';
+  $handler->display->display_options['filters']['realname']['expose']['identifier'] = 'realname';
+  $handler->display->display_options['filters']['realname']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['realname']['expose']['autocomplete_dependent'] = 0;
+  /* Filter criterion: User: The user ID */
+  $handler->display->display_options['filters']['uid_raw']['id'] = 'uid_raw';
+  $handler->display->display_options['filters']['uid_raw']['table'] = 'users';
+  $handler->display->display_options['filters']['uid_raw']['field'] = 'uid_raw';
+  $handler->display->display_options['filters']['uid_raw']['operator'] = '>';
+  $handler->display->display_options['filters']['uid_raw']['value']['value'] = '1';
+
+  /* Display: Page */
+  $handler = $view->new_display('page', 'Page', 'page');
+  $handler->display->display_options['path'] = 'community-manager/people';
+  $translatables['commnity_manager_people'] = array(
+    t('Master'),
+    t('Mitglieder Übersicht für Community-Manager:innen'),
+    t('more'),
+    t('Apply'),
+    t('Reset'),
+    t('Sort by'),
+    t('Asc'),
+    t('Desc'),
+    t('Items per page'),
+    t('- All -'),
+    t('Offset'),
+    t('« first'),
+    t('‹ previous'),
+    t('next ›'),
+    t('last »'),
+    t('Benutzer'),
+    t('- Choose an operation -'),
+    t('#'),
+    t('Name'),
+    t('Aktiv'),
+    t('Letzte Anmeldung'),
+    t('Letzter Zugriff'),
+    t('E-Mail'),
+    t('Uid'),
+    t('Aktion'),
+    t('Page'),
+  );
+  $export['commnity_manager_people'] = $view;
+
+  $view = new view();
   $view->name = 'my_organisations';
   $view->description = 'Show groups of a user.';
   $view->tag = 'og';
@@ -395,7 +1233,7 @@ function salto_organisation_views_default_views() {
   $handler->display->display_options['fields']['field_profile_name_first']['id'] = 'field_profile_name_first';
   $handler->display->display_options['fields']['field_profile_name_first']['table'] = 'field_data_field_profile_name_first';
   $handler->display->display_options['fields']['field_profile_name_first']['field'] = 'field_profile_name_first';
-  /* Field: Field: E-mail */
+  /* Field: Field: Email */
   $handler->display->display_options['fields']['field_profile_contact_email']['id'] = 'field_profile_contact_email';
   $handler->display->display_options['fields']['field_profile_contact_email']['table'] = 'field_data_field_profile_contact_email';
   $handler->display->display_options['fields']['field_profile_contact_email']['field'] = 'field_profile_contact_email';
@@ -460,7 +1298,7 @@ function salto_organisation_views_default_views() {
   $handler->display->display_options['fields']['field_profile_name_first']['table'] = 'field_data_field_profile_name_first';
   $handler->display->display_options['fields']['field_profile_name_first']['field'] = 'field_profile_name_first';
   $handler->display->display_options['fields']['field_profile_name_first']['exclude'] = TRUE;
-  /* Field: Field: E-mail */
+  /* Field: Field: Email */
   $handler->display->display_options['fields']['field_profile_contact_email']['id'] = 'field_profile_contact_email';
   $handler->display->display_options['fields']['field_profile_contact_email']['table'] = 'field_data_field_profile_contact_email';
   $handler->display->display_options['fields']['field_profile_contact_email']['field'] = 'field_profile_contact_email';
@@ -845,7 +1683,7 @@ function salto_organisation_views_default_views() {
   $handler->display->display_options['fields']['created']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['created']['date_format'] = 'short';
   $handler->display->display_options['fields']['created']['second_date_format'] = 'privatemsg_current_day';
-  /* Field: Field: E-mail */
+  /* Field: Field: Email */
   $handler->display->display_options['fields']['field_profile_contact_email']['id'] = 'field_profile_contact_email';
   $handler->display->display_options['fields']['field_profile_contact_email']['table'] = 'field_data_field_profile_contact_email';
   $handler->display->display_options['fields']['field_profile_contact_email']['field'] = 'field_profile_contact_email';
@@ -1958,7 +2796,7 @@ if(user_access(\'edit any earemote content\')) {
 </div>
 
 <?php
-print theme("license_statistics_showcase") ; 
+print theme("license_statistics_showcase") ;
 
 ?>';
   $handler->display->display_options['defaults']['footer'] = FALSE;
@@ -3649,6 +4487,52 @@ else{
     5 => 0,
     6 => 0,
   );
+  /* Filter criterion: Content: Sportkreis (field_organisation_sportkreis) */
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['id'] = 'field_organisation_sportkreis_value';
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['table'] = 'field_data_field_organisation_sportkreis';
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['field'] = 'field_organisation_sportkreis_value';
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['expose']['operator_id'] = 'field_organisation_sportkreis_value_op';
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['expose']['label'] = 'Sportkreis';
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['expose']['operator'] = 'field_organisation_sportkreis_value_op';
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['expose']['identifier'] = 'field_organisation_sportkreis_value';
+  $handler->display->display_options['filters']['field_organisation_sportkreis_value']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  /* Filter criterion: Content: PLZ (field_org_plz) */
+  $handler->display->display_options['filters']['field_org_plz_value']['id'] = 'field_org_plz_value';
+  $handler->display->display_options['filters']['field_org_plz_value']['table'] = 'field_data_field_org_plz';
+  $handler->display->display_options['filters']['field_org_plz_value']['field'] = 'field_org_plz_value';
+  $handler->display->display_options['filters']['field_org_plz_value']['operator'] = 'contains';
+  $handler->display->display_options['filters']['field_org_plz_value']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['operator_id'] = 'field_org_plz_value_op';
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['label'] = 'PLZ';
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['operator'] = 'field_org_plz_value_op';
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['identifier'] = 'field_org_plz_value';
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['autocomplete_items'] = '10';
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['autocomplete_min_chars'] = '0';
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['autocomplete_raw_suggestion'] = 1;
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['autocomplete_raw_dropdown'] = 1;
+  $handler->display->display_options['filters']['field_org_plz_value']['expose']['autocomplete_dependent'] = 0;
   $handler->display->display_options['pane_title'] = 'salto_organisations_overview';
   $handler->display->display_options['pane_category']['name'] = 'Organisationen';
   $handler->display->display_options['pane_category']['weight'] = '0';
@@ -3678,6 +4562,8 @@ else{
     t('more'),
     t('Verbändegruppe'),
     t('Bundesland'),
+    t('Sportkreis'),
+    t('PLZ'),
     t('salto_organisations_overview'),
     t('Organisationen'),
   );

@@ -102,6 +102,12 @@ header#navbar {
   }
 }
 
+.add-help-link{
+  display: none;
+}
+
+
+
 @media (min-width: @screen-xs-min) {
   .salto-363 > .row {
     display: -webkit-box;
@@ -141,7 +147,7 @@ header#navbar {
 }
 
 .card {
-  margin: 0.5em 0 !important;
+  margin: 0.5em 0;
 }
 
 @media (max-width: @screen-sm-min) {
@@ -387,12 +393,23 @@ header#navbar {
   #desktop-login-form {
     display: none;
   }
+
+  .userbar .container,
+  .navbar.container > .container,
+  .main-container > .row,
+  .region-footer {
+    max-width: 100% !important;
+  }
 }
 
 @media only screen and (min-width: 1024px) {
   #mobile-login-form {
     display: none;
   }
+}
+
+.add-help-link{
+  display: block;
 }
 
 .pane-my-organisations-people-pane .views-row {

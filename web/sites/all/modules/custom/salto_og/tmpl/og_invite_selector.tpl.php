@@ -16,7 +16,7 @@
                          for="inputEmail"> <?php print t('Email') ?></label>
 
                   <div class="controls">
-                    <input type="email" id="inputEmail"
+                    <input type="text" id="inputEmail"
                            placeholder="<?php print t('Email') ?>" <?php print $add_form_disabled; ?>>
                   </div>
                 </div>

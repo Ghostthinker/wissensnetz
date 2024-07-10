@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_activity.views_default.inc

@@ -38,7 +38,7 @@ function salto_user_field_group_info() {
       'formatter' => 'open',
     ),
   );
-  $field_groups['group_profile_contact|profile2|main|form'] = $field_group;
+  $field_groups[''] = $field_group;
 
   $field_group = new stdClass();
   $field_group->disabled = FALSE; /* Edit this to true to make a default field_group disabled initially */
@@ -63,7 +63,7 @@ function salto_user_field_group_info() {
       ),
     ),
   );
-  $field_groups['group_user_security|user|user|form'] = $field_group;
+  $field_groups[''] = $field_group;
 
   $field_group = new stdClass();
   $field_group->disabled = TRUE; /* Edit this to true to make a default field_group disabled initially */
@@ -95,7 +95,7 @@ function salto_user_field_group_info() {
       ),
     ),
   );
-  $field_groups['group_user_settings|user|user|form'] = $field_group;
+  $field_groups[''] = $field_group;
 
   // Translatables
   // Included for use with string extractors like potx.

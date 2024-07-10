@@ -70,23 +70,34 @@ function media_derivatives_ffmpeg_media_derivatives_create_derivative($file, $de
   $log_file = drupal_realpath($log_file);
 
   $derivative->unmanaged_uri = $new_path;
+
   media_derivatives_save($derivative);
 
-  $output = $ret_val = '';
-  $a = exec(
-    $ffmpeg_path . ' ' .
-    $derivative->preset->engine_settings['ffmpeg_options'] .
-    ' -i "' . $path . '" ' .
-    $derivative->preset->engine_settings['ffmpeg_out_options'] . ' "' .
-    $new_path . '" 2> "' . $log_file . '"',
-    $output,
-    $ret_val
-  );
 
-  if ($ret_val) {
-    $ex = new MediaDerivativesException($derivative->mdid, t('Ffmpeg ended with an error (exit code !code).' . print_r($output, TRUE), ['!code' => $ret_val]));
-    throw $ex;
+
+  if(file_uri_scheme($file->uri) == 'prevoli') {
+
+    $prevoliService = new \SocialVideoService\PrevoliService();
+    $prevoliService->downloadPreviewImage($file, $new_path);
+
+  }else{
+    $output = $ret_val = '';
+    $a = exec(
+      $ffmpeg_path . ' ' .
+      $derivative->preset->engine_settings['ffmpeg_options'] .
+      ' -i "' . $path . '" ' .
+      $derivative->preset->engine_settings['ffmpeg_out_options'] . ' "' .
+      $new_path . '" 2> "' . $log_file . '"',
+      $output,
+      $ret_val
+    );
+
+    if ($ret_val) {
+      $ex = new MediaDerivativesException($derivative->mdid, t('Ffmpeg ended with an error (exit code !code).' . print_r($output, TRUE), ['!code' => $ret_val]));
+      throw $ex;
+    }
   }
+
   return $new_file;
 }
 
@@ -540,6 +551,7 @@ function media_derivatives_ffmpeg_preprocess_media_derivatives_ffmpeg_video(&$va
         'path' => $value->unmanaged_uri,
         'attributes' => $bs_attributes,
       ]);
+
       $video_attributes['poster'] = image_style_url('videdeoplayer_708x398', $value->unmanaged_uri);
       $variables['thumbnail'] = $thumbnail;
     }

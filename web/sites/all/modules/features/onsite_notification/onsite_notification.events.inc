@@ -15,10 +15,12 @@ define('MESSAGE_TYPE_NOTIFICATION_GROUP_MEMBERSHIP_REMOVED', 'notification_group
 define('MESSAGE_TYPE_NOTIFICATION_REVISION_CREATED', 'notification_revision_created');
 define('MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT_REPLY', 'notification_create_comment_reply');
 define('MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT', 'notification_create_comment');
+define('MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED', 'notification_user_mentioned');
 define('MESSAGE_TYPE_NOTIFICATION_POST_CREATED_GROUP', 'notification_group_post_created');
 define('MESSAGE_TYPE_NOTIFICATION_POST_CREATED', 'notification_post_created');
 define('MESSAGE_TYPE_NOTIFICATION_MATERIAL_UPDATED', 'notification_material_updated');
 define('MESSAGE_TYPE_NOTIFICATION_MATERIAL_CREATED', 'notification_material_created');
+define('MESSAGE_TYPE_NOTIFICATION_ONLINE_MEETING_SCHEDULED', 'notification_online_meeting_scheduled');
 
 
 /**
@@ -51,23 +53,6 @@ function onsite_notification_node_update($node) {
 
 }
 
-/**
- * Implements hook_knowledgebase_post_submitted().
- *
- * @param $node
- * @param $is_new
- */
-function onsite_notification_knowledgebase_post_submitted($node, $is_new) {
-
-  $data = [
-    'node' => $node,
-    'is_new' => $is_new,
-    'actor' => salto_user_get_current(),
-  ];
-
-  $queue = CoreSystemQueue::create('onsite_notification_knowledgebase_post_submitted');
-  $queue->createItem($data);
-}
 
 /**
  * Implements hook_node_insert
@@ -180,11 +165,19 @@ function onsite_notification_add_audience_for_entity_create(&$audience, $entity,
   $tmpAudience = onsite_notification_get_users_that_have_enabled_message_type($message_type);
   $diff = array_diff_key($tmpAudience, $audience);
   $tmpAudience = user_load_multiple($diff);
-  foreach ($tmpAudience as $user) {
-    if (salto_user_interested_in_entity($entity, $user)) {
-      $audience += [$user->uid => (int) $user->uid];
+  $isPostInGroup = onsite_notification_entity_has_group($entity);
+
+
+    foreach ($tmpAudience as $user) {
+      if (!$isPostInGroup){
+        if (salto_user_interested_in_entity($entity, $user)) {
+          $audience += [$user->uid => (int) $user->uid];
+        }
+      }else{
+        $audience += [$user->uid => (int) $user->uid];
+      }
+
     }
-  }
   return $audience;
 }
 
@@ -201,11 +194,15 @@ function onsite_notification_comment_created($comment) {
 
   $account = user_load($comment->uid);
   $node = node_load($comment->nid);
-  if (!empty($comment->pid)) {
+
+  if (!empty($comment->parent_comment)){
+    $drupalUser = \Wissensnetz\User\DrupalUser::byGuid($comment->parent_comment['user_id']);
+    $parent_comment = new stdClass();
+    $parent_comment->uid = $drupalUser->getUid();
+  }else if (!empty($comment->pid)) {
     $parent_comment = comment_load($comment->pid);
   }
   $published = $node->status && $comment->status;
-
   if (!$published) {
     return;
   }
@@ -223,13 +220,40 @@ function onsite_notification_comment_created($comment) {
     unset($audience[$comment->uid]);
   }
 
-  $link = url('node/' . $node->nid, ['fragment' => 'comment-' . $comment->cid]);
+
+  if($comment->metadata['svs_comment']){
+    $queryParameters = $comment->metadata['link_parameter'];
+    $link = url('node/' . $node->nid, ['query' => $queryParameters]);
+  }else{
+    $link = url('node/' . $node->nid, ['fragment' => 'comment-' . $comment->cid]);
+  }
+
+
 
   $context = [
     'node' => $node,
     'comment' => $comment,
     'actor' => $account,
+    'metadata' => json_encode($comment->metadata) ?? NULL
   ];
+
+  $socialVideoService = new \SocialVideoService\SocialVideoService();
+
+  //send the mentioned users own notification
+  if(!empty($comment->mentionedIds)){
+
+    $mentioned_audience = $socialVideoService->getMentionedUserIds($comment->mentionedIds);
+    foreach($mentioned_audience as $key => $uid){
+      unset($audience[$uid]);
+    }
+
+    $message_type = MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED;
+    onsite_notification_create($message_type, $mentioned_audience, $link, $context);
+
+  }
+
+  $message_type = MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT;
+  onsite_notification_create($message_type, $audience, $link, $context);
 
   //send the parent comment author own notification
   if (!empty($parent_comment)) {
@@ -239,14 +263,21 @@ function onsite_notification_comment_created($comment) {
     }
     $parent_audience = [];
     $parent_audience[$parent_comment->uid] = $parent_comment->uid;
-    $message_type = MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT_REPLY;
 
+    if(!empty($comment->mentionedIds)){
+      $mentioned_audience = $socialVideoService->getMentionedUserIds($comment->mentionedIds);
+      foreach($mentioned_audience as $key => $uid){
+        unset($parent_audience[$uid]);
+      }
+    }
+
+    $message_type = MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT_REPLY;
     onsite_notification_create($message_type, $parent_audience, $link, $context);
   }
 
-  $message_type = MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT;
-  onsite_notification_create($message_type, $audience, $link, $context);
+
 }
+
 
 /**
  * Wrapper for the notification_revision_created event
@@ -706,6 +737,11 @@ function onsite_notification_material_changed($file) {
  */
 function onsite_notification_material_created($file) {
 
+  $drupalFile = \Wissensnetz\Core\File\DrupalFile::make($file->fid);
+  if (count($drupalFile->getFileAttachmentNodeReferences()) > 0){
+    return;
+  }
+
   $account = salto_user_get_current();
 
   //message link
@@ -729,4 +765,130 @@ function onsite_notification_material_created($file) {
   }
 
   onsite_notification_create(MESSAGE_TYPE_NOTIFICATION_MATERIAL_CREATED, $audience, $link, $context);
+}
+
+
+
+/**
+ * Wrapper for the notification_user_mentioned event
+ *
+ * @param $node
+ * @param $account
+ *
+ * @return void [type]       [description]
+ */
+function onsite_notification_user_mentioned_comment($mention) {
+
+  $comment = comment_load($mention['entity_id']);
+  // $account_mentioned = user_load($mention['uid']);
+  $account_author = user_load($mention['auid']);
+  $node = node_load($comment->nid);
+
+  $published = $node->status && $comment->status;
+
+  if (!$published) {
+    return;
+  }
+
+  //get audience for mentioned users
+  $audience = [];
+  $audience[$mention['uid']] = $mention['uid'];
+
+  // do not notify if user mentions him/herself
+  if (!empty($audience[$comment->uid])) {
+    unset($audience[$comment->uid]);
+  }
+
+  $link = url('node/' . $node->nid, ['fragment' => 'comment-' . $comment->cid]);
+
+  $context = [
+    'node' => $node,
+    'comment' => $comment,
+    'actor' => $account_author,
+  ];
+
+  // todo handle via core queue?
+  $message_type = MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED;
+  onsite_notification_create($message_type, $audience, $link, $context);
+}
+
+
+/**
+ * Wrapper for the notification_user_mentioned event
+ *
+ * @param $node
+ * @param $account
+ *
+ * @return void [type]       [description]
+ */
+function onsite_notification_user_mentioned_node($mention) {
+
+  $node = node_load($mention['entity_id']);
+  // $account_mentioned = user_load($mention['uid']);
+  $account_author = user_load($mention['auid']);
+
+  $published = $node->status;
+
+  if (!$published) {
+    return;
+  }
+
+  //get audience for mentioned users
+  $audience = [];
+  $audience[$mention['uid']] = $mention['uid'];
+
+  // do not notify if user mentions him/herself
+  if (!empty($audience[$node->uid])) {
+    unset($audience[$node->uid]);
+  }
+
+  $link = url('node/' . $node->nid);
+
+  $context = [
+    'node' => $node,
+    'actor' => $account_author,
+  ];
+
+  // todo handle via core queue?
+  $message_type = MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED;
+  onsite_notification_create($message_type, $audience, $link, $context);
+}
+
+/**
+ *
+ * @param $node_ot
+ */
+function onsite_notification_online_meeting_scheduled($node_ot) {
+
+  global $user;
+  $account = clone $user;
+
+  $published = $node_ot->status;
+
+  if (!$published) {
+    return;
+  }
+
+  $context = [
+    'node' => $node_ot,
+    'actor' => $account,
+  ];
+
+  //get audience for all group members except author
+  $audience = [];
+
+  $context['group'] = node_load($node_ot->field_og_group[LANGUAGE_NONE][0]['target_id']);
+  $group_members = salto_og_get_users_by_og($context['group']->nid);
+  $audience += $group_members;
+
+  // do not notify if user mentions him/herself
+  if (!empty($audience[$account->uid])) {
+    unset($audience[$account->uid]);
+  }
+
+  $link = url('node/' . $node_ot->nid);
+
+  $message_type = MESSAGE_TYPE_NOTIFICATION_ONLINE_MEETING_SCHEDULED;
+  onsite_notification_create($message_type, $audience, $link, $context);
+
 }

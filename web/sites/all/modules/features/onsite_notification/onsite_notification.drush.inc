@@ -8,8 +8,8 @@ function onsite_notification_drush_command() {
   $items['onsite_notification_run_core_queue'] = [
     'callback' => "onsite_notification_run_core_queue",
     'description' => "Execute the core system queue for mail notifications (module)",
-    'arguments' => [
-      'module' => dt('Module name (comming soon)'),
+    'options' => [
+      'forever' => dt('run forever'),
     ],
     'examples' => [
       'Execute' => 'drush notify-rcq',
@@ -29,5 +29,23 @@ function onsite_notification_drush_command() {
  * ===> cd web/; drush notify-rcq;
  */
 function onsite_notification_run_core_queue() {
-  \CoreSystemQueue::executeByModule('onsite_notification');
+
+  $forever = drush_get_option('forever', false);
+
+  if($forever) {
+    while(true) {
+      $t = microtime(TRUE);
+      \CoreSystemQueue::executeByModule('onsite_notification');
+      $total = microtime(TRUE) - $t;
+      drush_print("queue executed took so long: " . $total);
+      sleep(5);
+    }
+  }else{
+    $t = microtime(TRUE);
+    \CoreSystemQueue::executeByModule('onsite_notification');
+    $total = microtime(TRUE) - $t;
+    drush_print("queue executed took so long: " . $total);
+  }
+
+
 }

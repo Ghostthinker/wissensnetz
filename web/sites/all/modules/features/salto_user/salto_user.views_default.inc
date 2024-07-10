@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_user.views_default.inc
@@ -282,7 +283,7 @@ if( $data->heartbeat_activity_message_id == \'heartbeat_add_comment\' ) {
   $handler->display->display_options['fields']['salto_invite_id']['table'] = 'salto_invite';
   $handler->display->display_options['fields']['salto_invite_id']['field'] = 'salto_invite_id';
   $handler->display->display_options['fields']['salto_invite_id']['exclude'] = TRUE;
-  /* Field: Field: Email */
+  /* Field: Field: E-mail */
   $handler->display->display_options['fields']['field_profile_contact_email_1']['id'] = 'field_profile_contact_email_1';
   $handler->display->display_options['fields']['field_profile_contact_email_1']['table'] = 'field_data_field_profile_contact_email';
   $handler->display->display_options['fields']['field_profile_contact_email_1']['field'] = 'field_profile_contact_email';
@@ -417,21 +418,32 @@ if( $data->heartbeat_activity_message_id == \'heartbeat_add_comment\' ) {
   $handler->display->display_options['pager']['options']['tags']['last'] = 'letzte Seite »';
   $handler->display->display_options['style_plugin'] = 'default';
   $handler->display->display_options['row_plugin'] = 'fields';
-  /* Feld: Benutzer: Name */
+  /* Field: User: Name */
   $handler->display->display_options['fields']['name']['id'] = 'name';
   $handler->display->display_options['fields']['name']['table'] = 'users';
   $handler->display->display_options['fields']['name']['field'] = 'name';
   $handler->display->display_options['fields']['name']['label'] = '';
+  $handler->display->display_options['fields']['name']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['name']['alter']['text'] = '&nbsp;';
   $handler->display->display_options['fields']['name']['alter']['word_boundary'] = FALSE;
   $handler->display->display_options['fields']['name']['alter']['ellipsis'] = FALSE;
-  /* Feld: Benutzer: Erstellungsdatum */
+  $handler->display->display_options['fields']['name']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['name']['link_to_user'] = FALSE;
+  /* Field: Realname: Real name */
+  $handler->display->display_options['fields']['realname']['id'] = 'realname';
+  $handler->display->display_options['fields']['realname']['table'] = 'realname';
+  $handler->display->display_options['fields']['realname']['field'] = 'realname';
+  $handler->display->display_options['fields']['realname']['label'] = '';
+  $handler->display->display_options['fields']['realname']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['realname']['element_wrapper_type'] = 'strong';
+  /* Field: User: Created date */
   $handler->display->display_options['fields']['created']['id'] = 'created';
   $handler->display->display_options['fields']['created']['table'] = 'users';
   $handler->display->display_options['fields']['created']['field'] = 'created';
   $handler->display->display_options['fields']['created']['label'] = 'Datum der Anfrage';
   $handler->display->display_options['fields']['created']['date_format'] = 'medium';
   $handler->display->display_options['fields']['created']['second_date_format'] = 'privatemsg_current_day';
-  /* Feld: Benutzer: Daten */
+  /* Field: User: Data */
   $handler->display->display_options['fields']['data_1']['id'] = 'data_1';
   $handler->display->display_options['fields']['data_1']['table'] = 'users';
   $handler->display->display_options['fields']['data_1']['field'] = 'data';
@@ -440,7 +452,7 @@ if( $data->heartbeat_activity_message_id == \'heartbeat_add_comment\' ) {
   $handler->display->display_options['fields']['data_1']['hide_empty'] = TRUE;
   $handler->display->display_options['fields']['data_1']['format'] = 'key';
   $handler->display->display_options['fields']['data_1']['key'] = 'organisation';
-  /* Feld: Global: PHP */
+  /* Field: Global: PHP */
   $handler->display->display_options['fields']['php']['id'] = 'php';
   $handler->display->display_options['fields']['php']['table'] = 'views';
   $handler->display->display_options['fields']['php']['field'] = 'php';
@@ -453,7 +465,7 @@ echo salto_user_membership_request_get_og_title($row->data_1);
 ?>';
   $handler->display->display_options['fields']['php']['use_php_click_sortable'] = '0';
   $handler->display->display_options['fields']['php']['php_click_sortable'] = '';
-  /* Feld: Benutzer: Daten */
+  /* Field: User: Data */
   $handler->display->display_options['fields']['data_2']['id'] = 'data_2';
   $handler->display->display_options['fields']['data_2']['table'] = 'users';
   $handler->display->display_options['fields']['data_2']['field'] = 'data';
@@ -461,7 +473,7 @@ echo salto_user_membership_request_get_og_title($row->data_1);
   $handler->display->display_options['fields']['data_2']['hide_empty'] = TRUE;
   $handler->display->display_options['fields']['data_2']['format'] = 'key';
   $handler->display->display_options['fields']['data_2']['key'] = 'activity';
-  /* Feld: Benutzer: Daten */
+  /* Field: User: Data */
   $handler->display->display_options['fields']['data']['id'] = 'data';
   $handler->display->display_options['fields']['data']['table'] = 'users';
   $handler->display->display_options['fields']['data']['field'] = 'data';
@@ -469,37 +481,37 @@ echo salto_user_membership_request_get_og_title($row->data_1);
   $handler->display->display_options['fields']['data']['empty'] = 'Nicht angegeben';
   $handler->display->display_options['fields']['data']['format'] = 'key';
   $handler->display->display_options['fields']['data']['key'] = 'explanation';
-  /* Feld: Benutzer: Membership request button */
+  /* Field: User: Membership request button */
   $handler->display->display_options['fields']['membership_request_button']['id'] = 'membership_request_button';
   $handler->display->display_options['fields']['membership_request_button']['table'] = 'users';
   $handler->display->display_options['fields']['membership_request_button']['field'] = 'membership_request_button';
   $handler->display->display_options['fields']['membership_request_button']['label'] = '';
   $handler->display->display_options['fields']['membership_request_button']['element_label_colon'] = FALSE;
-  /* Feld: Benutzer: Benutzer UUID */
+  /* Field: User: User UUID */
   $handler->display->display_options['fields']['uuid']['id'] = 'uuid';
   $handler->display->display_options['fields']['uuid']['table'] = 'users';
   $handler->display->display_options['fields']['uuid']['field'] = 'uuid';
   $handler->display->display_options['fields']['uuid']['label'] = '';
   $handler->display->display_options['fields']['uuid']['exclude'] = TRUE;
   $handler->display->display_options['fields']['uuid']['element_label_colon'] = FALSE;
-  /* Filterkriterium: Benutzer: Aktiv */
+  /* Filter criterion: User: Active */
   $handler->display->display_options['filters']['status']['id'] = 'status';
   $handler->display->display_options['filters']['status']['table'] = 'users';
   $handler->display->display_options['filters']['status']['field'] = 'status';
   $handler->display->display_options['filters']['status']['value'] = '0';
   $handler->display->display_options['filters']['status']['group'] = 1;
   $handler->display->display_options['filters']['status']['expose']['operator'] = FALSE;
-  /* Filterkriterium: Benutzer: Organisations (field_user_organisations) */
+  /* Filter criterion: User: Organisations (field_user_organisations) */
   $handler->display->display_options['filters']['field_user_organisations_target_id']['id'] = 'field_user_organisations_target_id';
   $handler->display->display_options['filters']['field_user_organisations_target_id']['table'] = 'og_membership';
   $handler->display->display_options['filters']['field_user_organisations_target_id']['field'] = 'field_user_organisations_target_id';
   $handler->display->display_options['filters']['field_user_organisations_target_id']['operator'] = 'empty';
-  /* Filterkriterium: Benutzer: Rollen */
+  /* Filter criterion: User: Roles */
   $handler->display->display_options['filters']['rid']['id'] = 'rid';
   $handler->display->display_options['filters']['rid']['table'] = 'users_roles';
   $handler->display->display_options['filters']['rid']['field'] = 'rid';
   $handler->display->display_options['filters']['rid']['operator'] = 'empty';
-  /* Filterkriterium: Benutzer: Benutzer-ID */
+  /* Filter criterion: User: The user ID */
   $handler->display->display_options['filters']['uid_raw']['id'] = 'uid_raw';
   $handler->display->display_options['filters']['uid_raw']['table'] = 'users';
   $handler->display->display_options['filters']['uid_raw']['field'] = 'uid_raw';
@@ -530,12 +542,14 @@ echo salto_user_membership_request_get_og_title($row->data_1);
     t('‹ vorherige Seite'),
     t('nächste Seite ›'),
     t('letzte Seite »'),
+    t('&nbsp;'),
     t('Datum der Anfrage'),
     t('Organisation'),
     t('Tätigkeit / Position'),
     t('Grund / Erklärung'),
     t('Nicht angegeben'),
     t('Page'),
+    t('more'),
   );
   $export['membership_requests'] = $view;
 
@@ -582,6 +596,11 @@ echo salto_user_membership_request_get_og_title($row->data_1);
     'name' => 'name',
     'is_online' => 'is_online',
   );
+  /* Header: Global: Text area */
+  $handler->display->display_options['header']['area']['id'] = 'area';
+  $handler->display->display_options['header']['area']['table'] = 'views';
+  $handler->display->display_options['header']['area']['field'] = 'area';
+  $handler->display->display_options['header']['area']['format'] = 'php_code';
   /* No results behavior: Global: Text area */
   $handler->display->display_options['empty']['area']['id'] = 'area';
   $handler->display->display_options['empty']['area']['table'] = 'views';
@@ -1011,6 +1030,38 @@ echo salto_user_membership_request_get_og_title($row->data_1);
     8 => 0,
     9 => 0,
   );
+  /* Filter criterion: Content: Title */
+  $handler->display->display_options['filters']['title_1']['id'] = 'title_1';
+  $handler->display->display_options['filters']['title_1']['table'] = 'node';
+  $handler->display->display_options['filters']['title_1']['field'] = 'title';
+  $handler->display->display_options['filters']['title_1']['relationship'] = 'og_membership_related_node_group';
+  $handler->display->display_options['filters']['title_1']['operator'] = 'contains';
+  $handler->display->display_options['filters']['title_1']['group'] = 1;
+  $handler->display->display_options['filters']['title_1']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['title_1']['expose']['operator_id'] = 'title_1_op';
+  $handler->display->display_options['filters']['title_1']['expose']['label'] = 'Titel';
+  $handler->display->display_options['filters']['title_1']['expose']['operator'] = 'title_1_op';
+  $handler->display->display_options['filters']['title_1']['expose']['identifier'] = 'title_1';
+  $handler->display->display_options['filters']['title_1']['is_grouped'] = TRUE;
+  $handler->display->display_options['filters']['title_1']['group_info']['label'] = 'Organisation';
+  $handler->display->display_options['filters']['title_1']['group_info']['identifier'] = 'title_1';
+  $handler->display->display_options['filters']['title_1']['group_info']['group_items'] = array(
+    1 => array(
+      'title' => 'Ghostthinker',
+      'operator' => 'contains',
+      'value' => 'Ghostthinker',
+    ),
+    2 => array(
+      'title' => '',
+      'operator' => 'contains',
+      'value' => '',
+    ),
+    3 => array(
+      'title' => '',
+      'operator' => 'contains',
+      'value' => '',
+    ),
+  );
   /* Filter criterion: Content: Verbändegruppe (field_organisation_category) */
   $handler->display->display_options['filters']['field_organisation_category_value']['id'] = 'field_organisation_category_value';
   $handler->display->display_options['filters']['field_organisation_category_value']['table'] = 'field_data_field_organisation_category';
@@ -1023,6 +1074,27 @@ echo salto_user_membership_request_get_og_title($row->data_1);
   $handler->display->display_options['filters']['field_organisation_category_value']['expose']['operator'] = 'field_organisation_category_value_op';
   $handler->display->display_options['filters']['field_organisation_category_value']['expose']['identifier'] = 'field_organisation_category_value';
   $handler->display->display_options['filters']['field_organisation_category_value']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+    7 => 0,
+    8 => 0,
+    9 => 0,
+  );
+  /* Filter criterion: Content revision: Nid */
+  $handler->display->display_options['filters']['nid']['id'] = 'nid';
+  $handler->display->display_options['filters']['nid']['table'] = 'node_revision';
+  $handler->display->display_options['filters']['nid']['field'] = 'nid';
+  $handler->display->display_options['filters']['nid']['relationship'] = 'og_membership_related_node_group';
+  $handler->display->display_options['filters']['nid']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['nid']['expose']['operator_id'] = 'nid_op';
+  $handler->display->display_options['filters']['nid']['expose']['label'] = 'Beitrags-ID';
+  $handler->display->display_options['filters']['nid']['expose']['operator'] = 'nid_op';
+  $handler->display->display_options['filters']['nid']['expose']['identifier'] = 'nid';
+  $handler->display->display_options['filters']['nid']['expose']['remember_roles'] = array(
     2 => '2',
     1 => 0,
     3 => 0,
@@ -1214,6 +1286,12 @@ echo salto_user_membership_request_get_og_title($row->data_1);
     'name' => 'name',
   );
   $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['defaults']['header'] = FALSE;
+  /* Header: Global: Text area */
+  $handler->display->display_options['header']['area']['id'] = 'area';
+  $handler->display->display_options['header']['area']['table'] = 'views';
+  $handler->display->display_options['header']['area']['field'] = 'area';
+  $handler->display->display_options['header']['area']['format'] = 'php_code';
   $handler->display->display_options['defaults']['empty'] = FALSE;
   /* No results behavior: Global: Text area */
   $handler->display->display_options['empty']['area']['id'] = 'area';
@@ -1328,6 +1406,15 @@ echo salto_user_membership_request_get_og_title($row->data_1);
     'name' => 'name',
   );
   $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['defaults']['header'] = FALSE;
+  /* Header: Global: Text area */
+  $handler->display->display_options['header']['area']['id'] = 'area';
+  $handler->display->display_options['header']['area']['table'] = 'views';
+  $handler->display->display_options['header']['area']['field'] = 'area';
+  $handler->display->display_options['header']['area']['content'] = '<?php  
+print salto_group_people_in_og_header();
+?>';
+  $handler->display->display_options['header']['area']['format'] = 'php_code';
   $handler->display->display_options['defaults']['footer'] = FALSE;
   /* Footer: Global: Text area */
   $handler->display->display_options['footer']['area']['id'] = 'area';
@@ -1455,7 +1542,10 @@ if(is_numeric($nid)) {
     t('Online Status'),
     t('Organisationen'),
     t('Themenfelder'),
+    t('Titel'),
+    t('Organisation'),
     t('Verbändegruppe'),
+    t('Beitrags-ID'),
     t('Personenverzeichnis'),
     t('Personen'),
     t('People Online'),
@@ -1475,6 +1565,9 @@ if(is_numeric($nid)) {
     t('People in Og'),
     t('Mitglieder'),
     t('Show who is member in special og context'),
+    t('<?php  
+print salto_group_people_in_og_header();
+?>'),
     t('<?php
 
 $nid = arg(1);

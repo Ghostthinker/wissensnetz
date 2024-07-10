@@ -4,13 +4,3 @@ sites/*/settings*.php
 # Ignore paths that contain user-generated content.
 sites/*/files
 sites/*/private
-webresults/*.png
-sites/all/files/styles
-sites/all/themes/.ftpquota
-stats/
-sites/default/files/styles
-
-webresults/report.html
-/lims_connect
-node_modules/
-

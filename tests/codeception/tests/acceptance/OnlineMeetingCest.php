@@ -1,6 +1,7 @@
 <?php
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
+use \Facebook\WebDriver\WebDriverKeys;
 
 class OnlineMeetingCest {
 
@@ -9,12 +10,15 @@ class OnlineMeetingCest {
    *
    * @param \AcceptanceTester $I
    */
-  public function _before(UnitTester $I) {
+  public function _before(AcceptanceTester $I) {
     variable_set('online_meeting_enabled', TRUE);
+    variable_set('salto_sso', ['sso_mode' => 'disabled']);
   }
 
-  public function _after(UnitTester $I) {
+  public function _after(AcceptanceTester $I) {
     variable_set('online_meeting_enabled', FALSE);
+    variable_set('online_meeting_community_area_enabled', FALSE);
+    variable_set('salto_sso', ['sso_mode' => 'tum']);
   }
 
   /**
@@ -28,7 +32,7 @@ class OnlineMeetingCest {
     $recurringPaneClass = '.pane-group-online-meetings-panel-pane-3';
     $passedPaneClass = '.pane-group-online-meetings-panel-pane-2';
 
-    $og = $I->haveOrganisation('OnlineMeetingOrganisation_1', [
+    $og = $I->createOrganisation('OnlineMeetingOrganisation_1', [
         'body' => 'OnlineMeetingOrganisation_1',
         'parent' => null,
         'language' => 'en'
@@ -156,7 +160,7 @@ class OnlineMeetingCest {
     $recurringPaneClass = '.pane-group-online-meetings-panel-pane-3';
     $passedPaneClass = '.pane-group-online-meetings-panel-pane-2';
 
-    $og = $I->haveOrganisation('OnlineMeetingOrganisation_1', [
+    $og = $I->createOrganisation('OnlineMeetingOrganisation_1', [
         'body' => 'OnlineMeetingOrganisation_1',
         'parent' => null,
         'language' => 'en'
@@ -247,7 +251,7 @@ class OnlineMeetingCest {
 
     $I->wantTo('check the access of an Online Meeting');
 
-    $og = $I->haveOrganisation('OnlineMeetingOrganisation_1', [
+    $og = $I->createOrganisation('OnlineMeetingOrganisation_1', [
         'body' => 'OnlineMeetingOrganisation_1',
         'parent' => null,
         'language' => 'en'
@@ -293,6 +297,73 @@ class OnlineMeetingCest {
     $I->expect('that i get redirected in ');
     $MEETING_NID = $I->grabFromCurrentUrl('/node\/(\d+)/');
     $I->seeCurrentPageIs("/node/" . $MEETING_NID);
+
+  }
+
+  public function OM_04_0_check_online_meeting_access_community_area(AcceptanceTester $I) {
+
+    variable_set('online_meeting_community_area_enabled', TRUE);
+
+    $I->wantTo('check the access of an Online Meeting in the community area');
+
+    $og = $I->createOrganisation('OnlineMeetingOrganisation_1', [
+        'body' => 'OnlineMeetingOrganisation_1',
+        'parent' => null,
+        'language' => 'en'
+      ]
+    );
+    $coAuthor = $I->haveUser([
+      'firstname' => 'yagni',
+      'lastname' => 'author',
+    ]);
+
+    $user2 = $I->haveUser([
+      'firstname' => 'max',
+      'lastname' => 'meeting',
+    ]);
+
+    $manager = $I->haveUser([
+      'firstname' => 'Inviter',
+      'lastname' => microtime(true),
+      'role_dosb' => TRUE,
+    ]);
+
+
+    $I->completedSetup();
+
+    $I->loginAsUser($manager);
+
+    $I->see('Online-Treffen');
+    $I->click('Online-Treffen');
+
+    $I->click('Online-Treffen erstellen', '.main_layout_right .pane-content');
+    $I->fillField('#token-input-', 'author');
+    $I->waitForText('yagni');
+    $I->pressKey('#token-input-', \Facebook\WebDriver\WebDriverKeys::ENTER);
+    $I->fillField('input[name="title"][type="text"]', 'Test Meeting');
+    $I->fillField('div.start-date-wrapper input[name="field_online_meeting_date[und][0][value][date]"]', format_date(strtotime('+2 DAY'), 'custom', "d.m.Y"));
+    $I->fillField('input[name="field_online_meeting_date[und][0][value2][time]"]', format_date(strtotime('+2 hours'), 'custom', "HH:mm"));
+    $I->fillEditor('My custom body', "edit-body-und-0-value");
+    $I->dontSee('Gruppe', '.accordion-button has-listener active');
+
+    $I->click('Speichern');
+
+    $I->expect('the user is co author, so he can edit this online treffen');
+
+    $I->loginAsUser($coAuthor);
+    $I->click('Online-Treffen');
+    $I->dontSee('Online-Treffen erstellen');
+    $I->click('Test Meeting');
+    $I->see('Online-Treffen bearbeiten');
+    $I->click('Online-Treffen bearbeiten', '.main_layout_right .pane-content');
+    $I->notAccessDenied();
+    $I->expect('this user cant edit or create online treffen');
+
+    $I->loginAsUser($user2);
+    $I->click('Online-Treffen');
+    $I->dontSee('Online-Treffen erstellen');
+    $I->click('Test Meeting');
+    $I->dontSee('Online-Treffen bearbeiten');
 
   }
 }

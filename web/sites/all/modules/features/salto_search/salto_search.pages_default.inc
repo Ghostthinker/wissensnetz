@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_search.pages_default.inc
@@ -135,81 +136,32 @@ function salto_search_default_page_manager_pages() {
   $display->content['new-24b228e3-6f7d-4f0b-9bde-cc486ab80bc6'] = $pane;
   $display->panels['left'][0] = 'new-24b228e3-6f7d-4f0b-9bde-cc486ab80bc6';
   $pane = new stdClass();
-  $pane->pid = 'new-f8514cb8-18e9-4a89-9383-cae553263c1d';
+  $pane->pid = 'new-e547bb62-a25c-45e7-9d20-b90a5bf771f9';
   $pane->panel = 'left';
   $pane->type = 'block';
   $pane->subtype = 'views-5808fa01cd5eb6d38d296251f1939506';
-  $pane->shown = FALSE;
+  $pane->shown = TRUE;
   $pane->access = array();
   $pane->configuration = array(
     'inherit_path' => 1,
-    'override_title' => 1,
+    'override_title' => 0,
     'override_title_text' => '',
+    'override_title_heading' => 'h2',
   );
   $pane->cache = array();
   $pane->style = array(
     'settings' => NULL,
-    'style' => 'blockpanel',
   );
-  $pane->css = array();
+  $pane->css = array(
+    'css_id' => '',
+    'css_class' => 'exposed-filter-node-search',
+  );
   $pane->extras = array();
   $pane->position = 1;
   $pane->locks = array();
-  $pane->uuid = 'f8514cb8-18e9-4a89-9383-cae553263c1d';
-  $display->content['new-f8514cb8-18e9-4a89-9383-cae553263c1d'] = $pane;
-  $display->panels['left'][1] = 'new-f8514cb8-18e9-4a89-9383-cae553263c1d';
-  $pane = new stdClass();
-  $pane->pid = 'new-27d1498a-2829-40cb-80bb-e06a7d97b97c';
-  $pane->panel = 'left';
-  $pane->type = 'block';
-  $pane->subtype = 'facetapi-VJKFZinlWVxo0TXYccwjHiRHzJkwxT52';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array(
-    'override_title' => 1,
-    'override_title_text' => 'Beitragstags',
-  );
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-    'style' => 'blockpanel',
-  );
-  $pane->css = array(
-    'css_id' => '',
-    'css_class' => 'salto-facet-search',
-  );
-  $pane->extras = array();
-  $pane->position = 2;
-  $pane->locks = array();
-  $pane->uuid = '27d1498a-2829-40cb-80bb-e06a7d97b97c';
-  $display->content['new-27d1498a-2829-40cb-80bb-e06a7d97b97c'] = $pane;
-  $display->panels['left'][2] = 'new-27d1498a-2829-40cb-80bb-e06a7d97b97c';
-  $pane = new stdClass();
-  $pane->pid = 'new-2d72b45c-31ef-4f73-b22d-36b1f799f2d6';
-  $pane->panel = 'left';
-  $pane->type = 'block';
-  $pane->subtype = 'facetapi-vQSQijtfof0pYJS2UueuRyioHW1CB7gK';
-  $pane->shown = TRUE;
-  $pane->access = array();
-  $pane->configuration = array(
-    'override_title' => 1,
-    'override_title_text' => 'Schlagworte',
-  );
-  $pane->cache = array();
-  $pane->style = array(
-    'settings' => NULL,
-    'style' => 'blockpanel',
-  );
-  $pane->css = array(
-    'css_id' => '',
-    'css_class' => 'salto-facet-search',
-  );
-  $pane->extras = array();
-  $pane->position = 3;
-  $pane->locks = array();
-  $pane->uuid = '2d72b45c-31ef-4f73-b22d-36b1f799f2d6';
-  $display->content['new-2d72b45c-31ef-4f73-b22d-36b1f799f2d6'] = $pane;
-  $display->panels['left'][3] = 'new-2d72b45c-31ef-4f73-b22d-36b1f799f2d6';
+  $pane->uuid = 'e547bb62-a25c-45e7-9d20-b90a5bf771f9';
+  $display->content['new-e547bb62-a25c-45e7-9d20-b90a5bf771f9'] = $pane;
+  $display->panels['left'][1] = 'new-e547bb62-a25c-45e7-9d20-b90a5bf771f9';
   $pane = new stdClass();
   $pane->pid = 'new-b1740222-bcb1-41b4-8a55-9e01fd0c9c66';
   $pane->panel = 'left';
@@ -231,11 +183,11 @@ function salto_search_default_page_manager_pages() {
     'css_class' => 'salto-facet-search',
   );
   $pane->extras = array();
-  $pane->position = 4;
+  $pane->position = 2;
   $pane->locks = array();
   $pane->uuid = 'b1740222-bcb1-41b4-8a55-9e01fd0c9c66';
   $display->content['new-b1740222-bcb1-41b4-8a55-9e01fd0c9c66'] = $pane;
-  $display->panels['left'][4] = 'new-b1740222-bcb1-41b4-8a55-9e01fd0c9c66';
+  $display->panels['left'][2] = 'new-b1740222-bcb1-41b4-8a55-9e01fd0c9c66';
   $pane = new stdClass();
   $pane->pid = 'new-7c6a3528-3b6a-41ac-b735-8608acbb41f1';
   $pane->panel = 'left';
@@ -257,21 +209,21 @@ function salto_search_default_page_manager_pages() {
     'css_class' => 'salto-facet-search',
   );
   $pane->extras = array();
-  $pane->position = 5;
+  $pane->position = 3;
   $pane->locks = array();
   $pane->uuid = '7c6a3528-3b6a-41ac-b735-8608acbb41f1';
   $display->content['new-7c6a3528-3b6a-41ac-b735-8608acbb41f1'] = $pane;
-  $display->panels['left'][5] = 'new-7c6a3528-3b6a-41ac-b735-8608acbb41f1';
+  $display->panels['left'][3] = 'new-7c6a3528-3b6a-41ac-b735-8608acbb41f1';
   $pane = new stdClass();
-  $pane->pid = 'new-b06d8554-b552-4878-a2e5-6c48676bc7fb';
+  $pane->pid = 'new-2d72b45c-31ef-4f73-b22d-36b1f799f2d6';
   $pane->panel = 'left';
   $pane->type = 'block';
-  $pane->subtype = 'facetapi-L8q8zTINKLLOuTEcsGoxbF1E0UN1HKDV';
+  $pane->subtype = 'facetapi-vQSQijtfof0pYJS2UueuRyioHW1CB7gK';
   $pane->shown = TRUE;
   $pane->access = array();
   $pane->configuration = array(
     'override_title' => 1,
-    'override_title_text' => 'Organisation',
+    'override_title_text' => 'Schlagworte',
   );
   $pane->cache = array();
   $pane->style = array(
@@ -283,11 +235,11 @@ function salto_search_default_page_manager_pages() {
     'css_class' => 'salto-facet-search',
   );
   $pane->extras = array();
-  $pane->position = 6;
+  $pane->position = 4;
   $pane->locks = array();
-  $pane->uuid = 'b06d8554-b552-4878-a2e5-6c48676bc7fb';
-  $display->content['new-b06d8554-b552-4878-a2e5-6c48676bc7fb'] = $pane;
-  $display->panels['left'][6] = 'new-b06d8554-b552-4878-a2e5-6c48676bc7fb';
+  $pane->uuid = '2d72b45c-31ef-4f73-b22d-36b1f799f2d6';
+  $display->content['new-2d72b45c-31ef-4f73-b22d-36b1f799f2d6'] = $pane;
+  $display->panels['left'][4] = 'new-2d72b45c-31ef-4f73-b22d-36b1f799f2d6';
   $pane = new stdClass();
   $pane->pid = 'new-b9c8c1c4-ac3a-4089-bc59-c817473f4a05';
   $pane->panel = 'middle';

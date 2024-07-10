@@ -1,5 +1,7 @@
 <?php
 
+use salto_core\service\SettingsService;
+
 define('SALTO_GROUP_JOIN_OPEN', -1);
 define('SALTO_GROUP_JOIN_SELECTED_ORGANISATIONS', 1);
 define('SALTO_GROUP_JOIN_REQUIRE_APPROVAL', 2);
@@ -135,6 +137,21 @@ function salto_group_file_access_records($file) {
         'priority' => 0,
       ];
     }
+
+    // access for group managers
+    $canRead = $access_option['read'] == SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+    $canEdit = $access_option['edit'] == SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS;
+    if ($canRead || $canEdit) {
+      $grants[] = [
+        'realm' => 'salto_manager',
+        'gid' => $gid,
+        'grant_download' => 1,
+        'grant_view' => $canRead || $canEdit ? 1 : 0,
+        'grant_update' => $canEdit ? 1 : 0,
+        'grant_delete' => 0,
+        'priority' => 0,
+      ];
+    }
   }
 
   //check the rid we got from override check. They can differ  - a fiel can have read access from node/group x and write access from node/group y
@@ -172,6 +189,9 @@ function salto_group_file_access_records($file) {
  * Implements hook_node_access().
  */
 function salto_group_node_access($node, $op, $account) {
+
+  $drupalUser = \Wissensnetz\User\DrupalUser::current();
+
   $type = is_string($node) ? $node : (is_array($node) ? $node['type'] : $node->type);
 
   if ($type == 'group' && $op == "delete") {
@@ -181,6 +201,7 @@ function salto_group_node_access($node, $op, $account) {
       return NODE_ACCESS_ALLOW;
     }
   }
+
   return NODE_ACCESS_IGNORE;
 }
 

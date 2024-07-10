@@ -15,6 +15,27 @@ function salto_online_meeting_admin_settings($form, &$form_state) {
     '#description' => t('Enable Online Meetings on this domain'),
   ];
 
+  $form['dialog_gateway']['online_meeting_community_area_enabled'] = [
+    '#type' => 'checkbox',
+    '#title' => 'Online online meeting community area enabled',
+    '#default_value' => salto_online_meeting_community_area_enabled(),
+    '#description' => t('Enable Online Meetings in the community area'),
+  ];
+
+  $form['dialog_gateway']['online_meeting_community_area_show_menu_item'] = [
+    '#type' => 'checkbox',
+    '#title' => 'Display online meeting menu',
+    '#default_value' => salto_online_meeting_community_area_show_menu_item(),
+    '#description' => t('Show the online meeting button in the main navigation'),
+  ];
+
+  $form['dialog_gateway']['online_meetings_cloud_recording_enabled'] = [
+    '#type' => 'checkbox',
+    '#title' => 'Cloud recording enabled',
+    '#default_value' => salto_online_cloud_recording_enabled(),
+    '#description' => t('Enable cloud recordings on this domain'),
+  ];
+
   $form['dialog_gateway']['online_meeting_url'] = [
     '#type' => 'textfield',
     '#title' => 'Url:',
@@ -57,6 +78,20 @@ function salto_online_meeting_admin_settings($form, &$form_state) {
     '#default_value' => FALSE,
     '#description' => t('Anonymize meeting member lastname, like Max M.'),
   ];
+
+  $form['dialog_notifications'] = [
+    '#type' => 'fieldset',
+    '#title' => 'Notification Settings',
+    '#description' => t('General settings for dialog notifications'),
+  ];
+
+  $form['dialog_notifications']['notify_groupmembers_default_value'] = [
+    '#type' => 'checkbox',
+    '#title' => 'Enable group member notification by default',
+    '#default_value' => salto_online_notify_groupmembers_default_value_enabled(),
+    '#description' => t('Default value for notify group members checkbox '),
+  ];
+
 
   return system_settings_form($form);
 

@@ -633,7 +633,7 @@ function drupal_parse_url($url) {
  *   The Drupal path to encode.
  */
 function drupal_encode_path($path) {
-  return str_replace('%2F', '/', rawurlencode($path));
+  return str_replace('%2F', '/', rawurlencode((string) $path));
 }
 
 /**
@@ -943,7 +943,7 @@ function drupal_http_request($url, array $options = array()) {
   // or PUT request. Some non-standard servers get confused by Content-Length in
   // at least HEAD/GET requests, and Squid always requires Content-Length in
   // POST/PUT requests.
-  $content_length = strlen($options['data']);
+  $content_length = strlen((string) $options['data']);
   if ($content_length > 0 || $options['method'] == 'POST' || $options['method'] == 'PUT') {
     $options['headers']['Content-Length'] = $content_length;
   }
@@ -1019,7 +1019,7 @@ function drupal_http_request($url, array $options = array()) {
   $result->headers = array();
 
   // Parse the response headers.
-  while ($line = trim(array_shift($response))) {
+  while ($line = trim((string) array_shift($response))) {
     list($name, $value) = explode(':', $line, 2);
     $name = strtolower($name);
     if (isset($result->headers[$name]) && $name == 'set-cookie') {
@@ -1104,6 +1104,14 @@ function drupal_http_request($url, array $options = array()) {
         // Redirect to the new location.
         $options['max_redirects']--;
 
+        // Check if we need to remove any potentially sensitive headers before
+        // following the redirect.
+        // @see https://www.rfc-editor.org/rfc/rfc9110.html#name-redirection-3xx
+        if (_drupal_should_strip_sensitive_headers_on_http_redirect($url, $location)) {
+          unset($options['headers']['Cookie']);
+          unset($options['headers']['Authorization']);
+        }
+
         // We need to unset the 'Host' header
         // as we are redirecting to a new location.
         unset($options['headers']['Host']);
@@ -1120,6 +1128,36 @@ function drupal_http_request($url, array $options = array()) {
   }
 
   return $result;
+}
+
+/**
+ * Determine whether to strip sensitive headers from a request when redirected.
+ *
+ * @param string $url
+ *   The url from the original outbound http request.
+ *
+ * @param string $location
+ *   The location to which the request has been redirected.
+ *
+ * @return boolean
+ *   Whether sensitive headers should be stripped from the request before
+ *   following the redirect.
+ */
+function _drupal_should_strip_sensitive_headers_on_http_redirect($url, $location) {
+  $url_parsed = parse_url($url);
+  $location_parsed = parse_url($location);
+  if (!isset($location_parsed['host'])) {
+    return FALSE;
+  }
+  $strip_on_host_change = variable_get('drupal_http_request_strip_sensitive_headers_on_host_change', TRUE);
+  $strip_on_https_downgrade = variable_get('drupal_http_request_strip_sensitive_headers_on_https_downgrade', TRUE);
+  if ($strip_on_host_change && strcasecmp($url_parsed['host'], $location_parsed['host']) !== 0) {
+    return TRUE;
+  }
+  if ($strip_on_https_downgrade && $url_parsed['scheme'] !== $location_parsed['scheme'] && 'https' !== $location_parsed['scheme']) {
+    return TRUE;
+  }
+  return FALSE;
 }
 
 /**
@@ -1240,6 +1278,10 @@ function fix_gpc_magic() {
  *
  * This uses the
  * @link http://php.net/manual/filter.filters.validate.php PHP e-mail validation filter. @endlink
+ * However, a module may override this by implementing
+ * hook_valid_email_address_alter(&$valid, $mail).
+ *
+ * @see hook_valid_email_address_alter()
  *
  * @param $mail
  *   A string containing an e-mail address.
@@ -1248,7 +1290,9 @@ function fix_gpc_magic() {
  *   TRUE if the address is in a valid format.
  */
 function valid_email_address($mail) {
-  return (bool)filter_var($mail, FILTER_VALIDATE_EMAIL);
+  $valid = (bool) filter_var($mail, FILTER_VALIDATE_EMAIL);
+  drupal_alter('valid_email_address', $valid, $mail);
+  return $valid;
 }
 
 /**
@@ -1500,7 +1544,7 @@ function filter_xss($string, $allowed_tags = array('a', 'em', 'strong', 'cite', 
   // Store the text format.
   _filter_xss_split($allowed_tags, TRUE);
   // Remove NULL characters (ignored by some browsers).
-  $string = str_replace(chr(0), '', $string);
+  $string = str_replace(chr(0), '', (string) $string);
   // Remove Netscape 4 JS entities.
   $string = preg_replace('%&\s*\{[^}]*(\}\s*;?|$)%', '', $string);
 
@@ -1916,7 +1960,7 @@ function format_plural($count, $singular, $plural, array $args = array(), array 
  */
 function parse_size($size) {
   $unit = preg_replace('/[^bkmgtpezy]/i', '', $size); // Remove the non-unit characters from the size.
-  $size = preg_replace('/[^0-9\.]/', '', $size); // Remove the non-numeric characters from the size.
+  $size = (float) preg_replace('/[^0-9\.]/', '', $size); // Remove the non-numeric characters from the size.
   if ($unit) {
     // Find the position of the unit in the ordered string which is the power of magnitude to multiply a kilobyte by.
     return round($size * pow(DRUPAL_KILOBYTE, stripos('bkmgtpezy', $unit[0])));
@@ -1995,7 +2039,7 @@ function format_interval($interval, $granularity = 2, $langcode = NULL) {
     $key = explode('|', $key);
     if ($interval >= $value) {
       $output .= ($output ? ' ' : '') . format_plural(floor($interval / $value), $key[0], $key[1], array(), array('langcode' => $langcode));
-      $interval %= $value;
+      $interval = (int) $interval % $value;
       $granularity--;
     }
 
@@ -2308,7 +2352,7 @@ function url($path = NULL, array $options = array()) {
   // Strip leading slashes from internal paths to prevent them becoming external
   // URLs without protocol. /example.com should not be turned into
   // //example.com.
-  $path = ltrim($path, '/');
+  $path = ltrim((string) $path, '/');
 
   global $base_url, $base_secure_url, $base_insecure_url;
 
@@ -2346,7 +2390,7 @@ function url($path = NULL, array $options = array()) {
   }
 
   $base = $options['absolute'] ? $options['base_url'] . '/' : base_path();
-  $prefix = empty($path) ? rtrim($options['prefix'], '/') : $options['prefix'];
+  $prefix = empty($path) ? rtrim((string) $options['prefix'], '/') : $options['prefix'];
 
   // With Clean URLs.
   if (!empty($GLOBALS['conf']['clean_url'])) {
@@ -2390,6 +2434,7 @@ function url($path = NULL, array $options = array()) {
  *   Boolean TRUE or FALSE, where TRUE indicates an external path.
  */
 function url_is_external($path) {
+  $path = (string) $path;
   $colonpos = strpos($path, ':');
   // Some browsers treat \ as / so normalize to forward slashes.
   $path = str_replace('\\', '/', $path);
@@ -2569,6 +2614,14 @@ function l($text, $path, array $options = array()) {
       $use_theme = FALSE;
     }
   }
+  $path = (string) $path;
+  // For backwards compatibility, do not strip a couple of specific javascript
+  // paths that are harmless.
+  // @see https://www.drupal.org/project/drupal/issues/3310081
+  $skip_js_paths = array('javascript:void()', 'javascript:void();', 'javascript:void(0)', 'javascript:void(0);');
+  if (!in_array(strtolower($path), $skip_js_paths)) {
+    $path = drupal_strip_dangerous_protocols($path);
+  }
   if ($use_theme) {
     return theme('link', array('text' => $text, 'path' => $path, 'options' => $options));
   }
@@ -2695,19 +2748,7 @@ function drupal_deliver_html_page($page_callback_result) {
   if ($frame_options && is_null(drupal_get_http_header('X-Frame-Options'))) {
     drupal_add_http_header('X-Frame-Options', $frame_options);
   }
-
-  if (variable_get('block_interest_cohort', TRUE)) {
-    $permissions_policy = drupal_get_http_header('Permissions-Policy');
-    if (is_null($permissions_policy)) {
-      drupal_add_http_header('Permissions-Policy', 'interest-cohort=()');
-    }
-    else {
-      // Only add interest-cohort if the header does not contain it already.
-      if (strpos($permissions_policy, 'interest-cohort') === FALSE) {
-        drupal_add_http_header('Permissions-Policy', 'interest-cohort=()', TRUE);
-      }
-    }
-  }
+  drupal_add_http_header('X-Content-Type-Options', 'nosniff');
 
   // Menu status constants are integers; page content is a string or array.
   if (is_int($page_callback_result)) {
@@ -2944,12 +2985,12 @@ function base_path() {
 }
 
 /**
- * Adds a LINK tag with a distinct 'rel' attribute to the page's HEAD.
+ * Adds a LINK tag with distinct attributes to the page's HEAD.
  *
  * This function can be called as long the HTML header hasn't been sent, which
  * on normal pages is up through the preprocess step of theme('html'). Adding
- * a link will overwrite a prior link with the exact same 'rel' and 'href'
- * attributes.
+ * a link will overwrite a prior link with the exact same 'rel', 'href' and
+ * 'hreflang' attributes.
  *
  * @param $attributes
  *   Associative array of element attributes including 'href' and 'rel'.
@@ -2965,12 +3006,12 @@ function drupal_add_html_head_link($attributes, $header = FALSE) {
 
   if ($header) {
     // Also add a HTTP header "Link:".
-    $href = '<' . check_plain($attributes['href']) . '>;';
+    $href = '<' . $attributes['href'] . '>;';
     unset($attributes['href']);
     $element['#attached']['drupal_add_http_header'][] = array('Link',  $href . drupal_http_header_attributes($attributes), TRUE);
   }
 
-  drupal_add_html_head($element, 'drupal_add_html_head_link:' . $attributes['rel'] . ':' . $href);
+  drupal_add_html_head($element, 'drupal_add_html_head_link:' . $attributes['rel'] . ':' . (isset($attributes['hreflang']) ? "{$attributes['hreflang']}:" : '') . $href);
 }
 
 /**
@@ -4342,6 +4383,7 @@ function drupal_add_js($data = NULL, $options = NULL) {
           'data' => array(
             array('basePath' => base_path()),
             array('pathPrefix' => empty($prefix) ? '' : $prefix),
+            array('setHasJsCookie' => variable_get('set_has_js_cookie', FALSE) ? 1 : 0),
           ),
           'type' => 'setting',
           'scope' => 'header',
@@ -5490,7 +5532,8 @@ function drupal_cron_run() {
   drupal_alter('cron_queue_info', $queues);
 
   // Try to acquire cron lock.
-  if (!lock_acquire('cron', 240.0)) {
+  $cron_lock_expiration_timeout = variable_get('cron_lock_expiration_timeout', 900.0);
+  if (!lock_acquire('cron', $cron_lock_expiration_timeout)) {
     // Cron is still running normally.
     watchdog('cron', 'Attempting to re-run cron while it is already running.', array(), WATCHDOG_WARNING);
   }
@@ -6085,7 +6128,7 @@ function drupal_render_page($page) {
  */
 function drupal_render(&$elements) {
   // Early-return nothing if user does not have access.
-  if (empty($elements) || (isset($elements['#access']) && !$elements['#access'])) {
+  if (empty($elements) || !is_array($elements) || (isset($elements['#access']) && !$elements['#access'])) {
     return '';
   }
 
@@ -6641,7 +6684,7 @@ function drupal_sort_title($a, $b) {
  * Checks if the key is a property.
  */
 function element_property($key) {
-  return $key[0] == '#';
+  return $key !== '' && is_string($key) && $key[0] == '#';
 }
 
 /**
@@ -7318,6 +7361,13 @@ function _drupal_schema_initialize(&$schema, $module, $remove_descriptions = TRU
       unset($table['description']);
       foreach ($table['fields'] as &$field) {
         unset($field['description']);
+      }
+    }
+    // Set the type key for all fields where it is not set (mostly when using
+    // datatabase specific data types).
+    foreach ($table['fields'] as &$field) {
+      if (!isset($field['type'])) {
+        $field['type'] = NULL;
       }
     }
   }
@@ -8032,12 +8082,16 @@ function entity_extract_ids($entity_type, $entity) {
   $info = entity_get_info($entity_type);
 
   // Objects being created might not have id/vid yet.
-  $id = isset($entity->{$info['entity keys']['id']}) ? $entity->{$info['entity keys']['id']} : NULL;
-  $vid = ($info['entity keys']['revision'] && isset($entity->{$info['entity keys']['revision']})) ? $entity->{$info['entity keys']['revision']} : NULL;
+  if (!empty($info)) {
+    $id = isset($entity->{$info['entity keys']['id']}) ? $entity->{$info['entity keys']['id']} : NULL;
+    $vid = ($info['entity keys']['revision'] && isset($entity->{$info['entity keys']['revision']})) ? $entity->{$info['entity keys']['revision']} : NULL;
+  }
+  else {
+    $id = NULL;
+    $vid = NULL;
+  }
 
-  // 2021-09-09 - LK: Fix - EntityMalformedException: Missing bundle property on entity of type node in entity_extract_ids()
-  if (!empty($entity->{$info['entity keys']['bundle']})) {
-  //if (!empty($info['entity keys']['bundle'])) {
+  if (!empty($info['entity keys']['bundle'])) {
     // Explicitly fail for malformed entities missing the bundle property.
     if (!isset($entity->{$info['entity keys']['bundle']}) || $entity->{$info['entity keys']['bundle']} === '') {
       throw new EntityMalformedException(t('Missing bundle property on entity of type @entity_type.', array('@entity_type' => $entity_type)));

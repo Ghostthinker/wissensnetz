@@ -1,5 +1,6 @@
 // Bootstrap library.
 @import 'bootstrap.less';
+@import 'fonts.less';
 
 // Base-theme overrides.
 @import 'overrides.less';
@@ -14,6 +15,11 @@
 @import 'modals.less';
 @import 'responsive.less';
 @import 'flex.less';
+@import 'blanko.less';
+@import 'mentions.less';
+@import 'views.less';
+@import 'maple.less';
+
 
 @base-color-1: #f9f9f9;
 
@@ -64,10 +70,18 @@ footer {
 .main-container > .row,
 .region-footer {
   width: auto;
-  max-width: 970px;
+  max-width: @page-max-width;
   margin-left: auto;
   margin-right: auto;
   position: relative;
+}
+
+
+body.page-home:not(.logged-in) .userbar .container,
+body.page-home:not(.logged-in) .navbar.container > .container,
+body.page-home:not(.logged-in) .main-container > .row,
+body.page-home:not(.logged-in) .region-footer {
+  max-width: @page-max-width-home !important;
 }
 
 .main-container > .row {
@@ -198,7 +212,7 @@ iframe.license_grid_iframe {
 }
 
 .entity-message .message-content-preview {
-  word-break: break-all !important;
+  float: right;
 }
 
 .form-type-password label div.label {
@@ -265,6 +279,13 @@ iframe.license_grid_iframe {
     left: initial;
   }
 }
+
+@media (min-width: @screen-sm-min) {
+  .control-label {
+    text-align: right;
+  }
+}
+
 
 
 .view-dosb-license-shipped {
@@ -340,6 +361,31 @@ form .field-multiple-table td.field-multiple-drag {
   }
 }
 
+.klaro.cm-as-context-notice {
+  .context-notice {
+
+    .cm-buttons {
+      display: flex;
+      button {
+
+        &.cm-btn {
+          background-color: @dosb-orange !important;
+          display: block;
+          max-width: 100px;
+          width: 100px;
+          padding: 12px 12px;
+          color: #fff;
+          font-weight: 700;
+          text-decoration: none !important;
+          border: none;
+          border-radius: 0;
+        }
+      }
+
+    }
+  }
+}
+
 .arrow-up {
   display: inline-block;
   width: 0;
@@ -378,4 +424,67 @@ form .field-multiple-table td.field-multiple-drag {
   border-bottom: 5px solid transparent;
 
   border-right: 5px solid black;
+}
+
+.mentions-autocomplete-list{
+  display:flex;
+  gap:20px;
+  align-items: center;
+}
+
+.mentions-autocomplete-list img{
+  border-radius: 50%;
+  display: initial;
+  width: 50px;
+}
+
+.textcomplete-dropdown{
+  width: 30%;
+}
+
+.page-groups .panel-panel.main-content .group-content img{
+  border-radius: unset !important;
+}
+
+.salto-sso-login-container{
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 65px;
+
+  .salto-sso-login-top{
+    height: auto; width:100%; display: flex; flex-direction: column;
+
+    .salto-sso-login-links{
+      display: flex;
+      justify-content: space-between;
+
+      a{
+        display: block; text-align: right; width: unset !important; padding-bottom: unset !important;
+      }
+    }
+
+    .salto-sso-login-right{
+      height: 100%; width:100%; display: flex; align-items: center;
+      margin-bottom: unset;
+      padding-bottom: 5px;
+
+      a{
+        white-space: break-spaces; text-align-last: center;
+      }
+    }
+  }
+
+  .salto-sso-login-bottom{
+    .alert{
+      margin-bottom: unset !important; padding: 23px; margin-top: 10px; white-space: break-spaces;
+    }
+  }
+
+}
+
+#views-bootstrap-carousel-1 {
+  .item img {
+    width: 100%;
+  }
 }

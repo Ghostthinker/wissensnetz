@@ -89,6 +89,8 @@ function salto_comments_delete_commands($comment, $isLast = FALSE) {
 }
 
 function salto_comment_comment_view_alter(&$build) {
+
+
   if ($build['#comment']->uid == 0) {
     $build['links']['comment']['#links']['comment-reply'] = [];
     $build['links']['comment']['#links']['comment-edit'] = [];
@@ -106,8 +108,127 @@ function salto_comment_comment_view_alter(&$build) {
       'href' => 'ajax_comment/' . $build['#comment']->cid . '/delete',
       'html' => TRUE,
     ];
+
+
+
     $build['links']['comment']['#links']['comment-delete'] = $commentDelete;
     $build['links']['comment']['#links']['comment-delete']['attributes']['class'] = $classes;
     array_multisort($build['links']['comment']['#links'], SORT_DESC);
+  }
+
+  $basePath = base_path() . drupal_get_path('module',
+      'salto_knowledgebase') . '/webcomponents/GTReactions/svg';
+
+  $RS = new ReactionService();
+  $votes = $RS->getReactionsCount($build['#comment']->cid, 'comment');
+  $reactionsSerialized = "";
+  if (!empty($votes)) {
+    $reactionsSerialized = json_encode($votes);
+  }
+
+  $gtReactionsSummaryTag = '<div class="reaction-summary" data-entity-type="comment" data-entity-id="' . $build['#comment']->cid . '">' . $reactionsSerialized . '</div>';
+
+  $gtReactionsTag = '
+              <div class="reaction-actions">
+                <gt-reactions-button data-entity-type="comment" data-entity-id="' . $build['#comment']->cid . '">
+                    <img class="like-button" src = ' . $basePath . '/likeButton.svg>
+                    <span class="like-text">' . t('Like') . '</span>
+                </gt-reactions-button>
+              </div>';
+
+
+  $build['links']['#prefix'] = $gtReactionsSummaryTag . $gtReactionsTag;
+
+  $commentReply = $build['links']['comment']['#links']['comment-reply'];
+
+  $comments = salto_comments_get_comments_by_node($build['#node']);
+
+  $tree = salto_comment_get_replies_by_parent_comment($comments);
+
+  if ($build['#comment']->pid !== "0"){
+    $pid = NULL;
+    foreach($tree as $pid => $replies){
+      if (in_array($build['#comment']->cid, $replies)){
+        $reply = comment_load($build['#comment']->cid);
+        $answered_account = user_load($reply->uid);
+        $commentReply['attributes']['data-realname'] = $answered_account->realname;
+        $commentReply['attributes']['data-uid'] = $answered_account->uid;
+        $commentReply['href'] = "comment/reply/" . $build['#node']->nid . "/$pid";
+        break;
+      }
+    }
+  }
+
+  $build['links']['comment']['#links']['comment-reply'] = $commentReply;
+}/**
+ * @param array $comments
+ *
+ * @return array
+ */
+function salto_comment_get_replies_by_parent_comment(array $comments): array {
+  $tree = [];
+  $pid = NULL;
+  foreach ($comments as $comment) {
+    if ($comment->pid == 0) {
+      $pid = $comment->cid;
+      continue;
+    }
+    $tree[$pid][] = $comment->cid;;
+  }
+  return $tree;
+}
+
+/**
+ * @param $node
+ *
+ * @return array
+ */
+function salto_comments_get_comments_by_node($node): array {
+  $thread = comment_get_thread($node, COMMENT_MODE_THREADED, 100);
+  $comments = [];
+
+  foreach ($thread as $cid) {
+    $comments[] = comment_load($cid);
+  }
+  return $comments;
+}
+
+
+/**
+ * Content preview for comments
+ *
+ * @param  [type] $entity [description]
+ *
+ * @return [type]         [description]
+ */
+function salto_comment_onsite_notification_content_preview($message) {
+
+  $message_types = [
+    MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT,
+    MESSAGE_TYPE_NOTIFICATION_CREATE_COMMENT_REPLY,
+    MESSAGE_TYPE_NOTIFICATION_USER_MENTIONED,
+  ];
+
+  if (in_array($message->type, $message_types)) {
+    if (!empty($message->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id'])) {
+
+      $comment = comment_load($message->field_notification_comment_ref[LANGUAGE_NONE][0]['target_id']);
+      $output = $comment->body;
+      //alter prefix for comment/node mentions
+      //mention in a comment of vs mentioned in
+      // todo for node mention => im Beitrag
+      $message->content['message__message_text__0']['#markup'] = str_replace('[content-prefix]', 'im Kommentar zu', $message->content['message__message_text__0']['#markup']);
+
+
+
+      return ($output);
+    }
+
+    if (!empty($message->field_notification_metadata[LANGUAGE_NONE][0]['value'])){
+      //svs_video_comment
+      $svs_comment_metadata = json_decode($message->field_notification_metadata[LANGUAGE_NONE][0]['value']);
+      $output = date("i:s", round($svs_comment_metadata->timestamp)) . ' | ' . strip_tags($svs_comment_metadata->comment_body);
+      return $output;
+    }
   }
 }

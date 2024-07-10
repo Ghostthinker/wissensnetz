@@ -244,6 +244,63 @@ function salto_knowledgebase_field_default_field_bases() {
     'type' => 'taxonomy_term_reference',
   );
 
+  // Exported field_base: 'field_publishing_date'.
+  $field_bases['field_publishing_date'] = array(
+    'active' => 1,
+    'cardinality' => 1,
+    'deleted' => 0,
+    'entity_types' => array(),
+    'field_name' => 'field_publishing_date',
+    'indexes' => array(),
+    'locked' => 0,
+    'module' => 'date',
+    'settings' => array(
+      'cache_count' => 4,
+      'cache_enabled' => 0,
+      'granularity' => array(
+        'day' => 'day',
+        'hour' => 'hour',
+        'minute' => 'minute',
+        'month' => 'month',
+        'second' => 0,
+        'year' => 'year',
+      ),
+      'profile2_private' => FALSE,
+      'timezone_db' => '',
+      'todate' => '',
+      'tz_handling' => 'none',
+    ),
+    'translatable' => 0,
+    'type' => 'date',
+  );
+
+  // Exported field_base: 'field_publishing_options'.
+  $field_bases['field_publishing_options'] = array(
+    'active' => 1,
+    'cardinality' => 1,
+    'deleted' => 0,
+    'entity_types' => array(),
+    'field_name' => 'field_publishing_options',
+    'indexes' => array(
+      'value' => array(
+        0 => 'value',
+      ),
+    ),
+    'locked' => 0,
+    'module' => 'list',
+    'settings' => array(
+      'allowed_values' => array(
+        'draft' => 'Beitrag als Entwurf speichern (Eingeschränkte Sichtbarkeit)',
+        'immediate' => 'Beitrag sofort veröffentlichen',
+        'cron' => 'Automatische Veröffentlichung am',
+      ),
+      'allowed_values_function' => '',
+      'profile2_private' => FALSE,
+    ),
+    'translatable' => 0,
+    'type' => 'list_text',
+  );
+
   // Exported field_base: 'field_references'.
   $field_bases['field_references'] = array(
     'active' => 1,
@@ -316,31 +373,29 @@ function salto_knowledgebase_field_default_field_bases() {
     'type' => 'entityreference',
   );
 
-  // Exported field_base: 'field_taxonomy_post_tags'.
-  $field_bases['field_taxonomy_post_tags'] = array(
+  // Exported field_base: 'field_teaser_image'.
+  $field_bases['field_teaser_image'] = array(
     'active' => 1,
-    'cardinality' => -1,
+    'cardinality' => 1,
     'deleted' => 0,
+    'entity_id_type' => NULL,
     'entity_types' => array(),
-    'field_name' => 'field_taxonomy_post_tags',
+    'field_name' => 'field_teaser_image',
     'indexes' => array(
-      'tid' => array(
-        0 => 'tid',
+      'fid' => array(
+        0 => 'fid',
       ),
     ),
     'locked' => 0,
-    'module' => 'taxonomy',
+    'module' => 'file',
     'settings' => array(
-      'allowed_values' => array(
-        0 => array(
-          'vocabulary' => 'post_tags',
-          'parent' => 0,
-        ),
-      ),
+      'display_default' => 0,
+      'display_field' => 0,
       'profile2_private' => FALSE,
+      'uri_scheme' => 'private',
     ),
     'translatable' => 0,
-    'type' => 'taxonomy_term_reference',
+    'type' => 'file',
   );
 
   // Exported field_base: 'field_term_sync_material_ref'.

@@ -61,15 +61,6 @@ class MediaWebresourceHandler extends MediaInternetBaseHandler {
 
     $file = file_uri_to_object($uri, TRUE);
 
-    // Try to default the file name to the video's title.
-    if (empty($file->fid)) {
-      $title = $this->get_title_from_remote_page($this->embedCode); //
-      if (empty($title)) {
-        $title = $this->embedCode;
-      }
-
-      $file->filename = truncate_utf8($title, 255);
-    }
     return $file;
   }
 
@@ -141,17 +132,15 @@ class MediaWebresourceHandler extends MediaInternetBaseHandler {
   }
 
   /**
-   * Parse a remote url for title
+   * Parse a remote url for title.
    *
-   * @param $url
+   * @param string $url
    *
    * @return mixed
    */
   static function get_title_from_remote_page($url) {
-
     static $titles;
     if (empty($titles[$url])) {
-
       $ch = curl_init();
       curl_setopt($ch, CURLOPT_URL, $url);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
@@ -169,4 +158,5 @@ class MediaWebresourceHandler extends MediaInternetBaseHandler {
     }
     return !empty($titles[$url]) ? $titles[$url] : NULL;
   }
+
 }

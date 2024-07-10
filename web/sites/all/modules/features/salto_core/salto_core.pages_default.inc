@@ -619,6 +619,121 @@ print salto_organisation_render_home_sidebar_action_links();
   $display->content['new-68c96aa1-5a02-456b-9b1e-8a9136ee137e'] = $pane;
   $display->panels['right'][1] = 'new-68c96aa1-5a02-456b-9b1e-8a9136ee137e';
   $pane = new stdClass();
+  $pane->pid = 'new-fabdb120-2b97-46d2-b1ec-a74b8ca702ce';
+  $pane->panel = 'right';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array(
+    'plugins' => array(
+      0 => array(
+        'name' => 'php',
+        'settings' => array(
+          'description' => 'Community Online-Treffen enabled',
+          'php' => 'use salto_core\\service\\SettingsService;
+
+return SettingsService::onlineTreffenCommunityAreaEnabled();',
+        ),
+        'not' => FALSE,
+      ),
+    ),
+  );
+  $pane->configuration = array(
+    'admin_title' => 'online-meetings',
+    'title' => 'Online meetings in the community area',
+    'title_heading' => 'h2',
+    'body' => '<?php
+
+print salto_online_meeting_render_community_area_dialog_info();
+
+?>',
+    'format' => 'php_code',
+    'substitute' => TRUE,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array(
+    'css_id' => '',
+    'css_class' => 'bip_side_box',
+  );
+  $pane->extras = array();
+  $pane->position = 2;
+  $pane->locks = array();
+  $pane->uuid = 'fabdb120-2b97-46d2-b1ec-a74b8ca702ce';
+  $display->content['new-fabdb120-2b97-46d2-b1ec-a74b8ca702ce'] = $pane;
+  $display->panels['right'][2] = 'new-fabdb120-2b97-46d2-b1ec-a74b8ca702ce';
+  $pane = new stdClass();
+  $pane->pid = 'new-48818d31-cebb-47b1-96bf-f0d3af598ae5';
+  $pane->panel = 'right';
+  $pane->type = 'fast_navigation';
+  $pane->subtype = 'fast_navigation';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'type' => NULL,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array(
+    'css_id' => '',
+    'css_class' => 'bip_side_box',
+  );
+  $pane->extras = array();
+  $pane->position = 3;
+  $pane->locks = array();
+  $pane->uuid = '48818d31-cebb-47b1-96bf-f0d3af598ae5';
+  $display->content['new-48818d31-cebb-47b1-96bf-f0d3af598ae5'] = $pane;
+  $display->panels['right'][3] = 'new-48818d31-cebb-47b1-96bf-f0d3af598ae5';
+  $pane = new stdClass();
+  $pane->pid = 'new-129eeafc-4bf5-4b99-b557-e59b1005b690';
+  $pane->panel = 'right';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array(
+    'plugins' => array(
+      0 => array(
+        'name' => 'php',
+        'settings' => array(
+          'description' => '',
+          'php' => 'use salto_core\\service\\SettingsService;
+
+$settings = SettingsService::getSocialVideoHelp();
+return $settings[\'enabled\'];',
+        ),
+        'not' => FALSE,
+      ),
+    ),
+  );
+  $pane->configuration = array(
+    'admin_title' => 'Social Video Help',
+    'title' => '',
+    'title_heading' => 'h2',
+    'body' => '<?php
+echo salto_core_render_social_video_help_info();
+?>',
+    'format' => 'php_code',
+    'substitute' => TRUE,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array(
+    'css_id' => '',
+    'css_class' => 'bip_side_box',
+  );
+  $pane->extras = array();
+  $pane->position = 4;
+  $pane->locks = array();
+  $pane->uuid = '129eeafc-4bf5-4b99-b557-e59b1005b690';
+  $display->content['new-129eeafc-4bf5-4b99-b557-e59b1005b690'] = $pane;
+  $display->panels['right'][4] = 'new-129eeafc-4bf5-4b99-b557-e59b1005b690';
+  $pane = new stdClass();
   $pane->pid = 'new-04e3a1b4-a9a6-4f38-81a4-bb316f1dca78';
   $pane->panel = 'right';
   $pane->type = 'custom';
@@ -632,18 +747,6 @@ print salto_organisation_render_home_sidebar_action_links();
         'settings' => array(
           'description' => 'user check quick guide',
           'php' => 'return salto_help_show_quick_guide_panel();',
-        ),
-        'not' => FALSE,
-      ),
-      1 => array(
-        'name' => 'php',
-        'settings' => array(
-          'description' => 'Module wn_blanko is disabled',
-          'php' => 'if (!module_exists(\'wn_blanko\')) {
-  return TRUE;
-}
-
-return FALSE;',
         ),
         'not' => FALSE,
       ),
@@ -676,11 +779,11 @@ print views_embed_view(\'quick_guide\', \'panel_pane_1\');
     'css_class' => 'quick-guide',
   );
   $pane->extras = array();
-  $pane->position = 2;
+  $pane->position = 5;
   $pane->locks = array();
   $pane->uuid = '04e3a1b4-a9a6-4f38-81a4-bb316f1dca78';
   $display->content['new-04e3a1b4-a9a6-4f38-81a4-bb316f1dca78'] = $pane;
-  $display->panels['right'][2] = 'new-04e3a1b4-a9a6-4f38-81a4-bb316f1dca78';
+  $display->panels['right'][5] = 'new-04e3a1b4-a9a6-4f38-81a4-bb316f1dca78';
   $pane = new stdClass();
   $pane->pid = 'new-4ba38fd9-0fd6-45e6-9fc0-20d9a370594a';
   $pane->panel = 'right';
@@ -705,11 +808,11 @@ print views_embed_view(\'quick_guide\', \'panel_pane_1\');
     'css_class' => 'pane_w340',
   );
   $pane->extras = array();
-  $pane->position = 3;
+  $pane->position = 6;
   $pane->locks = array();
   $pane->uuid = '4ba38fd9-0fd6-45e6-9fc0-20d9a370594a';
   $display->content['new-4ba38fd9-0fd6-45e6-9fc0-20d9a370594a'] = $pane;
-  $display->panels['right'][3] = 'new-4ba38fd9-0fd6-45e6-9fc0-20d9a370594a';
+  $display->panels['right'][6] = 'new-4ba38fd9-0fd6-45e6-9fc0-20d9a370594a';
   $pane = new stdClass();
   $pane->pid = 'new-a98d7d19-bf7f-4662-8b33-30d83eaab9e7';
   $pane->panel = 'right';
@@ -735,7 +838,7 @@ return FALSE;',
   $pane->configuration = array(
     'admin_title' => '',
     'title' => 'Neuestes Video',
-    'body' => '<iframe  width="332" height="198" src="https://www.youtube.com/embed/wdafH9tX37M" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen wmode="Opaque"></iframe>',
+    'body' => '<iframe  width="332" height="198" data-name="youtube" data-src="https://www.youtube-nocookie.com/embed/jvQs0cluZD8" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen wmode="Opaque"></iframe>',
     'format' => 'php_code',
     'substitute' => TRUE,
     'title_heading' => 'h2',
@@ -749,11 +852,11 @@ return FALSE;',
     'css_class' => 'home_latest_video',
   );
   $pane->extras = array();
-  $pane->position = 4;
+  $pane->position = 7;
   $pane->locks = array();
   $pane->uuid = 'a98d7d19-bf7f-4662-8b33-30d83eaab9e7';
   $display->content['new-a98d7d19-bf7f-4662-8b33-30d83eaab9e7'] = $pane;
-  $display->panels['right'][4] = 'new-a98d7d19-bf7f-4662-8b33-30d83eaab9e7';
+  $display->panels['right'][7] = 'new-a98d7d19-bf7f-4662-8b33-30d83eaab9e7';
   $pane = new stdClass();
   $pane->pid = 'new-0d4251c2-e068-4208-b82b-8843160ec950';
   $pane->panel = 'right';
@@ -793,11 +896,11 @@ return FALSE;',
     'css_class' => 'bip_side_box',
   );
   $pane->extras = array();
-  $pane->position = 5;
+  $pane->position = 8;
   $pane->locks = array();
   $pane->uuid = '0d4251c2-e068-4208-b82b-8843160ec950';
   $display->content['new-0d4251c2-e068-4208-b82b-8843160ec950'] = $pane;
-  $display->panels['right'][5] = 'new-0d4251c2-e068-4208-b82b-8843160ec950';
+  $display->panels['right'][8] = 'new-0d4251c2-e068-4208-b82b-8843160ec950';
   $pane = new stdClass();
   $pane->pid = 'new-a5c18cd4-4d44-40c6-b55e-943e91ffe975';
   $pane->panel = 'right';
@@ -841,11 +944,11 @@ print views_embed_view(\'feed_items\', \'panel_pane_1\', 27269);
     'css_class' => '',
   );
   $pane->extras = array();
-  $pane->position = 6;
+  $pane->position = 9;
   $pane->locks = array();
   $pane->uuid = 'a5c18cd4-4d44-40c6-b55e-943e91ffe975';
   $display->content['new-a5c18cd4-4d44-40c6-b55e-943e91ffe975'] = $pane;
-  $display->panels['right'][6] = 'new-a5c18cd4-4d44-40c6-b55e-943e91ffe975';
+  $display->panels['right'][9] = 'new-a5c18cd4-4d44-40c6-b55e-943e91ffe975';
   $pane = new stdClass();
   $pane->pid = 'new-11d21608-811f-4069-b898-f29d03b9a44b';
   $pane->panel = 'right';
@@ -878,11 +981,11 @@ print views_embed_view(\'feed_items\', \'panel_pane_1\', 27269);
     'css_class' => 'home_latest_articles, bip_side_box',
   );
   $pane->extras = array();
-  $pane->position = 7;
+  $pane->position = 10;
   $pane->locks = array();
   $pane->uuid = '11d21608-811f-4069-b898-f29d03b9a44b';
   $display->content['new-11d21608-811f-4069-b898-f29d03b9a44b'] = $pane;
-  $display->panels['right'][7] = 'new-11d21608-811f-4069-b898-f29d03b9a44b';
+  $display->panels['right'][10] = 'new-11d21608-811f-4069-b898-f29d03b9a44b';
   $pane = new stdClass();
   $pane->pid = 'new-212762c9-e13b-4e7c-8d15-8805afcf24f3';
   $pane->panel = 'right';
@@ -908,9 +1011,10 @@ print views_embed_view(\'feed_items\', \'panel_pane_1\', 27269);
   $pane->configuration = array(
     'admin_title' => '',
     'title' => 'Wissensnetz-Team',
-    'body' => '<p><a href="/statistics">Statistiken</a></p><p><a href="/newsletter/export">E-Mail-Verteiler</a></p>',
+    'body' => '<p><a href="/statistics">Statistiken</a></p><p><a href="/newsletter/export">E-Mail-Verteiler</a></p><p><a href="/redaktionelles">Redaktionelles</a></p><p>&nbsp;</p><p><u><strong>Community-Management</strong></u></p><p><a href="/community-manager/people">Mitglieder </a></p><p><a href="/community-manager/legal"><span class="inline even last">Zustimmung der </span> <span class="inline even last">Nutzungsbedingungen</span></a></p><p><a href="/community-manager/invites">Einladungen</a></p><p>&nbsp;</p>',
     'format' => 'editor',
     'substitute' => TRUE,
+    'title_heading' => 'h2',
   );
   $pane->cache = array();
   $pane->style = array(
@@ -921,11 +1025,11 @@ print views_embed_view(\'feed_items\', \'panel_pane_1\', 27269);
     'css_class' => 'bip_side_box',
   );
   $pane->extras = array();
-  $pane->position = 8;
+  $pane->position = 11;
   $pane->locks = array();
   $pane->uuid = '212762c9-e13b-4e7c-8d15-8805afcf24f3';
   $display->content['new-212762c9-e13b-4e7c-8d15-8805afcf24f3'] = $pane;
-  $display->panels['right'][8] = 'new-212762c9-e13b-4e7c-8d15-8805afcf24f3';
+  $display->panels['right'][11] = 'new-212762c9-e13b-4e7c-8d15-8805afcf24f3';
   $display->hide_title = PANELS_TITLE_FIXED;
   $display->title_pane = '0';
   $handler->conf['display'] = $display;
@@ -1202,7 +1306,7 @@ return FALSE;
     'title' => '',
     'body' => '<a href="/schnellstart-lims-anbindung">Anleitung zur Schnittstellenprogrammierung für das <br/>DOSB-Lizenzmanagementsystem<a><br/><br/>
 
-<iframe  width="332" height="198" src="https://www.youtube.com/embed/wdafH9tX37M" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen wmode="Opaque"></iframe>',
+<iframe  width="332" height="198" data-name="youtube" data-src="https://www.youtube-nocookie.com/embed/jvQs0cluZD8" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen wmode="Opaque"></iframe>',
     'format' => 'php_code',
     'substitute' => TRUE,
     'title_heading' => 'h2',
@@ -1277,11 +1381,233 @@ return FALSE;
   $pane->uuid = '8df5404b-1b5c-4760-a6ac-37b6632b2693';
   $display->content['new-8df5404b-1b5c-4760-a6ac-37b6632b2693'] = $pane;
   $display->panels['right'][3] = 'new-8df5404b-1b5c-4760-a6ac-37b6632b2693';
+  $pane = new stdClass();
+  $pane->pid = 'new-15cd770c-b853-4423-b794-f564d689724d';
+  $pane->panel = 'right';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array(
+    'plugins' => array(
+      0 => array(
+        'name' => 'php',
+        'settings' => array(
+          'description' => 'SSO enabled',
+          'php' => 'if (!module_exists("salto_keycloak")) {
+    return FALSE;
+  }
+
+return TRUE;',
+        ),
+        'not' => FALSE,
+      ),
+    ),
+    'logic' => 'and',
+  );
+  $pane->configuration = array(
+    'admin_title' => 'Tipp bzgl. Login',
+    'title' => '',
+    'title_heading' => 'h2',
+    'body' => '<p><strong>Tipps falls Du Probleme beim Anmelden haben solltest:</strong></p><ul><li>Du warst bisher auf dem edubreak®CAMPUS und hier in der Community aktiv?<br>→ Du kannst Dich nun mit Deinen bestehenden Zugangsdaten des edubreak®CAMPUS auch in der Community hier anmelden.</li><li>Du warst bisher nur hier in der Community aktiv?<br>→ Du solltest Dich hier in der Community mit den gleichen Zugangsdaten wie bisher anmelden. Das ist nun Dein neuer zentraler edubreak®-Account!</li></ul><p>&nbsp;</p><p>Falls Du Dich trotzdem weiterhin nicht anmelden kannst, bekommen wir das natürlich trotzdem hin. Bitte dazu die Schritte&nbsp;<a href="/login-support" rel="nofollow">hier</a>&nbsp;probieren.</p>',
+    'format' => 'editor',
+    'substitute' => TRUE,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 4;
+  $pane->locks = array();
+  $pane->uuid = '15cd770c-b853-4423-b794-f564d689724d';
+  $display->content['new-15cd770c-b853-4423-b794-f564d689724d'] = $pane;
+  $display->panels['right'][4] = 'new-15cd770c-b853-4423-b794-f564d689724d';
   $display->hide_title = PANELS_TITLE_FIXED;
   $display->title_pane = '0';
   $handler->conf['display'] = $display;
   $page->default_handlers[$handler->name] = $handler;
   $pages['home'] = $page;
+
+  $page = new stdClass();
+  $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
+  $page->api_version = 1;
+  $page->name = 'login_support';
+  $page->task = 'page';
+  $page->admin_title = 'Login Support';
+  $page->admin_description = '';
+  $page->path = 'login-support';
+  $page->access = array(
+    'type' => 'none',
+    'settings' => NULL,
+  );
+  $page->menu = array();
+  $page->arguments = array();
+  $page->conf = array(
+    'admin_paths' => FALSE,
+  );
+  $page->default_handlers = array();
+  $handler = new stdClass();
+  $handler->disabled = FALSE; /* Edit this to true to make a default handler disabled initially */
+  $handler->api_version = 1;
+  $handler->name = 'page_login_support__panel';
+  $handler->task = 'page';
+  $handler->subtask = 'login_support';
+  $handler->handler = 'panel_context';
+  $handler->weight = 0;
+  $handler->conf = array(
+    'title' => 'Panel',
+    'no_blocks' => 0,
+    'pipeline' => 'standard',
+    'body_classes_to_remove' => '',
+    'body_classes_to_add' => '',
+    'css_id' => '',
+    'css' => '',
+    'contexts' => array(),
+    'relationships' => array(),
+    'name' => 'panel',
+  );
+  $display = new panels_display();
+  $display->layout = 'onecol';
+  $display->layout_settings = array();
+  $display->panel_settings = array(
+    'style_settings' => array(
+      'default' => NULL,
+      'left' => NULL,
+      'right' => NULL,
+      'license_left' => NULL,
+      'license_middle' => NULL,
+      'license_right' => NULL,
+      'tags' => NULL,
+      'meta_left' => NULL,
+      'meta_right' => NULL,
+      'middle' => NULL,
+    ),
+  );
+  $display->cache = array();
+  $display->title = '';
+  $display->uuid = '9c6dc29f-0094-4231-acdd-652be6ee1c86';
+  $display->storage_type = 'page_manager';
+  $display->storage_id = 'page_login_support__panel';
+  $display->content = array();
+  $display->panels = array();
+  $pane = new stdClass();
+  $pane->pid = 'new-aa700f20-9a36-487d-96c4-e2163ed78eb6';
+  $pane->panel = 'middle';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'admin_title' => '',
+    'title' => 'Schnelle Unterstützung bei Anmeldeproblemen',
+    'title_heading' => 'h2',
+    'body' => '<p>Falls Du Dich trotzdem weiterhin nicht anmelden kannst, bekommen wir das natürlich trotzdem hin. Bitte dazu folgende Schritte probieren:</p><ul><li>Setze Dein Passwort für Deinen zentralen edubreak®-Account&nbsp;<a href="https://auth.edubreak.de/realms/edubreak/login-actions/reset-credentials" rel="nofollow" target="_blank">hier&nbsp;</a>ganz einfach selbst zurück.</li><li>Falls das nicht klappt, liegt es evtl. daran, dass Du zwei unterschiedliche E-Mail-Adressen auf dem edubreak®CAMPUS und hier in der Community genutzt hast. Bitte kontaktiere dafür unser Support-Team unter&nbsp;<a href="mailto:support@edubreak.de" rel="nofollow" target="_blank">support@edubreak.de</a>. Bitte gib uns Bescheid, welche E-Mails Du jeweils genutzt hast, dann können wir Dir schnell helfen.</li></ul><p>Natürlich kannst Du uns auch sonst direkt unter&nbsp;<a href="mailto:support@edubreak.de" rel="nofollow" target="_blank">support@edubreak.de</a>&nbsp;anschreiben und Dein Problem schildern - gerne auch mit einem Bildschirmfoto.</p>',
+    'format' => 'editor',
+    'substitute' => TRUE,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 0;
+  $pane->locks = array();
+  $pane->uuid = 'aa700f20-9a36-487d-96c4-e2163ed78eb6';
+  $display->content['new-aa700f20-9a36-487d-96c4-e2163ed78eb6'] = $pane;
+  $display->panels['middle'][0] = 'new-aa700f20-9a36-487d-96c4-e2163ed78eb6';
+  $display->hide_title = PANELS_TITLE_FIXED;
+  $display->title_pane = '0';
+  $handler->conf['display'] = $display;
+  $page->default_handlers[$handler->name] = $handler;
+  $pages['login_support'] = $page;
+
+  $page = new stdClass();
+  $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
+  $page->api_version = 1;
+  $page->name = 'redaktionelles';
+  $page->task = 'page';
+  $page->admin_title = 'Redaktionelles';
+  $page->admin_description = '';
+  $page->path = 'redaktionelles';
+  $page->access = array(
+    'type' => 'none',
+    'settings' => NULL,
+  );
+  $page->menu = array();
+  $page->arguments = array();
+  $page->conf = array(
+    'admin_paths' => FALSE,
+  );
+  $page->default_handlers = array();
+  $handler = new stdClass();
+  $handler->disabled = FALSE; /* Edit this to true to make a default handler disabled initially */
+  $handler->api_version = 1;
+  $handler->name = 'page_redaktionelles__panel';
+  $handler->task = 'page';
+  $handler->subtask = 'redaktionelles';
+  $handler->handler = 'panel_context';
+  $handler->weight = 0;
+  $handler->conf = array(
+    'title' => 'Panel',
+    'no_blocks' => 0,
+    'pipeline' => 'standard',
+    'body_classes_to_remove' => '',
+    'body_classes_to_add' => '',
+    'css_id' => '',
+    'css' => '',
+    'contexts' => array(),
+    'relationships' => array(),
+    'name' => 'panel',
+  );
+  $display = new panels_display();
+  $display->layout = 'onecol';
+  $display->layout_settings = array();
+  $display->panel_settings = array(
+    'style_settings' => array(
+      'default' => NULL,
+      'middle' => NULL,
+    ),
+  );
+  $display->cache = array();
+  $display->title = 'Redaktionelles';
+  $display->uuid = '362cf214-173b-4261-a306-194aaff0d701';
+  $display->storage_type = 'page_manager';
+  $display->storage_id = 'page_redaktionelles__panel';
+  $display->content = array();
+  $display->panels = array();
+  $pane = new stdClass();
+  $pane->pid = 'new-f1f16a20-e638-42e1-bab2-03ed0427cdb6';
+  $pane->panel = 'middle';
+  $pane->type = 'custom';
+  $pane->subtype = 'custom';
+  $pane->shown = TRUE;
+  $pane->access = array();
+  $pane->configuration = array(
+    'admin_title' => 'redaktionelles',
+    'title' => 'Redaktionelles',
+    'title_heading' => 'h2',
+    'body' => '<p>Hier kannst Du als Community-Manager:in schnell und unkompliziert Eure wichtigsten statischen Seiten bearbeiten.</p><ul><li><a href="/node/1783">Über</a>&nbsp;<a href="/node/1783/edit">(bearbeiten)</a></li><li><a href="/node/78908">Impressum</a>&nbsp;<a href="/node/78908/edit">(bearbeiten)</a></li><li><a href="/node/1762">Nutzungsvereinbarung</a>&nbsp;<a href="/node/1762/edit">(bearbeiten)</a></li><li><a href="/node/1766">Social Guidelines</a>&nbsp;<a href="/node/1766/edit">(bearbeiten)</a></li><li><a href="/node/2932">Datenschutz</a>&nbsp;<a href="/node/2932/edit">(bearbeiten</a>)</li></ul>',
+    'format' => 'editor',
+    'substitute' => TRUE,
+  );
+  $pane->cache = array();
+  $pane->style = array(
+    'settings' => NULL,
+  );
+  $pane->css = array();
+  $pane->extras = array();
+  $pane->position = 0;
+  $pane->locks = array();
+  $pane->uuid = 'f1f16a20-e638-42e1-bab2-03ed0427cdb6';
+  $display->content['new-f1f16a20-e638-42e1-bab2-03ed0427cdb6'] = $pane;
+  $display->panels['middle'][0] = 'new-f1f16a20-e638-42e1-bab2-03ed0427cdb6';
+  $display->hide_title = PANELS_TITLE_FIXED;
+  $display->title_pane = 'new-f1f16a20-e638-42e1-bab2-03ed0427cdb6';
+  $handler->conf['display'] = $display;
+  $page->default_handlers[$handler->name] = $handler;
+  $pages['redaktionelles'] = $page;
 
   return $pages;
 

@@ -1,14 +1,32 @@
-.pagination > li > a, .pagination > li > span {
-  padding: 1.3em;
-}
 
 .pagination {
   display: flex;
   justify-content: center;
 
-  .pager-first,
-  .pager-ellipsis,
-  .pager-last {
+  > li.pager-first,
+  > li.pager-ellipsis,
+  > li.pager-last {
     display: none;
+  }
+
+  > li.prev,
+  > li.active,
+  > li.next {
+    display: block;
+  }
+
+}
+
+@media screen and (max-width: @screen-md) {
+  .pagination {
+    > li {
+      display: none;
+    }
+
+    > li.prev,
+    > li.active,
+    > li.next {
+      display: block;
+    }
   }
 }

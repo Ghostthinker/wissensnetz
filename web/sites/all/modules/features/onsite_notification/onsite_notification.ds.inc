@@ -231,6 +231,71 @@ function onsite_notification_ds_field_settings_info() {
   );
   $export['message|notification_revision_created|full'] = $ds_fieldsetting;
 
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'message|notification_user_mentioned_in_comment|default';
+  $ds_fieldsetting->entity_type = 'message';
+  $ds_fieldsetting->bundle = 'notification_user_mentioned_in_comment';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'message_flags' => array(
+      'weight' => '1',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+    'notification_content_preview' => array(
+      'weight' => '2',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['message|notification_user_mentioned_in_comment|default'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'message|notification_user_mentioned_in_comment|message_mail';
+  $ds_fieldsetting->entity_type = 'message';
+  $ds_fieldsetting->bundle = 'notification_user_mentioned_in_comment';
+  $ds_fieldsetting->view_mode = 'message_mail';
+  $ds_fieldsetting->settings = array(
+    'notification_content_preview' => array(
+      'weight' => '1',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['message|notification_user_mentioned_in_comment|message_mail'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'message|notification_user_mentioned|default';
+  $ds_fieldsetting->entity_type = 'message';
+  $ds_fieldsetting->bundle = 'notification_user_mentioned';
+  $ds_fieldsetting->view_mode = 'default';
+  $ds_fieldsetting->settings = array(
+    'notification_content_preview' => array(
+      'weight' => '1',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['message|notification_user_mentioned|default'] = $ds_fieldsetting;
+
+  $ds_fieldsetting = new stdClass();
+  $ds_fieldsetting->api_version = 1;
+  $ds_fieldsetting->id = 'message|notification_user_mentioned|message_mail';
+  $ds_fieldsetting->entity_type = 'message';
+  $ds_fieldsetting->bundle = 'notification_user_mentioned';
+  $ds_fieldsetting->view_mode = 'message_mail';
+  $ds_fieldsetting->settings = array(
+    'notification_content_preview' => array(
+      'weight' => '1',
+      'label' => 'hidden',
+      'format' => 'default',
+    ),
+  );
+  $export['message|notification_user_mentioned|message_mail'] = $ds_fieldsetting;
+
   return $export;
 }
 
@@ -390,6 +455,7 @@ function onsite_notification_ds_layout_settings_info() {
     'layout_attributes_merge' => 1,
     'layout_link_attribute' => '',
     'layout_link_custom' => '',
+    'layout_disable_css' => FALSE,
   );
   $export['message|notification_create_comment_reply|default'] = $ds_layout;
 
@@ -492,6 +558,7 @@ function onsite_notification_ds_layout_settings_info() {
     'layout_attributes_merge' => 1,
     'layout_link_attribute' => '',
     'layout_link_custom' => '',
+    'layout_disable_css' => FALSE,
   );
   $export['message|notification_create_comment|default'] = $ds_layout;
 
@@ -929,6 +996,181 @@ function onsite_notification_ds_layout_settings_info() {
     'layout_link_custom' => '',
   );
   $export['message|notification_revision_created|full'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'message|notification_user_mentioned_in_comment|default';
+  $ds_layout->entity_type = 'message';
+  $ds_layout->bundle = 'notification_user_mentioned_in_comment';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'ds_1col';
+  $ds_layout->settings = array(
+    'regions' => array(
+      'ds_content' => array(
+        0 => 'message__message_text__0',
+        1 => 'message_flags',
+        2 => 'notification_content_preview',
+      ),
+    ),
+    'fields' => array(
+      'message__message_text__0' => 'ds_content',
+      'message_flags' => 'ds_content',
+      'notification_content_preview' => 'ds_content',
+    ),
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'ds_content' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => FALSE,
+  );
+  $export['message|notification_user_mentioned_in_comment|default'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'message|notification_user_mentioned_in_comment|message_mail';
+  $ds_layout->entity_type = 'message';
+  $ds_layout->bundle = 'notification_user_mentioned_in_comment';
+  $ds_layout->view_mode = 'message_mail';
+  $ds_layout->layout = 'ds_1col';
+  $ds_layout->settings = array(
+    'regions' => array(
+      'ds_content' => array(
+        0 => 'message__message_text__0',
+        1 => 'notification_content_preview',
+      ),
+    ),
+    'fields' => array(
+      'message__message_text__0' => 'ds_content',
+      'notification_content_preview' => 'ds_content',
+    ),
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'ds_content' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => FALSE,
+  );
+  $export['message|notification_user_mentioned_in_comment|message_mail'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'message|notification_user_mentioned|default';
+  $ds_layout->entity_type = 'message';
+  $ds_layout->bundle = 'notification_user_mentioned';
+  $ds_layout->view_mode = 'default';
+  $ds_layout->layout = 'ds_1col';
+  $ds_layout->settings = array(
+    'regions' => array(
+      'ds_content' => array(
+        0 => 'message__message_text__0',
+        1 => 'notification_content_preview',
+      ),
+    ),
+    'fields' => array(
+      'message__message_text__0' => 'ds_content',
+      'notification_content_preview' => 'ds_content',
+    ),
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'ds_content' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => FALSE,
+  );
+  $export['message|notification_user_mentioned|default'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'message|notification_user_mentioned|membership_compact';
+  $ds_layout->entity_type = 'message';
+  $ds_layout->bundle = 'notification_user_mentioned';
+  $ds_layout->view_mode = 'membership_compact';
+  $ds_layout->layout = 'ds_1col';
+  $ds_layout->settings = array(
+    'regions' => array(
+      'ds_content' => array(
+        0 => 'message__message_text__0',
+      ),
+    ),
+    'fields' => array(
+      'message__message_text__0' => 'ds_content',
+    ),
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'ds_content' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => FALSE,
+  );
+  $export['message|notification_user_mentioned|membership_compact'] = $ds_layout;
+
+  $ds_layout = new stdClass();
+  $ds_layout->api_version = 1;
+  $ds_layout->id = 'message|notification_user_mentioned|message_mail';
+  $ds_layout->entity_type = 'message';
+  $ds_layout->bundle = 'notification_user_mentioned';
+  $ds_layout->view_mode = 'message_mail';
+  $ds_layout->layout = 'ds_1col';
+  $ds_layout->settings = array(
+    'regions' => array(
+      'ds_content' => array(
+        0 => 'message__message_text__0',
+        1 => 'notification_content_preview',
+      ),
+    ),
+    'fields' => array(
+      'message__message_text__0' => 'ds_content',
+      'notification_content_preview' => 'ds_content',
+    ),
+    'classes' => array(
+      'layout_class' => array(
+        '' => '',
+      ),
+    ),
+    'wrappers' => array(
+      'ds_content' => 'div',
+    ),
+    'layout_wrapper' => 'div',
+    'layout_attributes' => '',
+    'layout_attributes_merge' => 1,
+    'layout_link_attribute' => '',
+    'layout_link_custom' => '',
+    'layout_disable_css' => FALSE,
+  );
+  $export['message|notification_user_mentioned|message_mail'] = $ds_layout;
 
   return $export;
 }

@@ -49,11 +49,41 @@
 
        Drupal.salto_core.autoshorten(this, maxlength);
       }).addClass("processed");
+
+
+      //iframe resize
+      $("iframe.iframe-auto-resize:not(.iframe-auto-resize-processed)").each(function (e) {
+
+        const options = {
+          //maxHeight: 1000
+        };
+        $(this).iFrameResize(options);
+
+
+      }).addClass("iframe-auto-resize-processed");
+
     }
   };
 
 
   $(document).ready(function () {
+
+    var form = $(".content-form");
+    var StickyContainers = [
+      { selector: "header#navbar"},
+      { selector: "footer"},
+      { selector: ".userbar-desktop"},
+    ];
+
+    StickyContainers.forEach(function(item) {
+      var stickyContainer = $(item.selector);
+      if (form.length > 0 && stickyContainer.length > 0) {
+        stickyContainer.css("position", "sticky");
+      } else {
+        stickyContainer.css("position", "static");
+      }
+    });
+
     jQuery("[rel='tooltip']").tooltip({});
 
     jQuery("img[data-org]").each(function (index, el) {

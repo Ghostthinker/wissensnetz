@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_help.features.field_base.inc
@@ -26,10 +27,10 @@ function salto_help_field_default_field_bases() {
     'module' => 'list',
     'settings' => array(
       'allowed_values' => array(
-        'General' => 'General',
+        'General' => 'Übersicht',
         'FAQ' => 'FAQ',
         'Screencast' => 'Screencast',
-        'Scenario' => 'Scenario',
+        'Scenario' => 'Nutzungsbeispiele',
       ),
       'allowed_values_function' => '',
       'profile2_private' => FALSE,

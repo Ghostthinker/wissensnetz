@@ -156,6 +156,26 @@ function salto_group_field_default_field_bases() {
     'type' => 'list_boolean',
   );
 
+  // Exported field_base: 'field_meeting_collaboration'.
+  $field_bases['field_meeting_collaboration'] = array(
+    'active' => 1,
+    'cardinality' => 1,
+    'deleted' => 0,
+    'entity_id_type' => NULL,
+    'entity_types' => array(),
+    'field_name' => 'field_meeting_collaboration',
+    'indexes' => array(
+      '' => array(),
+    ),
+    'locked' => 0,
+    'module' => 'salto_knowledgebase',
+    'settings' => array(
+      'profile2_private' => FALSE,
+    ),
+    'translatable' => 0,
+    'type' => 'salto_collaboration',
+  );
+
   // Exported field_base: 'field_salto_invite_account'.
   $field_bases['field_salto_invite_account'] = array(
     'active' => 1,

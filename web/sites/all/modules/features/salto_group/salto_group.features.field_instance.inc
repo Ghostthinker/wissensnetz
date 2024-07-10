@@ -389,7 +389,7 @@ function salto_group_field_default_field_instances() {
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_buttons',
-      'weight' => 4,
+      'weight' => 5,
     ),
   );
 
@@ -444,7 +444,7 @@ function salto_group_field_default_field_instances() {
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_select',
-      'weight' => 5,
+      'weight' => 6,
     ),
   );
 
@@ -486,7 +486,7 @@ function salto_group_field_default_field_instances() {
       'module' => 'options',
       'settings' => array(),
       'type' => 'options_buttons',
-      'weight' => 7,
+      'weight' => 9,
     ),
   );
 
@@ -530,6 +530,49 @@ function salto_group_field_default_field_instances() {
         'display_label' => 1,
       ),
       'type' => 'options_onoff',
+      'weight' => 10,
+    ),
+  );
+
+  // Exported field_instance: 'node-group-field_meeting_collaboration'.
+  $field_instances['node-group-field_meeting_collaboration'] = array(
+    'bundle' => 'group',
+    'default_value' => array(
+      0 => array(
+        'read' => 1,
+        'edit' => 4,
+      ),
+    ),
+    'deleted' => 0,
+    'description' => 'Legen Sie fest wer standardmäßig in dieser Gruppe Online-Treffen bearbeiten kann. Damit ist auch die Möglichkeit des Starts des Online-Treffen verbunden.',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'salto_knowledgebase',
+        'settings' => array(),
+        'type' => 'salto_collaboration_default',
+        'weight' => 12,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'ds_extras_field_template' => '',
+    'entity_type' => 'node',
+    'field_name' => 'field_meeting_collaboration',
+    'label' => 'Online-Treffen: Änderungszugriff einschl. Starten von Online-Treffen',
+    'required' => 0,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 0,
+      'module' => 'salto_knowledgebase',
+      'settings' => array(),
+      'type' => 'salto_collaboration_select',
       'weight' => 8,
     ),
   );
@@ -779,11 +822,13 @@ function salto_group_field_default_field_instances() {
   t('Group');
   t('Gruppen');
   t('In dieser Gruppe sollen keine Dateien oder Geiteilte Beiträge aufgelistet werden.');
+  t('Legen Sie fest wer standardmäßig in dieser Gruppe Online-Treffen bearbeiten kann. Damit ist auch die Möglichkeit des Starts des Online-Treffen verbunden.');
   t('Legen Sie fest, ob die Gruppenbeschreibung auch für Gruppenmitglieder immer oben angezeigt wird oder nur also Infoblock in der rechten Seitenleiste.');
   t('Link');
   t('Node reference');
   t('Nur Beiträge verwenden');
   t('OG');
+  t('Online-Treffen: Änderungszugriff einschl. Starten von Online-Treffen');
   t('Organisationen');
   t('Schlagworte');
   t('Themenfeld(er)');

@@ -6,7 +6,7 @@
  * Time: 14:42
  */
 
-use Helper\Bildungsnetz;
+use Helper\Wissensnetz;
 
 /**
  * all tests for start pages
@@ -61,23 +61,23 @@ class GroupsPostCest {
       //'mail' => 'john.outarea@byom.de'
     ]);
 
-    Bildungsnetz::setNotificationsDefaults($GAuthor->uid);
-    Bildungsnetz::setNotificationsDefaults($GMember->uid);
-    Bildungsnetz::setNotificationsDefaults($GOMember->uid);
-    Bildungsnetz::setNotificationsDefaults($AUser->uid);
-    Bildungsnetz::setNotificationsDefaults($OUser->uid);
-    Bildungsnetz::setProfileCategory($OUser, [Bildungsnetz::KB_CATEGORY_FALLBACK]);
-    Bildungsnetz::setProfileCategory($GOMember, [Bildungsnetz::KB_CATEGORY_FALLBACK]);
-    Bildungsnetz::setProfileCategory($GAuthor, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
-    Bildungsnetz::setProfileCategory($GMember, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
-    Bildungsnetz::setProfileCategory($AUser, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
+    Wissensnetz::setNotificationsDefaults($GAuthor->uid);
+    Wissensnetz::setNotificationsDefaults($GMember->uid);
+    Wissensnetz::setNotificationsDefaults($GOMember->uid);
+    Wissensnetz::setNotificationsDefaults($AUser->uid);
+    Wissensnetz::setNotificationsDefaults($OUser->uid);
+    Wissensnetz::setProfileCategory($OUser, [Wissensnetz::KB_CATEGORY_FALLBACK]);
+    Wissensnetz::setProfileCategory($GOMember, [Wissensnetz::KB_CATEGORY_FALLBACK]);
+    Wissensnetz::setProfileCategory($GAuthor, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
+    Wissensnetz::setProfileCategory($GMember, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
+    Wissensnetz::setProfileCategory($AUser, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
 
-    Bildungsnetz::reloadNotificationSettings($AUser->uid);
-    Bildungsnetz::reloadNotificationSettings($OUser->uid);
-    Bildungsnetz::reloadNotificationSettings($GOMember->uid);
-    Bildungsnetz::reloadNotificationSettings($GMember->uid);
-    Bildungsnetz::reloadNotificationSettings($GAuthor->uid);
-    Bildungsnetz::cleanCoreSystemQueue();
+    Wissensnetz::reloadNotificationSettings($AUser->uid);
+    Wissensnetz::reloadNotificationSettings($OUser->uid);
+    Wissensnetz::reloadNotificationSettings($GOMember->uid);
+    Wissensnetz::reloadNotificationSettings($GMember->uid);
+    Wissensnetz::reloadNotificationSettings($GAuthor->uid);
+    Wissensnetz::cleanCoreSystemQueue();
 
     $I->completedSetup();
 
@@ -86,7 +86,7 @@ class GroupsPostCest {
     // Gruppe 1
     $I->expect('Founding a new group');
     $I->amOnPage('node/add/group');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'Group GP270.05-' . $microTime;
     $I->submitForm('#group-node-form', ['title' => $title,]);
 
@@ -98,8 +98,8 @@ class GroupsPostCest {
     $I->see("Datei einstellen", '.main_layout_right');
     $nodeId = $I->grabFromCurrentUrl('/node\/(\d+)/');
 
-    Bildungsnetz::addMemberToGroup($GMember, $nodeId);
-    Bildungsnetz::addMemberToGroup($GOMember, $nodeId);
+    Wissensnetz::addMemberToGroup($GMember, $nodeId);
+    Wissensnetz::addMemberToGroup($GOMember, $nodeId);
 
     $I->amOnPage("/posts");
     $I->seeLink("Beitrag erstellen");
@@ -109,9 +109,10 @@ class GroupsPostCest {
     $I->createBeitrag([
       'Titel' => $title,
       'Inhalt' => "Test Inhalt 270_05",
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_SPORT_TID,
-      'Gruppenzugriff' => $nodeId,
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => SALTO_KNOWLEDGEBASE_KB_SPORT_TID,
+      'group' => $nodeId,
+      'user' => $GAuthor
     ]);
 
     $I->amOnPage('/node/' . $nodeId);
@@ -140,7 +141,7 @@ class GroupsPostCest {
     $I->see($title, '.views-row-1');
     $I->dontSee($title, '.views-row-2');
 
-    $I->checkAK('270.05', 'AK 1.2: Alle, die das Themenfeld XY ausgewählt haben (WENN: Leserecht "Alle Bildungsnetz-Mitglieder"');
+    $I->checkAK('270.05', 'AK 1.2: Alle, die das Themenfeld XY ausgewählt haben (WENN: Leserecht "Alle Wissensnetz-Mitglieder"');
 
     $I->loginAsUser($OUser);
     $I->amOnPage('notifications/all');
@@ -180,24 +181,24 @@ class GroupsPostCest {
       'lastname' => $microTime,
     ]);
 
-    Bildungsnetz::setNotificationsDefaults($GAuthor->uid);
-    Bildungsnetz::setNotificationsDefaults($GMember->uid);
-    Bildungsnetz::setNotificationsDefaults($GOMember->uid);
-    Bildungsnetz::setNotificationsDefaults($AUser->uid);
-    Bildungsnetz::setNotificationsDefaults($OUser->uid);
+    Wissensnetz::setNotificationsDefaults($GAuthor->uid);
+    Wissensnetz::setNotificationsDefaults($GMember->uid);
+    Wissensnetz::setNotificationsDefaults($GOMember->uid);
+    Wissensnetz::setNotificationsDefaults($AUser->uid);
+    Wissensnetz::setNotificationsDefaults($OUser->uid);
 
-    Bildungsnetz::setProfileCategory($OUser, [Bildungsnetz::KB_CATEGORY_FALLBACK]);
-    Bildungsnetz::setProfileCategory($GOMember, [Bildungsnetz::KB_CATEGORY_FALLBACK]);
-    Bildungsnetz::setProfileCategory($GAuthor, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
-    Bildungsnetz::setProfileCategory($GMember, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
-    Bildungsnetz::setProfileCategory($AUser, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
+    Wissensnetz::setProfileCategory($OUser, [Wissensnetz::KB_CATEGORY_FALLBACK]);
+    Wissensnetz::setProfileCategory($GOMember, [Wissensnetz::KB_CATEGORY_FALLBACK]);
+    Wissensnetz::setProfileCategory($GAuthor, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
+    Wissensnetz::setProfileCategory($GMember, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
+    Wissensnetz::setProfileCategory($AUser, [SALTO_KNOWLEDGEBASE_KB_SPORT_TID]);
 
-    Bildungsnetz::reloadNotificationSettings($AUser->uid);
-    Bildungsnetz::reloadNotificationSettings($OUser->uid);
-    Bildungsnetz::reloadNotificationSettings($GOMember->uid);
-    Bildungsnetz::reloadNotificationSettings($GMember->uid);
-    Bildungsnetz::reloadNotificationSettings($GAuthor->uid);
-    Bildungsnetz::cleanCoreSystemQueue();
+    Wissensnetz::reloadNotificationSettings($AUser->uid);
+    Wissensnetz::reloadNotificationSettings($OUser->uid);
+    Wissensnetz::reloadNotificationSettings($GOMember->uid);
+    Wissensnetz::reloadNotificationSettings($GMember->uid);
+    Wissensnetz::reloadNotificationSettings($GAuthor->uid);
+    Wissensnetz::cleanCoreSystemQueue();
 
     $I->completedSetup();
 
@@ -206,7 +207,7 @@ class GroupsPostCest {
     // Gruppe 1
     $I->expect('Founding a new group');
     $I->amOnPage('node/add/group');
-    $I->checkCategoryEducation();
+    $I->checkFirstCategory();
     $title = 'Group GP270.05-' . $microTime;
     $I->submitForm('#group-node-form', ['title' => $title,]);
 
@@ -218,8 +219,8 @@ class GroupsPostCest {
     $I->see("Datei einstellen", '.main_layout_right');
     $nodeId = $I->grabFromCurrentUrl('/node\/(\d+)/');
 
-    Bildungsnetz::addMemberToGroup($GMember, $nodeId);
-    Bildungsnetz::addMemberToGroup($GOMember, $nodeId);
+    Wissensnetz::addMemberToGroup($GMember, $nodeId);
+    Wissensnetz::addMemberToGroup($GOMember, $nodeId);
 
     $I->amOnPage("/posts");
     $I->seeLink("Beitrag erstellen");
@@ -229,8 +230,9 @@ class GroupsPostCest {
     $I->createBeitrag([
       'Titel' => $title,
       'Inhalt' => "Test Inhalt 270_05",
-      'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-      'Kategorie' => SALTO_KNOWLEDGEBASE_KB_SPORT_TID,
+      'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+      'category' => SALTO_KNOWLEDGEBASE_KB_SPORT_TID,
+      'user' => $GAuthor
     ]);
 
     $I->startCoreSystemQueueForType(MESSAGE_TYPE_NOTIFICATION_POST_CREATED);

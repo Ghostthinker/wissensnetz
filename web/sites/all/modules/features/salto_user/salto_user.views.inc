@@ -31,6 +31,5 @@ function salto_user_views_data() {
       'click sortable' => FALSE,
     )
   );
-
   return $data;
 }

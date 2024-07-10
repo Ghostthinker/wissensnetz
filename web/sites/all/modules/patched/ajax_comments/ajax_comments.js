@@ -22,7 +22,22 @@
     try {
       if (!$(response.selector).next().hasClass(response.class)) {
         $('<div class="' + response.class + '"></div>').insertAfter(response.selector);
+
       }
+
+
+      //add Replied Author to answer input field
+      $( document ).ajaxComplete(function() {
+        var reply_input = $('.ajax-comments-form-reply .form-textarea');
+        reply_input.text('');
+
+        if(reply_input && ajax.element.dataset.realname){
+          reply_input.text('@' + ajax.element.dataset.realname + '[' + ajax.element.dataset.uid + ']');
+
+          $('.ajax-comments-form-reply button[id^=edit-ajax-comments-reply-form]').text('Antworten');
+        }
+      });
+
     }
     catch (e) {
       console.log('ajaxComments-AddDummyDivAfter: ' + e.name);

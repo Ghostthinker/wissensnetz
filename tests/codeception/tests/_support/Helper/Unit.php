@@ -26,4 +26,17 @@ class Unit extends \Codeception\Module {
     return dosb_license_send_reminder($time);
   }
 
+  public function getEdubreakMigrationOptions(){
+    $config =  $this->getModule('\Helper\Unit')->config;
+
+    return [
+      'url' => $config['base_uri'],
+      'credentials' => [
+        'mail' => $config['mail'],
+        'password' => $config['password'],
+      ]
+    ];
+
+  }
+
 }

@@ -246,7 +246,11 @@ function salto_help_page_callback($js = FALSE, $action = 'overview') {
     $rendered_out .= views_embed_view('help_faq_tags', 'default');
   }
   else {
-    $rendered_out .= views_embed_view('help', 'panel_pane_1', $action);
+    if ($action == 'general'){
+      $rendered_out .= views_embed_view('help', 'panel_pane_1', $action) . theme('add_help_content');;
+    }else{
+      $rendered_out .= views_embed_view('help', 'panel_pane_1', $action);
+    }
   }
 
   if ($js) {
@@ -272,9 +276,22 @@ function salto_help_tabs($js = TRUE, $active = 'support') {
   //first before ajax can bind mousedown event
   drupal_add_js(drupal_get_path('module', 'salto_help') . '/js/salto_help.js', ['weight' => 55]);
 
+  if (module_exists('salto_keycloak')) {
+    if (salto_user_global_header_enabled() && salto_keycloak_get_access_token()) {
+      $js_setting = ['global_header_enabled' => salto_user_global_header_enabled()];
+      drupal_add_js($js_setting, 'setting');
+    }
+  }
 
+
+  if(salto_user_global_header_enabled()){
+    $data = l(t('Support request'), 'context_support/nojs/contact/user_bar');
+  }
+  else{
+    $data = ctools_ajax_text_button(t('Support request'), 'context_support/nojs/contact', '', 'ctools-modal-salto-style help-support');
+  }
   $links[] = [
-    'data' => ctools_ajax_text_button(t('Support request'), 'context_support/nojs/contact', '', 'ctools-modal-salto-style help-support'),
+    'data' => $data,
     'class' => $active == 'contact' ? ['active'] : [],
   ];
 
@@ -433,4 +450,28 @@ function salto_help_file_access_records_alter(&$grants, $file) {
       }
     }
   }
+}
+
+
+/**
+ * hook_theme
+ *
+ * @return \string[][]
+ */
+function salto_help_theme() {
+  return [
+    'add_help_content' => [
+      'template' => 'templates/add_help_content',
+    ],
+  ];
+}
+
+function salto_help_preprocess_add_help_content(&$variables) {
+  $variables['floating_button']['links'][] = [
+    'icon' => 'plus',
+    'target' => '/node/add/help',
+    'title' => t('Add help enty'),
+  ];
+
+  $variables['content']['floating_button'] = salto2014_floating_button($variables);
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * salto_activity.strongarm.inc

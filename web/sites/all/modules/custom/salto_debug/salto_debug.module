@@ -388,19 +388,6 @@ function salto_debug_random_integer($min = 0, $max = 1000000) {
   return rand($min, $max);
 }
 
-/**
- * @return [type] [description]
- * @deprecated better use salto_debug_sanitize_users_mails
- * Be carefull! This wipes out all user data from a dev system before a
- *   versiondump is made Keeps all admins, though
- */
-function salto_debug_saitize_users_mails_sql_string($keep_dosb = 1) {
-  $keep_uids = salto_debug_get_fixed_uids($keep_dosb);
-  db_update('users')
-    ->expression('mail', "CONCAT(uid,'@bn.ghostthinker.de')")
-    ->condition('uid', $keep_uids, 'NOT IN')
-    ->execute();
-}
 
 /**
  * Be carefull! This wipes out all user data from a dev system before a
@@ -426,10 +413,10 @@ function salto_debug_sanitize_users_mails($keep_dosb = 1, $keep_users_from_og = 
   $keepOgs = array_unique(array_merge($keep_users_from_og, $ugs));
   $keepUsers = $blanco->getAllUserIds($keepOgs, TRUE);
 
-  db_update('users')
-    ->expression('mail', "CONCAT(uid,'@bn.ghostthinker.de')")
+  $db = db_update('users')
     ->condition('uid', $keepUsers, 'NOT IN')
-    ->execute();
+    ->expression('mail', "CONCAT(uid,'@bn.ghostthinker.de')");
+  $db->execute();
 }
 
 
@@ -637,6 +624,20 @@ function bildungsnetz_api_create_organisation($title, $options = []) {
     $node->field_organisation_custom_labels[LANGUAGE_NONE] = $options['field_organisation_custom_labels'];
   }
 
+  if ($options['sportkreis']) {
+    $sportkreis_options = salto_organisation_get_sportkreis_allowed_values();
+    for($i = 0; $i < count($sportkreis_options); $i++){
+      if (strpos($sportkreis_options[$i], $options['sportkreis']) !== false){
+        $node->field_organisation_sportkreis[LANGUAGE_NONE][0]['value'] = $i;
+      }
+    }
+  }
+
+  if ($options['plz']) {
+    $node->field_org_plz[LANGUAGE_NONE][0]['value'] = $options['plz'];
+    $node->field_org_plz[LANGUAGE_NONE][0]['safe_value'] = $options['plz'];
+  }
+
   node_save($node);
   return $node;
 }
@@ -751,24 +752,27 @@ function bildungsnetz_api_create_online_meeting($options = []) {
 function bildungsnetz_api_create_post($options) {
 
   $defaults = [
-    'title' => "test",
-    'categorie' => 1781,
+    'Titel' => "test",
+    'category' => salto_knowledgebase_get_default_kb_category_tid(),
     'Schlagworte' => "Test",
-    'body' => "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
+    'Inhalt' => "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
     'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
     'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
-    'groupAccess' => '_none',
+    'group' => '',
+    'publishing' => POST_PUBLISH_IMMEDIATE
   ];
   $options = array_merge($defaults, $options);
 
   $node = new StdClass();
   $node->type = 'post';
-  $node->title = $options['title'];
+  $node->title = $options['Titel'];
   $node->status = 1;
   $node->language = '';
+  $node->body[LANGUAGE_NONE][0]['value'] = $options['Inhalt'];
+
 
   if (!empty($options['group'])) {
-    $node->field_og_group[LANGUAGE_NONE][0]['target_id'] = $options['group']->nid;
+    $node->field_og_group[LANGUAGE_NONE][0]['target_id'] = $options['group'];
   }
 
   $author_uid = 0;
@@ -789,10 +793,18 @@ function bildungsnetz_api_create_post($options) {
     }
   }
 
-  $node->field_kb_content_category[LANGUAGE_NONE][0]['tid'] = $options['categorie'];
+  if (!empty($options['publishing'])){
+    $node->field_publishing_options[LANGUAGE_NONE][0]['value'] = $options['publishing'];
+  }
+
+  $node->field_kb_content_category[LANGUAGE_NONE][0]['tid'] = $options['category'];
 
   $node->field_post_collaboration[LANGUAGE_NONE][0]['read'] = $options['readAccess'];
   $node->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = $options['editAccess'];
+
+  if(!empty($options['created'])){
+    $node->created = $options['created'];
+  }
 
   node_save($node);
   return $node;
@@ -806,7 +818,7 @@ function bildungsnetz_api_create_material($options) {
     'Kategorie' => 1781,
     'Schlagworte' => "Test",
     'body' => "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.",
-    'readAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
+    'Lesezugriff' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
     'editAccess' => SALTO_KNOWLEDGEBASE_ACCESS_OPTION_ALL,
     'groupAccess' => '_none',
     'filename' => 'test.pdf',
@@ -842,7 +854,7 @@ function bildungsnetz_api_create_material($options) {
   //set to SALTO_KNOWLEDGEBASE_ACCESS_OPTION_AUTHORS
 
   $file->field_kb_kategorie[LANGUAGE_NONE][0]['tid'] = $options['Kategorie'];
-  $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = $options['readAccess'];
+  $file->field_post_collaboration[LANGUAGE_NONE][0]['read'] = $options['Lesezugriff'];
   $file->field_post_collaboration[LANGUAGE_NONE][0]['edit'] = $options['editAccess'];
 
   file_save($file);
@@ -915,11 +927,11 @@ function bildungsnetz_api_create_user($options = []) {
     'login_name' => "user-" . $mt,
     'firstname' => $default_name['first'],
     'lastname' => $default_name['last'],
+    'pass' => $default_name['pass'] ?? user_password(8),
     'mail' => $mail,
     'role_api_user' => FALSE,
     'role_dosb' => FALSE,
     'language' => 'de',
-    'pass' => user_password(8),
   ];
   $options = array_merge($defaults, $options);
 
@@ -930,14 +942,14 @@ function bildungsnetz_api_create_user($options = []) {
   $account->status = 1;
 
   $edit['pass'] = $options['pass'];
-  $edit['legal_accept'] = TRUE;
+  $edit['legal_accept'] = $options["legal_accept"] ?? TRUE;
 
 
   if ($options['role_dosb']) {
     $account->roles[ROLE_GLOBAL_DOSB_RID] = ROLE_GLOBAL_DOSB_RID;
   }
 
-  if (!module_exists('dosb_license')) {
+  if (module_exists('dosb_license')) {
     if ($options['role_api_user']) {
       $account->roles[ROLE_API_USER_RID] = ROLE_API_USER_RID;
     }
@@ -1014,7 +1026,7 @@ function bildungsnetz_api_add_add_comment($node, $options = []) {
     'user' => user_load(0),
     'status' => COMMENT_PUBLISHED,
     'subject' => "MY new little comment pony",
-    'body' => "Berni is viel zu müde",
+    'body' => "My new little comment pony",
   ];
   $options = array_merge($defaults, $options);
 
@@ -1249,4 +1261,87 @@ function salto_debug_copy_files($fids, $baseDir) {
     copy($targetDir . $fileUri, $destDir . $fileUri);
   }
   return TRUE;
+}
+
+function salto_debug_cleaning() {
+  $typesDel=['book', 'statistics-daily'];
+  $keepTypes=['ausbildungskonzept','earemote','help','page','weiterbildungsmassnahme'];
+  $keepOgs=[BlankCleanup::OG_GHOSTTHINKER_ID, BlankCleanup::OG_FALLBACK_ID];
+  $keepNids=[BlankCleanup::OG_FALLBACK_ID];
+
+  // salto_debug_blank_cleanup_node_types($typesDel);
+  salto_debug_blank_cleanup_content($keepOgs, $keepTypes, $keepNids);
+  salto_debug_blank_cleanup_og_fallback();
+  salto_debug_blank_cleanup_users($keepOgs);
+  salto_debug_blank_cleanup_nodes_with_ogs($keepOgs, $keepTypes, $keepNids);
+}
+
+function salto_debug_log_to_slack($title, $message, $room = NULL, $icon = ":bomb:") {
+
+  global $conf;
+
+  if (empty($conf['slack_webhook_url'])) {
+    return;
+  }
+
+  $slack_url = $conf['slack_webhook_url'];
+  $room = $room ?? $conf['slack_channel'];
+  $message = is_string($message) ? $message : print_r($message, TRUE);
+
+  $text = $title;
+
+  $data = "payload=" . json_encode([
+      "channel" => "{$room}",
+      "text" => $text,
+      "icon_emoji" => $icon,
+      "attachments" => [
+        [
+          "text" => $message,
+        ],
+      ],
+    ]);
+
+  // You can get your webhook endpoint from your Slack settings
+  $ch = curl_init($slack_url);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+  $result = curl_exec($ch);
+  curl_close($ch);
+
+  return $result;
+
+}
+
+function salto_debug_disable_captcha(){
+  module_load_include('inc', 'captcha');
+  $available_captcha_forms = captcha_get_captcha_points();
+
+  foreach ($available_captcha_forms as $name => $object) {
+    db_query('REPLACE {captcha_points} (form_id) VALUES ( :name)', [
+      ':name' => $name,
+    ]);
+  }
+
+}
+
+
+function salto_debug_rebuild_node_access_by_type($type){
+  {
+
+    // Try to allocate enough time to rebuild node grants
+    drupal_set_time_limit(240);
+
+    // Rebuild newest nodes first so that recent content becomes available quickly.
+    $nids = db_query("SELECT nid FROM {node} WHERE type = :type ORDER BY nid DESC", [':type' => $type])->fetchCol();
+    foreach ($nids as $nid) {
+      $node = node_load($nid, NULL, TRUE);
+      // To preserve database integrity, only acquire grants if the node
+      // loads successfully.
+      if (!empty($node)) {
+        node_access_acquire_grants($node);
+      }
+    }
+  }
+
 }

@@ -109,7 +109,13 @@ class heartbeatParser {
       $gap_id = $this->create_gap_id($message, $type, $set_count);
 
       // Summaries have to be evaluated for merging.
-      if ($type == 'summary') {
+
+      $noGroup = FALSE;
+      if($this->noGroup){
+        $noGroup = TRUE;
+      }
+
+      if ($type == 'summary' && !$noGroup) {
 
         // Skip if an identical activity message already exists.
         /*if (isset($this->_messages[$gap_id]) && $message->uid == $this->_messages[$gap_id]->uid) {
@@ -327,7 +333,6 @@ class heartbeatParser {
       // Take care!! not message->count because this could be set with the sql as well
       // The purpose would be to fill %times% or its alias %count%
       if ($candidate['count'] > 1) {
-
         // rebuild the message using the candidate variables
         $this->_messages[$single_id]->create_grouped_message($candidate, $max_items_to_group);
 
@@ -356,7 +361,6 @@ class heartbeatParser {
 
     $messages = array();
     foreach ($messages_param as $key => $message) {
-
       // Set basic properties for all messages
       $message->show_time = $show_time;
       $message->time_info_grouped = $time_info_grouped;

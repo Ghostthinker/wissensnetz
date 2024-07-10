@@ -1,5 +1,7 @@
 <?php
 
+require_once './includes/bootstrap.inc';
+drupal_bootstrap(DRUPAL_BOOTSTRAP_DATABASE);
 /**
  * Implementation of hook_drush_command().
  *
@@ -24,6 +26,12 @@ function salto_core_drush_command() {
     'aliases' => ['bnst'],
     'core' => [7],
   ];
+
+  $items['alter_db_multibyte'] = array(
+    'description' => 'Multi-byte UTF-8 support in Drupal 7',
+    'callback' => 'salto_core_alter_db_multibyte',
+  );
+
   return $items;
 }
 
@@ -181,4 +189,36 @@ function salto_core_check_cron_timestamp($variable_name, $min_age) {
   return [$message, $error];
 
 
+}
+
+function salto_core_drush_cache_clear(&$types) {
+  $types['opcache'] = 'salto_core_clear_opcache';
+}
+
+function salto_core_clear_opcache() {
+  global $conf;
+  $url = $conf['site_url'];
+  $token = $conf['opcache_token'];
+  if(empty($url) || empty($token)){
+    drush_set_error("DRUSH_NOT_COMPLETED", dt("Drush command terminated abnormally due to an unrecoverable error.!message", array('!message' => 'No site url or opcache token specific in settings.php')));
+    return FALSE;
+  }
+
+  $result = file_get_contents($url . 'clear_opcache.php?key=' . $token);
+  drush_print("#####Opcache cleared with status: $result #####");
+}
+
+function salto_core_alter_db_multibyte() {
+  drush_print('Multi-byte UTF-8 support in Drupal 7');
+  $current_database = db_query('SELECT DATABASE()')->fetchField();
+  drush_print($current_database);
+  $query = "SELECT CONCAT('ALTER TABLE `', TABLE_NAME,'` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;') AS mySQL FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA= '$current_database' AND TABLE_TYPE='BASE TABLE'";
+  drush_print($query);
+  $result = db_query($query);
+
+  foreach ($result as $row) {
+    $alter_query = $row->mySQL;
+    db_query($alter_query);
+  }
+  drush_print('Multi-byte UTF-8 support in Drupal 7 successfully');
 }

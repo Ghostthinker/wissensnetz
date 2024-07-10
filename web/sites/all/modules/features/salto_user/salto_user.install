@@ -9,6 +9,7 @@
 function salto_user_update_25001() {
 }*/
 
+
 function salto_user_update_29000() {
   db_change_field('field_data_field_profile_name_first',
     'field_profile_name_first_value', 'field_profile_name_first_value',
@@ -196,4 +197,51 @@ Viele Grüße
 Ihr Wissensnetz-Team";
 
   variable_set('salto_user_membership_request_mail_body_accept', $body);
+}
+
+function salto_user_update_40007() {
+
+
+  $schema = array(
+    'description' => t('A table for remote user ids'),
+    'fields' => array(
+      'uid' => array(
+        'description' => t('The uid of the user on edubreak'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE
+      ),
+      'guid' => array(
+        'description' => t('The global uuid on tum.'),
+        'type' => 'varchar',
+        'length' => 48,
+        'not null' => TRUE
+      ),
+      'timestamp' => array(
+        'description' => 'The Unix timestamp when the user was requested the last time.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'data' => array(
+        'type' => 'text',
+        'size' => 'medium',
+        'serialize' => TRUE
+      ),
+    ),
+    'primary key' => array('guid'),
+    'unique keys' => array(
+      'uid' => array('uid'),
+    ),
+  );
+
+  // Create the table.
+  db_create_table('edubreak_user', $schema);
+}
+
+function salto_user_update_40008() {
+  db_query('REPLACE {edubreak_user} (uid, guid, timestamp) VALUES ( :uid, :guid, :timestamp )', array(
+    ':uid' => USER_DELETED_UID,
+    ':guid' => uuid_generate(),
+    ':timestamp' => time()));
 }

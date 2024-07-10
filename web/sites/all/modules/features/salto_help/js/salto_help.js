@@ -3,6 +3,7 @@
 
   jQuery.fn.exampleProcessModalLink = function () {
     var $this = $(this[0]);
+
     $this.click(Drupal.CTools.Modal.clickAjaxLink);
     // Create a drupal ajax object
     var element_settings = {};
@@ -50,6 +51,18 @@
         };
         $(document).bind("ajaxStop", handler);
       });
+
+
+      if (Drupal.settings.global_header_enabled) {
+        $('#community-help-form form', context).once('community-modal', function () {
+          $('#community-help-form form .form-submit').on('click', function (event) {
+            event.preventDefault();
+            $('#community-help-form form')[0].submit();
+          });
+
+        });
+      }
+
     }
   };
 

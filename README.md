@@ -11,8 +11,10 @@ Das Wissensnetz ist die Informations- und Austauschplattform für engagierte Per
 * … eigene Beiträge, Materialien, Fragen und Standpunkte einstellen und zur Diskussion stellen.
 * … eigene Gruppen gründen und sich dort mit eigenen Zielgruppen und zu spezifischen Themen austauschen.
 
-## Beteiligte und Hintergrund
-Das Wissensnetz wurde im Rahmen des vom BMBF geförderten Digitalisierungs-Projektes "SALTO" (2012-2015) vom Deutschen Olympischen Sportbund e.V. (DOSB) erarbeitet, in den Sportverbänden implementiert seitdem kontinuierlich vom DOSB weiterentwickelt. Technisch-didaktischer Partner sind dabei die Ghostthinker GmbH. Die Deutsche Stiftung für Engagement und Ehrenamt (DSEE) hat die Open Source Stellung durch ihre Unterstützung ermöglicht.
+## Beteiligte (Entwurf)
+
+Das Wissensnetz wurde im Rahmen des BMBF geförderten Projektes "SALTO" (damals als Bildungsnetz) als Teilprojekt des Deutscher Olympischer Sportbund e.V. (DOSB) zu entwickeln begonnen. Technisch didaktische Partner sind dabei die Ghostthinker GmbH. Die Deutsche Stiftung für Engagement und Ehrenamt (DSEE) hat die Open Source Stellung durch ihre Unterstützung ermöglicht.
+ 
 
 # Technische Hinweise 
 
@@ -20,10 +22,10 @@ Das Wissensnetz wurde im Rahmen des vom BMBF geförderten Digitalisierungs-Proje
 Ideal ist ein server mit aktuellem ubuntu und folgenden diensten
 
 * Apache 2.4
-* PHP 7.4
-* MySQL oder MariaDB
-* Apache solr
-* Docker
+* php 7.4
+* mysql oder mariadb
+* apache solr
+* docker
 
 ## Installation
 

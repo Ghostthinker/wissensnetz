@@ -10,20 +10,23 @@ fi
 cd web
 
 #set maintenance mode ON
-drush vset maintenance_mode 1
+#drush vset maintenance_mode 1
 
-drush en captcha image_captcha salto_online_meeting --yes
+drush en captcha image_captcha salto_online_meeting mentions admin_api hidden_captcha social_video_service --yes
 
+drush php-eval "variable_set('ajax_comments_reply_autoclose', 1);"
+drush php-eval "variable_set('hidden_captcha_label', 'Captcha Math');"
+#drush alter_db_multibyte
 drush fra --yes
 
-drush language-import de ../language/38 --replace
+drush language-import de ../language/blanko --replace
 
-drush vset 'date_popup_timepicker' 'wvega'
 drush updatedb --yes
 
+drush cc opcache
 drush cc all
 
 #set maintenance mode OFF
-drush vset maintenance_mode 0
+#drush vset maintenance_mode 0
 
 

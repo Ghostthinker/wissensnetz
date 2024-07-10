@@ -4,7 +4,6 @@
 class CoreSystemQueue extends SystemQueue implements DrupalReliableQueueInterface {
 
   public function __construct($name) {
-    watchdog(CoreSystemQueue::class, 'Constructed queue: %name', ['%name' => $name]);
     parent::__construct($name);
   }
 
@@ -27,7 +26,7 @@ class CoreSystemQueue extends SystemQueue implements DrupalReliableQueueInterfac
    * @return bool
    */
   public function createItem($data) {
-    watchdog(CoreSystemQueue::class, 'Created item: %data', ['%data' => print_r($data, TRUE)]);
+    //watchdog(CoreSystemQueue::class, 'Created item: %data', ['%data' => print_r($data, TRUE)]);
     return parent::createItem($data);
   }
 
@@ -35,7 +34,7 @@ class CoreSystemQueue extends SystemQueue implements DrupalReliableQueueInterfac
    * @param $item
    */
   public function deleteItem($item) {
-    watchdog(CoreSystemQueue::class, 'Delete item: %data', ['%data' => print_r($item, TRUE)]);
+    //watchdog(CoreSystemQueue::class, 'Delete item: %data', ['%data' => print_r($item, TRUE)]);
     parent::deleteItem($item);
   }
 
@@ -45,7 +44,7 @@ class CoreSystemQueue extends SystemQueue implements DrupalReliableQueueInterfac
    * @return bool|DatabaseStatementInterface|null
    */
   public function releaseItem($item) {
-    watchdog(CoreSystemQueue::class, 'Release item: %data', ['%data' => print_r($item, TRUE)]);
+    //watchdog(CoreSystemQueue::class, 'Release item: %data', ['%data' => print_r($item, TRUE)]);
     return parent::releaseItem($item);
   }
 
@@ -54,7 +53,7 @@ class CoreSystemQueue extends SystemQueue implements DrupalReliableQueueInterfac
    */
   public function numberOfItems() {
     $count = parent::numberOfItems();
-    watchdog(CoreSystemQueue::class, 'Asked for numberOfItems: %num', ['%num' => $count]);
+    //watchdog(CoreSystemQueue::class, 'Asked for numberOfItems: %num', ['%num' => $count]);
     return $count;
   }
 
@@ -91,7 +90,7 @@ class CoreSystemQueue extends SystemQueue implements DrupalReliableQueueInterfac
     if (empty($name) || empty($info)) {
       return FALSE;
     }
-    watchdog(CoreSystemQueue::class, 'data: %data', ['%data' => print_r($info, TRUE)]);
+    //watchdog(CoreSystemQueue::class, 'data: %data', ['%data' => print_r($info, TRUE)]);
 
     $callback = $info['worker callback'];
     $end = time() + (isset($info['time']) ? $info['time'] : 15);

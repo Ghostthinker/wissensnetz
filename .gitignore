@@ -28,6 +28,11 @@
 /tests/codeception/tests/_output
 /tests/codeception/tests/acceptance.suite.yml
 /tests/codeception/tests/api.suite.yml
+/tests/codeception/tests/unit.suite.yml
 /tests/codeception/tests/_support/_generated
+/tests/codeception/tests/_bootstrap.local.php
 /umfrage
 /web/.htaccess
+./insert_blanko_dump.sh
+./scripts/database.mysql
+/stats

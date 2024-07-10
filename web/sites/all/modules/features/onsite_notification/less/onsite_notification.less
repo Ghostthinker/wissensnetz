@@ -62,13 +62,14 @@
   }
 
   .message-content-preview {
-    max-width: 460px;
     word-break: normal;
     display: block;
     float: left;
     padding: 0 0 10px;
     margin-left: 48px;
     clear: both;
+    width: 100%;
+    box-sizing: content-box;
   }
 
   .message-links {
@@ -124,71 +125,74 @@
 }
 
 .file,
-.subscriptions_view {
-  .flag-outer {
-    color: #fff;
-
-    a,
-    .action-link {
-      display: block;
-      width: 100%;
-      padding: 8px 12px;
-      color: #fff !important;
-      font-weight: 700;
-      text-decoration: none !important;
-      border: none;
-      border-bottom: 1px dotted #fff;
-      background: lighten(@dosb-orange, 7%);
-      text-align: left !important;
-      margin-bottom: 1px
-    }
-
-    a:before,
-    a:after,
-    div.status:before {
-      font-family: "fontello";
-      font-style: normal;
-      font-weight: normal;
-      speak: none;
-      display: inline-block;
-      text-decoration: inherit;
-      width: 22px;
-      font-size: 16px;
-      position: relative;
-      top: 1px;
-    }
-
-    a:before {
-      content: '\e810';
-    }
-
-    a:hover {
-      background: @dosb-orange;
-      color: #fff
-    }
-
-    .action-link .status {
-      color: #fff;
-      font-weight: 700;
-      text-decoration: none !important;
-    }
-
-    .action-link {
-      background: lighten(@dosb-orange, 7%);
-
-      .action-unflag {
-        position: absolute;
-        top: 0;
-        right: -8px;
+.subscriptions_view{
+  .flag-outer{
+    .action-link,
+    .flag-notification-subscribe-node,
+    .flag-notification-subscribe-material,
+    .flag-notification-ignore-post{
+      a,
+      .flagged {
+        font-size: 12px;
+        display: inline-flex;
+        width: fit-content;
+        padding: 10px 25px 10px 10px;
+        color: #fff !important;
+        font-weight: @font-weight-bold;
+        text-decoration: none !important;
+        background: @brand-primary;
+        text-align: left !important;
+        margin: 5px 10px 5px 0;
+        box-shadow: 3px 3px 3px 1px rgba(0,0,0,0.15);
+        border-radius: 50px;
       }
 
-      .tooltip {
-        font-weight: normal;
+      .flagged {
+        border-top-right-radius: unset;
+        border-bottom-right-radius: unset;
+      }
+      .action-unflag a {
+        border-top-left-radius: unset;
+        border-bottom-left-radius: unset;
+        border-top-right-radius: 50px;
+        border-bottom-right-radius: 50px;
+      }
+
+      a:hover{
+        background: lighten(@dosb-orange, 10%);
+      }
+
+      .action-unflag a, .action-unflag a:hover{
+        margin-left: -20px;
+        background-image: linear-gradient(#ffffff 60%, rgba(255, 255, 255, 0) 0%);
+        background-size: 2px 34px;
+        background-position-y: 8px;
+        background-repeat: repeat-y;
+      }
+
+      a.action{
+        box-shadow: none;
+      }
+
+      a:before,
+      a:after,
+      div.status:before {
+        font-family: "fontello";
+        width: 22px;
+        font-size: 12px;
+        margin-left: 12px;
+      }
+
+      a:before {
+        content: '\e810';
+      }
+
+      div.flagged.status:before {
+        content: '\e815';
       }
 
       a.unflag-action {
-        border: 0;
-        border-left: 1px dotted #fff;
+        box-shadow: 3px 3px 3px 1px rgba(0,0,0,0.15);
       }
 
       a.unflag-action:before {
@@ -196,30 +200,127 @@
         position: relative;
       }
 
-      div.flagged.status:before {
-        content: '\e815';
-      }
     }
   }
+  .flag-notification-ignore-post a{
+    border-top-right-radius: 50px  !important;
+    border-bottom-right-radius: 50px !important;
+  }
+
+
+
+/*
+ .flag-outer {
+  color: #fff;
+
+  a,
+  .action-link {
+    margin-left: 5px;
+    border-right: none;
+    border-radius: 50px;
+    display: block;
+    width: 50%;
+    padding: 8px 12px;
+    color: #fff !important;
+    font-weight: 700;
+    text-decoration: none !important;
+    border: none;
+    text-align: left !important;
+    margin-bottom: 1px;
+    background: @dosb-orange;
+    box-shadow: 0px 3px 3px 1px rgba(0,0,0,0.15);
+  }
+
+  .action-link:hover{
+    background: lighten(@dosb-orange, 10%);
+  }
+
+  a:before,
+  a:after,
+  div.status:before {
+    font-family: "fontello";
+    font-style: normal;
+    font-weight: normal;
+    speak: none;
+    display: inline-block;
+    text-decoration: inherit;
+    width: 22px;
+    font-size: 16px;
+    position: relative;
+    top: 1px;
+  }
+
+  a:before {
+    content: '\e810';
+  }
+
+  a:hover {
+    background: lighten(@dosb-orange, 10%);
+    color: #fff
+  }
+
+  .action-link .status {
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none !important;
+  }
+
+  .action-link {
+    cursor: pointer;
+
+
+
+    .action-unflag {
+      position: absolute;
+      top: 0;
+      right: -8px;
+    }
+
+    .tooltip {
+      font-weight: normal;
+    }
+
+    a.unflag-action {
+      border: 0;
+      border-top-left-radius: unset;
+      border-bottom-left-radius: unset;
+      box-shadow: 3px 3px 2px -4px rgba(0, 0, 0, 0.15);
+      border-left: solid;
+
+    }
+
+
+
+    a.unflag-action:before {
+      left: 5px;
+      position: relative;
+    }
+
+    div.flagged.status:before {
+      content: '\e815';
+    }
+  }
+}*/
+
 }
 
 .view-id-notifications {
-  &.view-display-id-panel_pane_1 {
-    .field-name-message-flags,
-    ul.links {
-      float: left;
-      padding-left: 8px;
+&.view-display-id-panel_pane_1 {
+  .field-name-message-flags,
+  ul.links {
+    float: left;
+    padding-left: 8px;
 
-      a {
-        color: #9b9b9b;
-      }
-
+    a {
+      color: #9b9b9b;
     }
+
   }
+}
 }
 
 .view-display-id-ajax_callback_unread {
-  .message-links {
-    display: none;
-  }
+.message-links {
+  display: none;
+}
 }

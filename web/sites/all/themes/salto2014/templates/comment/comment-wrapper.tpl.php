@@ -59,6 +59,6 @@ $sort = salto_knowledgebase_get_comment_sorting();
   <?php print render($content['comments']); ?>
 
   <?php if ($content['comment_form']): ?>
-    <?php print render($content['comment_form']); ?>
+    <?php  print render($content['comment_form']); ?>
   <?php endif; ?>
 </div>

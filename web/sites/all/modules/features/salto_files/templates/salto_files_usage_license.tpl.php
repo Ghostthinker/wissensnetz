@@ -8,12 +8,14 @@
         <span class="file-usage-label">Autor</span>
         <?php echo $file_author; ?>
       </div>
+      <?php if(!empty($license)): ?>
       <div class="pane-content-separator"></div>
 
       <span class="file-usage-label">Nutzungslizenz</span><br/>
-      <img src="<?php echo $file_license_img_src; ?>" data-html="true" data-original-title="<?php echo "<h3>$file_license_title</h3>".$file_license_desc; ?>" rel="tooltip">
+      <img src="<?php echo $license['img_src']; ?>" data-html="true" data-original-title="<?php echo "<h3>{$license['title']}</h3>{$license['desc']}" ?> rel="tooltip">
+      <?php endif ?>
 
-      <div class="pane-content-separator"></div>
+        <div class="pane-content-separator"></div>
 
       <span class="file-usage-label">Urheber</span><br/>
       <?php echo $file_originator; ?>

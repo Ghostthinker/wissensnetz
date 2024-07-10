@@ -7,7 +7,7 @@
 class_name: AcceptanceTester
 modules:
     enabled:
-        - \Helper\Bildungsnetz
+        - \Helper\Wissensnetz
         - WebDriver
         - Asserts
     config:
@@ -20,7 +20,7 @@ modules:
         capabilities:
           webStorageEnabled: true
           phantomjs.cli.args:         [ '--ignore-ssl-errors=true' ]
-      \Helper\Bildungsnetz:
+      \Helper\Wissensnetz:
         cleanup: 'full'
 error_level: "E_ALL & ~E_STRICT & E_DEPRECATED & ~E_NOTICE"
 extensions:
