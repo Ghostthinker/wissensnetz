@@ -11,7 +11,7 @@ Das Wissensnetz ist die Informations- und Austauschplattform für engagierte Per
 * … eigene Beiträge, Materialien, Fragen und Standpunkte einstellen und zur Diskussion stellen.
 * … eigene Gruppen gründen und sich dort mit eigenen Zielgruppen und zu spezifischen Themen austauschen.
 
-## Beteiligte (Entwurf)
+## Beteiligte
 
 Das Wissensnetz wurde im Rahmen des BMBF geförderten Projektes "SALTO" (damals als Bildungsnetz) als Teilprojekt des Deutscher Olympischer Sportbund e.V. (DOSB) zu entwickeln begonnen. Technisch didaktische Partner sind dabei die Ghostthinker GmbH. Die Deutsche Stiftung für Engagement und Ehrenamt (DSEE) hat die Open Source Stellung durch ihre Unterstützung ermöglicht.
  
